@@ -41,6 +41,12 @@ export interface ChatMessage {
 
 export type AIType = 'human' | 'dog';
 
+// Structured summary object for split view (Option 2 implementation)
+export interface StructuredSummary {
+  user_summary: string;
+  pro_notes: string;
+}
+
 export interface StoredConversation {
   id: number;
   userId: string;
@@ -48,7 +54,7 @@ export interface StoredConversation {
   aiType: AIType;
   aiAvatar: string; // e.g. 'human_female_1', 'dog_poodle_1'
   messages: ChatMessage[];
-  summary: string;
+  summary: string; // For backward compatibility, we'll store as string (JSON stringified if structured)
   date: string;
   status: 'completed' | 'interrupted';
 }
@@ -136,20 +142,12 @@ export interface HiddenPotentialData {
 export type AnalysisStatus = 'idle' | 'loading' | 'error' | 'success';
 export type AnalysisType = 'trajectory' | 'skillMatching' | 'hiddenPotential';
 
-/**
- * A robust, unified type to handle the status, data, and error for any analysis.
- * This is the new standard for managing asynchronous analysis state.
- * @template T The type of the successful data payload.
- */
 export interface AnalysisStateItem<T> {
   status: AnalysisStatus;
   data: T | null;
   error: string | null;
 }
 
-/**
- * The complete state for all individual analyses performed in the AdminView.
- */
 export type AnalysesState = {
   trajectory: AnalysisStateItem<TrajectoryAnalysisData>;
   skillMatching: AnalysisStateItem<SkillMatchingResult>;

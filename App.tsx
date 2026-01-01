@@ -1,5 +1,5 @@
 
-// App.tsx - v2.0 - Forcing redeployment to clear stubborn cache.
+// App.tsx - v2.00 - Implementation of Option 2: Split Tabbed Summary
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -20,12 +20,10 @@ const App: React.FC = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     // This useEffect runs once when the component mounts after file updates.
-    // It logs the interaction that LED to this code change, creating an "automated" log.
     useEffect(() => {
-        const userPrompt = "初期質問フローの全体設計（ステップ1〜4）をチャット完全統合型で実装してください。";
-        const aiSummary = "キャリア発達段階に基づいた構造化された初期質問フローを実装。ステップごとに動的なラベル変換（成長期なら『男の子・女の子』等）と主訴の出し分けを行い、収集したデータをAIのシステムプロンプトに最適化して統合しました。Ver1.94。";
+        const userPrompt = "サマリー機能を【案2：UIタブ分割表示案】（ユーザー向けとプロ向け）に更新しました。";
+        const aiSummary = "SummaryModalにタブ切り替えを実装。api/gemini-proxy.tsをJSON出力に最適化し、user_summaryとpro_notesの2軸で生成するように強化。Ver2.00。";
         
-        // Ensure we don't log the same thing multiple times on hot reloads
         const logs = devLogService.getLogs();
         const lastEntry = logs.entries[logs.entries.length - 1];
         if (!lastEntry || lastEntry.userPrompt !== userPrompt) {
@@ -145,7 +143,7 @@ const App: React.FC = () => {
             {/* Version Badge fixed at bottom-right */}
             <div className="fixed bottom-1 right-2 z-50 pointer-events-none opacity-50 hover:opacity-100 transition-opacity">
                 <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">
-                    Ver1.94
+                    Ver2.00
                 </span>
             </div>
         </div>
