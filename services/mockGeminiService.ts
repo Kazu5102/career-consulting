@@ -1,5 +1,5 @@
 
-import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor } from '../types';
+import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
 // ===================================================================================
@@ -32,7 +32,7 @@ const sampleAnalysisData: AnalysisData = {
     keyTakeaways: [
         "多くの相談者がキャリアの不確実性に悩んでいる。",
         "成長意欲が高く、スキルアップに関心がある。",
-        "自己分析と具体的な情報提供が有効な支援となる。"
+        "自己分析と具体的な情報提供が有効な支援となる。",
     ],
     overallInsights: `
 ### 1. 相談者の共通の悩み・課題 (Common Challenges)
@@ -44,14 +44,14 @@ const sampleAnalysisData: AnalysisData = {
 ### 3. 総合的なインサイトと提言 (Overall Insights & Recommendations)
 - **自己分析のサポート強化:** 自身の強みや適性を客観的に把握できていないケースが多いため、自己分析を促すアセスメントツールや、キャリアコーチングの機会を提供することが有効です。
 - **具体的な情報提供:** 未経験転職市場の動向や、マネジメントに必要なスキルセットなど、具体的で実践的な情報を提供することで、相談者の不安を解消し、次の一歩を後押しできます。
-`
+`,
 };
 
 const sampleSkillMatchingResult: SkillMatchingResult = {
     keyTakeaways: [
         "高い学習意欲と協調性があなたの大きな強みです。",
         "Web開発分野でのポテンシャルが非常に高いです。",
-        "チーム開発の基本スキルを身につけることが次のステップです。"
+        "チーム開発の基本スキルを身につけることが次のステップです。",
     ],
     analysisSummary: `
 あなたは、**高い学習意欲**と**着実に物事を進める能力**を兼ね備えています。
@@ -64,7 +64,7 @@ const sampleSkillMatchingResult: SkillMatchingResult = {
         { role: 'テクニカルサポート', reason: '課題解決能力と丁寧な対話力で、顧客満足度向上に貢献できます。', matchScore: 72 },
     ],
     skillsToDevelop: [
-        { skill: 'Git / GitHub', reason: 'チーム開発の基本ツール。バージョン管理能力は必須です。' },
+        { skill: 'Git / GitHub', reason: 'チーム開発の基本ツール. バージョン管理能力は必須です。' },
         { skill: 'クラウドサービスの基礎知識 (AWS/GCP)', reason: '現代のWebサービス開発に不可欠なインフラ知識です。' },
     ],
     learningResources: [
@@ -82,8 +82,9 @@ export const checkServerStatus = async (): Promise<{status: string}> => {
 };
 
 
-export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string): Promise<ReadableStream<StreamUpdate> | null> => {
-    console.log("[Mock] getStreamingChatResponse called with:", { messages, aiType, aiName });
+// FIX: Updated mock getStreamingChatResponse to accept UserProfile.
+export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
+    console.log("[Mock] getStreamingChatResponse called with:", { messages, aiType, aiName, profile });
     await delay(1500);
 
     const responseText = "これはデモ用の応答です。AIがあなたの発言を分析し、最適な返信を生成している様子をシミュレートしています。実際の環境では、ここでAIからの返答がストリーミングされます。";
@@ -113,8 +114,9 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
     return stream;
 };
 
-export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string): Promise<string> => {
-    console.log("[Mock] generateSummary called");
+// FIX: Updated mock generateSummary to accept UserProfile.
+export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
+    console.log("[Mock] generateSummary called", { profile });
     await delay(2000);
     return `
 ### デモ用サマリー

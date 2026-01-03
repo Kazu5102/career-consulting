@@ -74,7 +74,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity duration-300" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
           <h2 className="text-xl font-bold text-slate-800">{isEditing ? 'サマリーの修正依頼' : '相談内容のサマリー'}</h2>
@@ -106,7 +106,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-600">
                <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="font-semibold">{isEditing ? 'AIがサマリーを修正しています...' : 'AIが対話内容を要約しています...'}</p>
+              <p className="font-semibold text-center">{isEditing ? 'AIがサマリーを修正しています...' : 'AIが対話内容を要約しています...'}</p>
               <p className="text-sm text-slate-500">しばらくお待ちください</p>
             </div>
           ) : isEditing ? (
@@ -174,15 +174,15 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
              </div>
            ) : (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-slate-600">内容を確認し、必要であれば修正を依頼できます。問題なければ「確定」ボタンで相談を完了してください。</p>
+              <p className="text-sm text-slate-600">内容を確認し、問題なければ「確定」ボタンで相談を完了してください。</p>
               <div className="flex gap-4">
                 <button
                   onClick={() => setIsEditing(true)}
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-lg transition-colors duration-200 bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-lg transition-colors duration-200 bg-slate-200 text-slate-700 hover:bg-slate-300"
                 >
                   <EditIcon />
-                  修正を依頼
+                  修正依頼
                 </button>
                 <button 
                   onClick={handleCopy} 
@@ -191,16 +191,16 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                     isCopied
                       ? 'bg-green-100 text-green-800'
                       : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                  } disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed`}
+                  }`}
                 >
                   {isCopied ? <CheckIcon /> : <ClipboardIcon />}
-                  {isCopied ? 'コピー完了' : (activeTab === 'user' ? '自分用をコピー' : 'プロ用をコピー')}
+                  {isCopied ? 'コピー済' : 'コピー'}
                 </button>
               </div>
               <button
                 onClick={onFinalize}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 font-bold text-lg rounded-lg transition-colors duration-200 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-slate-400 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 font-bold text-lg rounded-lg transition-colors duration-200 bg-emerald-500 text-white hover:bg-emerald-600"
               >
                 <SaveIcon />
                 確定して相談を完了する

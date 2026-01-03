@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserInfo } from '../types';
 import CheckIcon from './icons/CheckIcon';
@@ -12,8 +13,8 @@ const NewUserInfoModal: React.FC<NewUserInfoModalProps> = ({ isOpen, user, onCon
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <div className="p-8">
             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 mb-4">
                 <CheckIcon />
@@ -33,16 +34,16 @@ const NewUserInfoModal: React.FC<NewUserInfoModalProps> = ({ isOpen, user, onCon
             </div>
             
             <p className="text-sm text-slate-600 bg-amber-100 text-amber-800 p-3 rounded-lg text-left">
-              <strong>重要:</strong> このニックネームとPINコードは、次回以降のログインで必要になります。忘れないようにメモしてください。
+              <strong>重要:</strong> このニックネームとPINコードは、次回以降のログインで必要になります。忘れずにメモしてください。
             </p>
         </div>
         
         <div className="p-5 bg-slate-50 border-t rounded-b-2xl">
             <button
               onClick={onConfirm}
-              className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-sky-600 text-white hover:bg-sky-700"
+              className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-sky-600 text-white hover:bg-sky-700 active:scale-95"
             >
-              はい、覚えました
+              内容を確認し、メモしました
             </button>
         </div>
       </div>

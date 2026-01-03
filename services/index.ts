@@ -1,8 +1,8 @@
 
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
-// FIX: Removed non-existent 'IndividualAnalysisData' type and added required types for new analysis functions.
-import type { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult } from '../types';
+// FIX: Added UserProfile to imports and updated re-exports to support the profile argument.
+import type { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
 // This file intelligently switches between the real API service and a mock service.
@@ -24,9 +24,11 @@ console.log(`[Service Initialized] Using ${isProduction ? 'REAL' : 'MOCK'} servi
 // Re-export all functions from the selected service.
 export const checkServerStatus = (): Promise<{status: string}> => service.checkServerStatus();
 
-export const getStreamingChatResponse = (messages: ChatMessage[], aiType: AIType, aiName: string): Promise<ReadableStream<StreamUpdate> | null> => service.getStreamingChatResponse(messages, aiType, aiName);
+// FIX: Updated getStreamingChatResponse signature to include profile.
+export const getStreamingChatResponse = (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => service.getStreamingChatResponse(messages, aiType, aiName, profile);
 
-export const generateSummary = (chatHistory: ChatMessage[], aiType: AIType, aiName: string): Promise<string> => service.generateSummary(chatHistory, aiType, aiName);
+// FIX: Updated generateSummary signature to include profile.
+export const generateSummary = (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => service.generateSummary(chatHistory, aiType, aiName, profile);
 
 export const reviseSummary = (originalSummary: string, correctionRequest: string): Promise<string> => service.reviseSummary(originalSummary, correctionRequest);
 

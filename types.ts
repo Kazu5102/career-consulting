@@ -8,11 +8,23 @@ export interface StoredData {
   data: StoredConversation[];
 }
 
-// User information for authentication and display
 export interface UserInfo {
-  id: string;      // Unique identifier, e.g., 'user_17...'
-  nickname: string; // Auto-generated memorable name, e.g., 'Brave Lion'
-  pin: string;     // 4-digit PIN for authentication
+  id: string;
+  nickname: string;
+  pin: string;
+}
+
+export interface UserProfile {
+  stage?: string;
+  age?: string;
+  gender?: string;
+  complaint?: string;
+  lifeRoles?: string[];
+  interactionStats?: {
+    backCount: number;
+    resetCount: number;
+    totalTimeSeconds: number;
+  };
 }
 
 export enum MessageAuthor {
@@ -20,7 +32,6 @@ export enum MessageAuthor {
   AI = 'ai',
 }
 
-// Grounding Metadata Types
 export interface GroundingChunk {
   web?: {
     uri?: string;
@@ -36,12 +47,11 @@ export interface GroundingMetadata {
 export interface ChatMessage {
   author: MessageAuthor;
   text: string;
-  groundingMetadata?: GroundingMetadata; // Added for Google Search results
+  groundingMetadata?: GroundingMetadata;
 }
 
 export type AIType = 'human' | 'dog';
 
-// Structured summary object for split view (Option 2 implementation)
 export interface StructuredSummary {
   user_summary: string;
   pro_notes: string;
@@ -52,9 +62,9 @@ export interface StoredConversation {
   userId: string;
   aiName: string;
   aiType: AIType;
-  aiAvatar: string; // e.g. 'human_female_1', 'dog_poodle_1'
+  aiAvatar: string;
   messages: ChatMessage[];
-  summary: string; // For backward compatibility, we'll store as string (JSON stringified if structured)
+  summary: string;
   date: string;
   status: 'completed' | 'interrupted';
 }
@@ -68,7 +78,6 @@ export interface AIAssistant {
   avatarComponent: React.ReactElement;
 }
 
-// Types for structured analysis
 export interface ChartDataPoint {
   label: string;
   value: number;
@@ -82,16 +91,22 @@ export interface AnalysisData {
   commonChallenges: ChartDataPoint[];
   careerAspirations: ChartDataPoint[];
   commonStrengths: string[];
-  overallInsights: string; // Markdown text for summary
+  overallInsights: string;
   keyTakeaways: string[];
 }
 
+export interface SkillMatchingResult {
+  keyTakeaways: string[];
+  analysisSummary: string;
+  recommendedRoles: RecommendedRole[];
+  skillsToDevelop: SkillToDevelop[];
+  learningResources: LearningResource[];
+}
 
-// Types for Skill Matching feature
 export interface RecommendedRole {
   role: string;
   reason: string;
-  matchScore: number; // A score from 0 to 100
+  matchScore: number;
 }
 
 export interface SkillToDevelop {
@@ -105,22 +120,11 @@ export interface LearningResource {
   provider: string;
 }
 
-export interface SkillMatchingResult {
-  keyTakeaways: string[];
-  analysisSummary: string; // Markdown text
-  recommendedRoles: RecommendedRole[];
-  skillsToDevelop: SkillToDevelop[];
-  learningResources: LearningResource[];
-}
-
-// --- NEW TYPES FOR SPLIT INDIVIDUAL ANALYSIS ---
-
 export interface ConsultationEntry {
     dateTime: string;
     estimatedDurationMinutes: number;
 }
 
-// 1. Trajectory Analysis
 export interface TrajectoryAnalysisData {
     keyTakeaways: string[];
     userId: string;
@@ -130,15 +134,13 @@ export interface TrajectoryAnalysisData {
     detectedStrengths: string[];
     areasForDevelopment: string[];
     suggestedNextSteps: string[];
-    overallSummary: string; // Markdown
+    overallSummary: string;
 }
 
-// 2. Hidden Potential Analysis
 export interface HiddenPotentialData {
     hiddenSkills: SkillToDevelop[];
 }
 
-// --- REFACTORED STATE MANAGEMENT ---
 export type AnalysisStatus = 'idle' | 'loading' | 'error' | 'success';
 export type AnalysisType = 'trajectory' | 'skillMatching' | 'hiddenPotential';
 
@@ -154,7 +156,6 @@ export type AnalysesState = {
   hiddenPotential: AnalysisStateItem<HiddenPotentialData>;
 };
 
-// --- LEGACY TYPE for ShareReportModal compatibility ---
 export interface UserAnalysisCache {
     trajectory?: (TrajectoryAnalysisData | { error: string });
     skillMatching?: (SkillMatchingResult | { error: string });

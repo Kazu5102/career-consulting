@@ -1,5 +1,5 @@
 
-import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata } from '../types';
+import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy'; // The serverless function endpoint
 const ANALYSIS_TIMEOUT = 300000; // 5 minutes for long-running tasks
@@ -74,10 +74,11 @@ export interface StreamUpdate {
     groundingMetadata?: GroundingMetadata;
 }
 
-export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string): Promise<ReadableStream<StreamUpdate> | null> => {
+// FIX: Updated getStreamingChatResponse to accept UserProfile.
+export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
         // Pass isStreaming = true to get the raw response object
-        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName }, true);
+        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true);
         
         // This check is crucial. If the response is not OK, we must not attempt to read the body.
         if (!response.ok) {
@@ -143,9 +144,10 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
     }
 };
 
-export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string): Promise<string> => {
+// FIX: Updated generateSummary to accept UserProfile.
+export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     try {
-        const data = await fetchFromProxy('generateSummary', { chatHistory, aiType, aiName });
+        const data = await fetchFromProxy('generateSummary', { chatHistory, aiType, aiName, profile });
         return data.text;
     } catch (error) {
         console.error("Error generating summary:", error);

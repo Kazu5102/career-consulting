@@ -1,7 +1,8 @@
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { ChatMessage, MessageAuthor, StoredConversation, StoredData, STORAGE_VERSION, AIType } from '../types';
-import { getStreamingChatResponse, generateSummary, reviseSummary, generateSuggestions } from '../services/index';
+// views/UserView.tsx - v2.06
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
+import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
 import { getUserById } from '../services/userService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
@@ -22,12 +23,23 @@ interface UserViewProps {
 
 type UserViewMode = 'loading' | 'dashboard' | 'avatarSelection' | 'chatting';
 
-// Onboarding stages
-const STAGE_GROWTH = '自分を育てている時期（成長期）';
-const STAGE_EXPLORATION = 'これからの道を探している時期（探索期）';
-const STAGE_ESTABLISHMENT = '今の場所で力を発揮・試行錯誤している時期（確立期）';
-const STAGE_MAINTENANCE = '経験を活かし、次を見据えている時期（維持期）';
-const STAGE_LIBERATION = '自分らしい自由な生き方を探す時期（解放期）';
+const STAGES = [
+  { id: 'cultivate', label: 'じっくり自分を育み、守っている', sub: '好きなことを見つけたり、自分を蓄えている感覚' },
+  { id: 'seek', label: '新しい道や可能性を探している', sub: '次の場所や役割を模索している感覚' },
+  { id: 'solidify', label: '今の役割で力を発揮し、基盤を固めている', sub: '今の生活や仕事を安定させている感覚' },
+  { id: 'preserve', label: '経験を活かし、次を見据えている', sub: '積み重ねを整理し、現状維持や後進を支える感覚' },
+  { id: 'liberate', label: '役割から離れ、本来の自分に戻りたい', sub: '責任を卒業し、自由な生き方を見つけたい感覚' },
+];
+
+const AGES = ['10代未満', '10代', '20代', '30代', '40代', '50代', '60代', '70代以上', '回答しない'];
+
+const LIFE_ROLES = [
+  { id: 'learning', label: '学校・学び', icon: '🎓' },
+  { id: 'family', label: '家庭・家族', icon: '🏠' },
+  { id: 'hobby', label: '趣味・遊び', icon: '🎨' },
+  { id: 'work', label: '仕事・社会活動', icon: '💼' },
+  { id: 'care', label: '自分のケア・休息', icon: '🧘' },
+];
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [view, setView] = useState<UserViewMode>('loading');
@@ -40,24 +52,31 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
-  const [editingState, setEditingState] = useState<{ index: number; text: string } | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [hasError, setHasError] = useState<boolean>(false);
 
-  // Onboarding states
-  const [onboardingStep, setOnboardingStep] = useState<number>(0); // 0: none, 1-4: steps, 5: completed
-  const [userProfile, setUserProfile] = useState<{ stage?: string; gender?: string; complaint?: string }>({});
+  // Interaction Metrics
+  const startTimeRef = useRef<number>(0);
+  const [backCount, setBackCount] = useState(0);
+  const [resetCount, setResetCount] = useState(0);
+
+  // Onboarding States
+  const [onboardingStep, setOnboardingStep] = useState<number>(0); 
+  const [userProfile, setUserProfile] = useState<UserProfile>({ 
+    lifeRoles: [],
+    interactionStats: { backCount: 0, resetCount: 0, totalTimeSeconds: 0 }
+  });
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [onboardingHistory, setOnboardingHistory] = useState<UserProfile[]>([]);
 
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
   const [summary, setSummary] = useState<string>('');
   const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
   const [isInterruptModalOpen, setIsInterruptModalOpen] = useState<boolean>(false);
-  const [resumingConversationId, setResumingConversationId] = useState<number | null>(null);
-
 
   useEffect(() => {
     const user = getUserById(userId);
     setNickname(user?.nickname || userId);
-
     const allDataRaw = localStorage.getItem('careerConsultations');
     let convs: StoredConversation[] = [];
     if (allDataRaw) {
@@ -66,73 +85,68 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             let allConversations: StoredConversation[] = [];
             if (parsed && parsed.data && Array.isArray(parsed.data)) allConversations = parsed.data;
             else if (Array.isArray(parsed)) allConversations = parsed;
-            
-            if (allConversations.length > 0) {
-                 convs = allConversations.filter(c => c.userId === userId).map(c => ({...c, status: c.status || 'completed'}));
-            }
+            if (allConversations.length > 0) convs = allConversations.filter(c => c.userId === userId);
         } catch(e) { console.error(e); }
     }
     setUserConversations(convs);
     setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
   }, [userId]);
 
-  const saveConversations = (allConversations: StoredConversation[]) => {
-      localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: allConversations }));
-  };
-
-  const handleNewChat = useCallback(() => {
-    setResumingConversationId(null);
-    setMessages([]);
-    setOnboardingStep(0);
-    setUserProfile({});
-    setView('avatarSelection');
-  }, []);
-
   const handleAvatarSelected = useCallback((selection: { type: AIType, avatarKey: string }) => {
     const { type, avatarKey } = selection;
     const assistant = ASSISTANTS.find(a => a.id === avatarKey);
     if (!assistant) return;
-
     setAiType(type);
     setAiAvatarKey(avatarKey);
-    const selectedName = assistant.nameOptions[Math.floor(Math.random() * assistant.nameOptions.length)];
-    setAiName(selectedName);
-
-    // STEP 1 & 2: Safety & Career Stage
-    let greetingText = '';
-    if (type === 'human') {
-      greetingText = `こんにちは。AIキャリアコンサルタントの${selectedName}です。\n\n本題に入る前に、大切なことをお伝えしますね。私はあなたのキャリア（生き方や働き方）を一緒に考えるパートナーです。ここで話す内容は統計的な分析とアドバイスのためだけに使用され、外部に漏れることはありません。答えにくい質問はスキップしても大丈夫ですので、あなたのペースで進めていきましょう。\n\n**まずは、今の${nickname}さんはどのステージに近いと感じますか？**`;
-    } else {
-      greetingText = `ワンワン！ボク、キャリア相談わんこの${selectedName}だワン！キミに会えて嬉しいワン！\n\n最初にお約束だワン。ボクとのお話は、キミとボクだけの秘密にするから安心してほしいワン。答えにくいことは言わなくても大丈夫だワン！ボクと一緒に、キミのペースでゆっくりお話ししようワン。\n\n**今のキミは、自分の人生のどのあたりを歩いていると感じるかな？**`;
-    }
+    setAiName(assistant.nameOptions[Math.floor(Math.random() * assistant.nameOptions.length)]);
     
-    setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
-    setOnboardingStep(1); // Step 2 (Stage Selection)
-    setSuggestions([STAGE_GROWTH, STAGE_EXPLORATION, STAGE_ESTABLISHMENT, STAGE_MAINTENANCE, STAGE_LIBERATION]);
+    startTimeRef.current = Date.now(); // オンボーディング開始時間を記録
+    resetOnboarding(false);
     setView('chatting');
-  }, [nickname]);
+  }, [aiAvatarKey]);
 
-  const handleSendMessage = async (text: string) => {
+  const resetOnboarding = (isManualReset: boolean = true) => {
+    if (isManualReset) setResetCount(prev => prev + 1);
+    
+    const greetingText = `こんにちは。あなたのこれからの歩みを一緒に考えるパートナーです。話したくないことは飛ばしても大丈夫。あなたのペースで、今のことを少しだけ教えてください。\n\nまず、**今のあなたの「心の状況」に近いものはどれですか？**`;
+    setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
+    setOnboardingStep(1);
+    setUserProfile({ lifeRoles: [] });
+    setOnboardingHistory([]);
+    setSelectedRoles([]);
+    setHasError(false);
+  };
+
+  const handleGoBack = () => {
+    if (onboardingStep <= 1) return;
+    setBackCount(prev => prev + 1);
+    const prevHistory = [...onboardingHistory];
+    const prevProfile = prevHistory.pop() || { lifeRoles: [] };
+    
+    setMessages(prev => prev.slice(0, -2));
+    setOnboardingStep(prev => prev - 1);
+    setUserProfile(prevProfile);
+    setOnboardingHistory(prevHistory);
+    setHasError(false);
+  };
+
+  const handleSendMessage = async (text: string, isFromOnboarding: boolean = false) => {
     if (!text.trim() || isLoading) return;
-
+    setHasError(false);
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestions([]);
 
-    // Onboarding Logic
-    if (onboardingStep >= 1 && onboardingStep <= 3) {
+    if (onboardingStep >= 1 && onboardingStep <= 5) {
       processOnboarding(text, newMessages);
       return;
     }
 
-    // Regular Chatting
     setIsLoading(true);
     try {
-      // Pass userProfile to Gemini API via proxy
-      const stream = await (getStreamingChatResponse as any)(newMessages, aiType, aiName, userProfile);
+      const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
       if (!stream) throw new Error();
-      
       let aiResponseText = '';
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
       const reader = stream.getReader();
@@ -150,11 +164,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
       setIsConsultationReady(newMessages.filter(m => m.author === MessageAuthor.USER).length >= 1);
     } catch (error) {
-      console.error(error);
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "エラーが発生しました。" }]);
+      setHasError(true);
+      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
     } finally {
       setIsLoading(false);
-      // Generate standard suggestions
       const response = await generateSuggestions(newMessages);
       if (response?.suggestions?.length) setSuggestions(response.suggestions);
     }
@@ -162,59 +175,57 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const processOnboarding = (choice: string, history: ChatMessage[]) => {
     setIsLoading(true);
+    setOnboardingHistory(prev => [...prev, { ...userProfile }]);
+    
     setTimeout(() => {
       let nextText = '';
-      let nextSuggestions: string[] = [];
       let nextStep = onboardingStep + 1;
 
       if (onboardingStep === 1) {
-        // After Stage selection -> STEP 3: Gender
         setUserProfile(prev => ({ ...prev, stage: choice }));
-        const isGrowth = choice === STAGE_GROWTH;
-        nextText = aiType === 'human' 
-          ? `ありがとうございます。より${nickname}さんに合った情報をお伝えするため、差し支えなければ性別（性自認）を教えてください。`
-          : `教えてくれてありがとうワン！次はね、もっとキミにぴったりのアドバイスをするために、キミの性別を教えてほしいワン。`;
-        
-        nextSuggestions = isGrowth 
-          ? ['男の子', '女の子', '自分は自分', 'ひみつ']
-          : ['男性', '女性', 'その他', '回答しない'];
+        nextText = `ありがとうございます。次に、あなたの**年代**を教えてください。`;
       } 
       else if (onboardingStep === 2) {
-        // After Gender selection -> STEP 4: Complaint
-        setUserProfile(prev => ({ ...prev, gender: choice }));
-        nextText = aiType === 'human'
-          ? `承知いたしました。それでは、**本日はどのようなことを一番お話ししたいですか？**`
-          : `わかったワン！大切にするワン。\n\n**それじゃあ、今日はボクにどんなことをお話ししたいかな？**`;
-        
-        const stage = userProfile.stage;
-        if (stage === STAGE_GROWTH) {
-          nextSuggestions = ['学校や居場所について悩んでいる', '自分の「好きなこと」を見つけたい', '将来がなんとなく不安'];
-        } else if (stage === STAGE_MAINTENANCE || stage === STAGE_LIBERATION) {
-          nextSuggestions = ['これまでの経験をどう活かすか', 'セカンドキャリアの設計', '社会との繋がり直し'];
-        } else {
-          nextSuggestions = ['自分に向いている仕事を知りたい', '仕事と私生活の両立について', '転職やキャリアアップを考えている'];
-        }
+        setUserProfile(prev => ({ ...prev, age: choice }));
+        nextText = `差し支えなければ、**性別**を教えていただけますか？`;
       }
       else if (onboardingStep === 3) {
-        // After Complaint selection -> Completed
-        setUserProfile(prev => ({ ...prev, complaint: choice }));
-        nextStep = 5; // Finish onboarding
-        startActualConsultation(choice, history);
+        setUserProfile(prev => ({ ...prev, gender: choice }));
+        nextText = `今、あなたの**エネルギーはどこに多く使われていますか？**（複数選択可）`;
+      }
+      else if (onboardingStep === 4) {
+        const roles = choice.split('、');
+        setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
+        nextText = `準備が整いました。本日は**どのようなことをお話ししたいですか？**`;
+      }
+      else if (onboardingStep === 5) {
+        const totalTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        setUserProfile(prev => ({ 
+          ...prev, 
+          complaint: choice,
+          interactionStats: { backCount, resetCount, totalTimeSeconds: totalTime }
+        }));
+        nextStep = 6;
+        startActualConsultation(choice, history, totalTime);
         return;
       }
 
       setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
       setOnboardingStep(nextStep);
-      setSuggestions(nextSuggestions);
       setIsLoading(false);
-    }, 600);
+    }, 400);
   };
 
-  const startActualConsultation = async (complaint: string, history: ChatMessage[]) => {
+  const startActualConsultation = async (complaint: string, history: ChatMessage[], time: number) => {
     setIsLoading(true);
+    setHasError(false);
+    const updatedProfile = { 
+      ...userProfile, 
+      complaint, 
+      interactionStats: { backCount, resetCount, totalTimeSeconds: time } 
+    };
     try {
-      const finalProfile = { ...userProfile, complaint };
-      const stream = await (getStreamingChatResponse as any)(history, aiType, aiName, finalProfile);
+      const stream = await getStreamingChatResponse(history, aiType, aiName, updatedProfile);
       let aiResponseText = '';
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
       const reader = stream!.getReader();
@@ -230,88 +241,128 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      setOnboardingStep(5);
+      setOnboardingStep(6);
       setIsConsultationReady(true);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      setHasError(true);
+      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
+    }
     finally { setIsLoading(false); }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    setSuggestions([]);
-    handleSendMessage(suggestion);
-  };
-
-  // Remaining functions (handleBackToDashboard, handleGenerateSummary etc.) remain the same
-  const handleBackToDashboard = () => {
-    if (messages.length > 1 && !isLoading) setIsInterruptModalOpen(true);
-    else { setView('dashboard'); setMessages([]); }
+  const renderOnboardingUI = () => {
+    if (isLoading) return null;
+    
+    return (
+      <div className="flex flex-col">
+        {onboardingStep === 1 && (
+          <div className="grid grid-cols-1 gap-2 p-4">
+            {STAGES.map(s => (
+              <button key={s.id} onClick={() => handleSendMessage(s.label, true)} className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all">
+                <p className="font-bold text-slate-800">{s.label}</p>
+                <p className="text-xs text-slate-500">{s.sub}</p>
+              </button>
+            ))}
+          </div>
+        )}
+        {onboardingStep === 2 && (
+          <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide">
+            {AGES.map(a => (
+              <button key={a} onClick={() => handleSendMessage(a, true)} className="flex-shrink-0 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700">
+                {a}
+              </button>
+            ))}
+          </div>
+        )}
+        {onboardingStep === 3 && (
+          <div className="flex flex-wrap gap-2 p-4">
+            {['男性', '女性', 'その他', '回答しない'].map(g => (
+              <button key={g} onClick={() => handleSendMessage(g, true)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+        {onboardingStep === 4 && (
+          <div className="p-4 flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              {LIFE_ROLES.map(r => (
+                <button 
+                  key={r.id} 
+                  onClick={() => setSelectedRoles(prev => prev.includes(r.label) ? prev.filter(x => x !== r.label) : [...prev, r.label])}
+                  className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 font-semibold ${
+                    selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <span>{r.icon}</span><span>{r.label}</span>
+                </button>
+              ))}
+            </div>
+            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'), true)} className="w-full py-3 bg-sky-600 text-white font-bold rounded-xl shadow-md disabled:bg-slate-300">決定</button>
+          </div>
+        )}
+        {onboardingStep === 5 && (
+          <div className="flex flex-wrap gap-2 p-4">
+            {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
+              <button key={c} onClick={() => handleSendMessage(c, true)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+        
+        {onboardingStep >= 1 && onboardingStep <= 5 && (
+          <div className="flex justify-center gap-6 pb-4 text-xs font-semibold text-slate-400">
+            {onboardingStep > 1 && (
+              <button onClick={handleGoBack} className="hover:text-sky-500 transition-colors">一つ前の質問に戻る</button>
+            )}
+            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-500 transition-colors">最初からやり直す</button>
+          </div>
+        )}
+        
+        {onboardingStep >= 6 && (
+           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} />
+        )}
+      </div>
+    );
   };
 
   const handleGenerateSummary = () => {
     setIsSummaryModalOpen(true);
     setIsSummaryLoading(true);
-    generateSummary(messages, aiType, aiName)
-      .then(setSummary).catch(() => setSummary("エラー")).finally(() => setIsSummaryLoading(false));
+    generateSummary(messages, aiType, aiName, userProfile)
+      .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
   };
 
   const finalizeAndSave = (conversation: StoredConversation) => {
-      try {
-        const storedDataRaw = localStorage.getItem('careerConsultations');
-        let currentAllConversations = storedDataRaw ? JSON.parse(storedDataRaw).data || [] : [];
-        let updated = resumingConversationId ? currentAllConversations.map((c:any) => c.id === resumingConversationId ? conversation : c) : [...currentAllConversations, conversation];
-        saveConversations(updated);
-        setUserConversations(updated.filter((c:any) => c.userId === userId));
-        setView('dashboard'); setMessages([]); setSummary(''); setResumingConversationId(null);
-        return true;
-      } catch (e) { return false; }
-  };
-
-  const handleFinalizeAndSave = () => {
-      const newConversation: StoredConversation = {
-        id: resumingConversationId || Date.now(),
-        userId, aiName, aiType, aiAvatar: aiAvatarKey,
-        messages, summary, date: new Date().toISOString(), status: 'completed',
-      };
-      if (finalizeAndSave(newConversation)) {
-          setIsSummaryModalOpen(false);
-          alert('保存されました。');
-      }
-  };
-
-  const renderContent = () => {
-    switch(view) {
-      case 'dashboard':
-          return <UserDashboard conversations={userConversations} onNewChat={handleNewChat} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setResumingConversationId(c.id); setView('chatting'); setOnboardingStep(5); }} userId={userId} nickname={nickname} onSwitchUser={onSwitchUser} />;
-      case 'avatarSelection':
-        return <AvatarSelectionView onSelect={handleAvatarSelected} />;
-      case 'chatting':
-        return (
-           <div className="w-full max-w-7xl h-full flex flex-row gap-6">
-            <div className="hidden lg:flex w-[400px] h-full flex-shrink-0">
-              <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} />
-            </div>
-            <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-              <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
-              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200">
-                  <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSuggestionClick} />
-                  <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText={''} onCancelEdit={() => {}} />
-                  {messages.length > 1 && onboardingStep === 5 && (
-                     <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />
-                  )}
-              </div>
-            </div>
-          </div>
-        );
-      default: return null;
-    }
+      const storedDataRaw = localStorage.getItem('careerConsultations');
+      let currentAllConversations = storedDataRaw ? JSON.parse(storedDataRaw).data || [] : [];
+      let updated = [...currentAllConversations, conversation];
+      localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
+      setUserConversations(updated.filter((c:any) => c.userId === userId));
+      setView('dashboard'); setMessages([]); setOnboardingStep(0);
   };
 
   return (
-    <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full' : 'min-h-full'}`}>
-      {view === 'chatting' && <Header showBackButton={true} onBackClick={handleBackToDashboard} />}
-      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden' : 'p-0 sm:p-4 md:p-6 justify-start'}`}>{renderContent()}</main>
-      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={handleFinalizeAndSave} />
-      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: resumingConversationId || Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => { setView('dashboard'); setMessages([]); }} onContinue={() => setIsInterruptModalOpen(false)} />
+    <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full' : 'min-h-[100dvh]'}`}>
+      {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
+      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden' : 'p-0 sm:p-4 md:p-6'}`}>
+        {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} onSwitchUser={onSwitchUser} /> :
+         view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
+         <div className="w-full max-w-7xl h-full flex flex-row gap-6">
+            <div className="hidden lg:flex w-[400px] h-full flex-shrink-0"><AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} /></div>
+            <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+              <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
+              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200">
+                  {renderOnboardingUI()}
+                  <ChatInput onSubmit={(t) => handleSendMessage(t, false)} isLoading={isLoading} isEditing={false} initialText={''} onCancelEdit={() => {}} />
+                  {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
+              </div>
+            </div>
+         </div>}
+      </main>
+      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} />
+      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => setView('dashboard')} onContinue={() => setIsInterruptModalOpen(false)} />
     </div>
   );
 };
