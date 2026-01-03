@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.06
+// views/UserView.tsx - v2.11 - Fixed "Thinking" state hang
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -55,12 +55,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  // Interaction Metrics
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
 
-  // Onboarding States
   const [onboardingStep, setOnboardingStep] = useState<number>(0); 
   const [userProfile, setUserProfile] = useState<UserProfile>({ 
     lifeRoles: [],
@@ -100,14 +98,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setAiAvatarKey(avatarKey);
     setAiName(assistant.nameOptions[Math.floor(Math.random() * assistant.nameOptions.length)]);
     
-    startTimeRef.current = Date.now(); // オンボーディング開始時間を記録
+    startTimeRef.current = Date.now();
     resetOnboarding(false);
     setView('chatting');
   }, [aiAvatarKey]);
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
-    
     const greetingText = `こんにちは。あなたのこれからの歩みを一緒に考えるパートナーです。話したくないことは飛ばしても大丈夫。あなたのペースで、今のことを少しだけ教えてください。\n\nまず、**今のあなたの「心の状況」に近いものはどれですか？**`;
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setOnboardingStep(1);
@@ -122,7 +119,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setBackCount(prev => prev + 1);
     const prevHistory = [...onboardingHistory];
     const prevProfile = prevHistory.pop() || { lifeRoles: [] };
-    
     setMessages(prev => prev.slice(0, -2));
     setOnboardingStep(prev => prev - 1);
     setUserProfile(prevProfile);
@@ -130,23 +126,33 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
   };
 
-  const handleSendMessage = async (text: string, isFromOnboarding: boolean = false) => {
+  const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
+      setIsLoading(false);
+      try {
+        const response = await generateSuggestions(currentMessages);
+        if (response?.suggestions?.length) setSuggestions(response.suggestions);
+      } catch (e) {
+        console.warn("Suggestions failed", e);
+      }
+  };
+
+  const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setHasError(false);
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestions([]);
+    setIsLoading(true);
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
-      processOnboarding(text, newMessages);
-      return;
+        await processOnboarding(text, newMessages);
+        return;
     }
 
-    setIsLoading(true);
     try {
       const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
-      if (!stream) throw new Error();
+      if (!stream) throw new Error("Stream connection failed");
       let aiResponseText = '';
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
       const reader = stream.getReader();
@@ -162,73 +168,66 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      setIsConsultationReady(newMessages.filter(m => m.author === MessageAuthor.USER).length >= 1);
+      setIsConsultationReady(true);
+      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (error) {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
-    } finally {
       setIsLoading(false);
-      const response = await generateSuggestions(newMessages);
-      if (response?.suggestions?.length) setSuggestions(response.suggestions);
     }
   };
 
-  const processOnboarding = (choice: string, history: ChatMessage[]) => {
-    setIsLoading(true);
+  const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);
     
-    setTimeout(() => {
-      let nextText = '';
-      let nextStep = onboardingStep + 1;
+    // Simulate thinking for UX
+    await new Promise(r => setTimeout(r, 400));
 
-      if (onboardingStep === 1) {
+    let nextText = '';
+    let nextStep = onboardingStep + 1;
+
+    if (onboardingStep === 1) {
         setUserProfile(prev => ({ ...prev, stage: choice }));
         nextText = `ありがとうございます。次に、あなたの**年代**を教えてください。`;
-      } 
-      else if (onboardingStep === 2) {
+    } 
+    else if (onboardingStep === 2) {
         setUserProfile(prev => ({ ...prev, age: choice }));
         nextText = `差し支えなければ、**性別**を教えていただけますか？`;
-      }
-      else if (onboardingStep === 3) {
+    }
+    else if (onboardingStep === 3) {
         setUserProfile(prev => ({ ...prev, gender: choice }));
         nextText = `今、あなたの**エネルギーはどこに多く使われていますか？**（複数選択可）`;
-      }
-      else if (onboardingStep === 4) {
+    }
+    else if (onboardingStep === 4) {
         const roles = choice.split('、');
         setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
         nextText = `準備が整いました。本日は**どのようなことをお話ししたいですか？**`;
-      }
-      else if (onboardingStep === 5) {
+    }
+    else if (onboardingStep === 5) {
         const totalTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        setUserProfile(prev => ({ 
-          ...prev, 
+        const finalProfile = { 
+          ...userProfile, 
           complaint: choice,
           interactionStats: { backCount, resetCount, totalTimeSeconds: totalTime }
-        }));
-        nextStep = 6;
-        startActualConsultation(choice, history, totalTime);
+        };
+        setUserProfile(finalProfile);
+        setOnboardingStep(6);
+        await startActualConsultation(history, finalProfile);
         return;
-      }
+    }
 
-      setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
-      setOnboardingStep(nextStep);
-      setIsLoading(false);
-    }, 400);
+    setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
+    setOnboardingStep(nextStep);
+    setIsLoading(false);
   };
 
-  const startActualConsultation = async (complaint: string, history: ChatMessage[], time: number) => {
-    setIsLoading(true);
-    setHasError(false);
-    const updatedProfile = { 
-      ...userProfile, 
-      complaint, 
-      interactionStats: { backCount, resetCount, totalTimeSeconds: time } 
-    };
+  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
     try {
-      const stream = await getStreamingChatResponse(history, aiType, aiName, updatedProfile);
+      const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
+      if (!stream) throw new Error("Stream failed");
       let aiResponseText = '';
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-      const reader = stream!.getReader();
+      const reader = stream.getReader();
       while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -241,13 +240,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      setOnboardingStep(6);
       setIsConsultationReady(true);
+      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (e) { 
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
+      setIsLoading(false);
     }
-    finally { setIsLoading(false); }
   };
 
   const renderOnboardingUI = () => {
@@ -258,7 +257,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         {onboardingStep === 1 && (
           <div className="grid grid-cols-1 gap-2 p-4">
             {STAGES.map(s => (
-              <button key={s.id} onClick={() => handleSendMessage(s.label, true)} className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all">
+              <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all">
                 <p className="font-bold text-slate-800">{s.label}</p>
                 <p className="text-xs text-slate-500">{s.sub}</p>
               </button>
@@ -268,7 +267,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         {onboardingStep === 2 && (
           <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide">
             {AGES.map(a => (
-              <button key={a} onClick={() => handleSendMessage(a, true)} className="flex-shrink-0 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700">
+              <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700">
                 {a}
               </button>
             ))}
@@ -277,7 +276,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         {onboardingStep === 3 && (
           <div className="flex flex-wrap gap-2 p-4">
             {['男性', '女性', 'その他', '回答しない'].map(g => (
-              <button key={g} onClick={() => handleSendMessage(g, true)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+              <button key={g} onClick={() => handleSendMessage(g)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
                 {g}
               </button>
             ))}
@@ -298,13 +297,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 </button>
               ))}
             </div>
-            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'), true)} className="w-full py-3 bg-sky-600 text-white font-bold rounded-xl shadow-md disabled:bg-slate-300">決定</button>
+            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-3 bg-sky-600 text-white font-bold rounded-xl shadow-md disabled:bg-slate-300">決定</button>
           </div>
         )}
         {onboardingStep === 5 && (
           <div className="flex flex-wrap gap-2 p-4">
             {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
-              <button key={c} onClick={() => handleSendMessage(c, true)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+              <button key={c} onClick={() => handleSendMessage(c)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
                 {c}
               </button>
             ))}
@@ -355,7 +354,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200">
                   {renderOnboardingUI()}
-                  <ChatInput onSubmit={(t) => handleSendMessage(t, false)} isLoading={isLoading} isEditing={false} initialText={''} onCancelEdit={() => {}} />
+                  <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText={''} onCancelEdit={() => {}} />
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>
