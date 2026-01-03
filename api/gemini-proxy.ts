@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.08
+// api/gemini-proxy.ts - v2.09
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -29,6 +29,28 @@ const getAIClient = () => {
     return ai;
 };
 
+/**
+ * 堅牢なJSON抽出関数
+ * モデルがコードブロック(```json)を含めて返答した場合でもパースを可能にします。
+ */
+function robustParseJSON(text: string) {
+    try {
+        // 直接パースを試みる
+        return JSON.parse(text);
+    } catch (e) {
+        // コードブロックを探して抽出する
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+                throw new Error("JSON extraction failed: " + text);
+            }
+        }
+        throw e;
+    }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
     try {
@@ -52,11 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
+    
+    // オンボーディング直後などは、より軽量で高速なレスポンスが期待されるため、
+    // ここでは gemini-3-flash-preview を維持しつつ、システム指示を最適化します。
     const baseInstruction = `
 あなたはプロフェッショナルなキャリア支援AI「Repotta」です。
-ドナルド・スーパーのライフキャリア・レインボーや、サビカスのナラティブ・アプローチを背景に持ちます。
+ドナルド・スーパーやサビカスの理論を背景に持ちます。
 ${aiType === 'human' ? `落ち着いた専門家${aiName}として、深い共感と専門的知見を示してください。` : `元気な相談わんこ${aiName}として、ユーザーの心に寄り添い「ワン！」を交えて励ましてください。`}
-ユーザーの属性：${JSON.stringify(profile)}
+ユーザー属性：${JSON.stringify(profile)}
+
+【対話の指針】
+- 相手の言葉を否定せず、受容的であること。
+- 適度に改行を入れ、読みやすくすること。
+- 専門用語は噛み砕いて説明すること。
 `;
 
     const contents = messages.map(msg => ({
@@ -65,45 +95,49 @@ ${aiType === 'human' ? `落ち着いた専門家${aiName}として、深い共�
     }));
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    const stream = await getAIClient().models.generateContentStream({
-        model: 'gemini-3-flash-preview',
-        contents,
-        config: { systemInstruction: baseInstruction },
-    });
+    try {
+        const stream = await getAIClient().models.generateContentStream({
+            model: 'gemini-3-flash-preview',
+            contents,
+            config: { 
+                systemInstruction: baseInstruction,
+                temperature: 0.7,
+            },
+        });
 
-    for await (const chunk of stream) {
-        if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
+        for await (const chunk of stream) {
+            if (chunk.text) {
+                res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
+            }
+        }
+    } catch (e: any) {
+        res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}\n\n`);
+    } finally {
+        res.write('data: [DONE]\n\n');
+        res.end();
     }
-    res.write('data: [DONE]\n\n');
-    res.end();
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
     const { chatHistory, profile } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     
-    // 非言語データの抽出と分析コンテキスト
     const stats = profile.interactionStats || { backCount: 0, resetCount: 0, totalTimeSeconds: 0 };
     const behavioralContext = `
-【重要：ユーザーの非言語的行動ログ】
-- 質問を戻った回数: ${stats.backCount}回
-- 全てをやり直した回数: ${stats.resetCount}回
-- 設定に要した時間: ${stats.totalTimeSeconds}秒
-
-これらのデータは、ユーザーの「意思決定スタイル（慎重・完璧主義・直感的）」や「自己概念の揺らぎ（葛藤の強さ）」を反映しています。
-これらを踏まえ、キャリアコンサルタントが面談時に留意すべき心理的仮説を pro_notes に含めてください。
+【ユーザー行動ログの心理分析】
+- 戻る回数: ${stats.backCount}, やり直し回数: ${stats.resetCount}, 所要時間: ${stats.totalTimeSeconds}秒
+これらの「迷い」のデータから、ユーザーの完璧主義、葛藤、または直感性の度合いを推論し、pro_notesに反映してください。
 `;
 
     const prompt = `
-以下のキャリア相談の履歴から、JSON形式のサマリーを生成してください。
+以下のキャリア相談履歴から、JSON形式のサマリーを厳密に生成してください。
 ${behavioralContext}
 
-【出力構成案】
-1. user_summary: ユーザー本人に向けた、温かくリフレーミングされた要約。
-2. pro_notes: キャリアコンサルタント向けの高度な構造化分析ノート。以下の項目を必ず含めること。
-   - 理論的ステージ分析
-   - 意思決定プロセスの特徴（操作ログから読み解く心理状態の仮説：葛藤の深さ、決断への障壁など）
-   - コンサルタントへの提言
+出力は必ず以下の構造を持つ有効なJSONである必要があります：
+{
+  "user_summary": "ユーザー向けの共感的要約（マークダウン可）",
+  "pro_notes": "コンサルタント向けの専門的分析。理論的ステージ、行動ログから見る心理仮説、今後の支援方針を含む（マークダウン可）"
+}
 
 相談内容：
 ${historyText}`;
@@ -123,7 +157,9 @@ ${historyText}`;
             }
         }
     });
-    return { text: result.text };
+
+    const parsed = robustParseJSON(result.text || "{}");
+    return { text: JSON.stringify(parsed) };
 }
 
 async function handleReviseSummary(payload: any) { return { text: "Revision logic handled." }; }

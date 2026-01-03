@@ -1,5 +1,5 @@
 
-// App.tsx - v2.08 - Interaction Psychological Analysis Integrated
+// App.tsx - v2.09 - Stability & Performance Enhancement
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -20,8 +20,8 @@ const App: React.FC = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        const userPrompt = "操作履歴（迷い）の心理学的分析をキャリアコンサルティングに統合（案1：pro_notes強化）。";
-        const aiSummary = "戻る・やり直し回数をGemini 3 Proが解析し、コンサルタント向けの高度な心理状態仮説を生成するロジックを実装。Ver2.08。";
+        const userPrompt = "「考え中...」から進まない不具合の修正依頼。";
+        const aiSummary = "JSONパースロジックの堅牢化(robustParseJSON)と、対話時のFlashモデル最適化により安定性と応答速度を向上。Ver2.09。";
         
         const logs = devLogService.getLogs();
         const lastEntry = logs.entries[logs.entries.length - 1];
@@ -75,7 +75,7 @@ const App: React.FC = () => {
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
             <div className="fixed bottom-1 right-2 z-[90] pointer-events-none opacity-50">
-                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.08</span>
+                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.09</span>
             </div>
         </div>
     );
