@@ -1,4 +1,5 @@
 
+// components/ChatInput.tsx - v2.23 - Interaction Precision
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -56,7 +57,7 @@ interface ChatInputProps {
   isEditing: boolean;
   initialText: string;
   onCancelEdit: () => void;
-  onStateChange?: (isActive: boolean) => void; // 入力アクティブ状態の通知
+  onStateChange?: (state: { isFocused: boolean; isTyping: boolean }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
@@ -73,9 +74,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText(isEditing ? initialText : '');
   }, [isEditing, initialText]);
   
-  // 入力状態の変化を親に通知
+  // 入力状態の変化を親に詳細に通知
   useEffect(() => {
-    onStateChange?.(isFocused || text.length > 0 || isListening);
+    onStateChange?.({
+      isFocused,
+      isTyping: text.length > 0 || isListening
+    });
   }, [isFocused, text, isListening, onStateChange]);
 
   useEffect(() => {

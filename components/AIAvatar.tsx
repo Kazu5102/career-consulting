@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v2.22 - Dynamic Facial Expression System
+// components/AIAvatar.tsx - v2.26 - High Visibility Version Display
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -15,11 +15,10 @@ const getHeadTransform = (mood?: Mood) => {
 };
 
 export const ShibaAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+    <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M 100,160 C 60,160 50,110 50,90 C 50,60 70,40 100,40 C 130,40 150,60 150,90 C 150,110 140,160 100,160 Z" fill="#f6e8d8" stroke="#a16207" strokeWidth="2"/>
         <path d="M 50,80 C 20,80 20,40 55,50 C 60,70 55,80 50,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
         <path d="M 150,80 C 180,80 180,40 145,50 C 140,70 145,80 150,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
-        {/* Eyes */}
         <g className="transition-all duration-300">
           {mood === 'happy' ? (
             <>
@@ -38,19 +37,17 @@ export const ShibaAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
             </>
           )}
         </g>
-        {/* Mouth */}
         <path d={mood === 'happy' ? "M 90,120 Q 100,135 110,120" : "M 95,115 Q 100,110 105,115"} fill="none" stroke="#27272a" strokeWidth="2" strokeLinecap="round"/>
         <path d="M 95,105 C 90,115 110,115 105,105 Q 100,100 95,105 Z" fill="#27272a"/>
     </svg>
 );
 
 export const PoodleAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
-     <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+     <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M100 165c-22.1 0-40-17.9-40-40 0-15 10-30 20-40 10-10 20-15 40-15s30 5 40 15c10 10 20 25 20 40 0 22.1-17.9 40-40 40z" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
         <circle cx="100" cy="70" r="35" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
         <circle cx="65" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
         <circle cx="135" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
-        {/* Eyes */}
         <g className="transition-all duration-300">
           {mood === 'happy' ? (
              <>
@@ -69,7 +66,7 @@ export const PoodleAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
 );
 
 export const CorgiAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+    <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M100 160c-35 0-50-40-50-60 0-30 20-40 50-40s50 10 50 40c0 20 15 60-50 60z" fill="#eab308" stroke="#a16207" strokeWidth="2"/>
         <path d="M65 50 c-20-25 10-40 20-15z M135 50 c20-25 -10-40 -20-15z" fill="#eab308" stroke="#a16207" strokeWidth="2" />
         <path d="M68 50 c0-15 12-15 12-5z M132 50 c0-15 -12-15 -12-5z" fill="#fef3c7"/>
@@ -91,7 +88,7 @@ export const CorgiAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
 );
 
 export const RetrieverAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+    <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M100 160c-30 0-45-30-45-50 0-30 20-50 45-50s45 20 45 50c0 20 15 50-45 50z" fill="#fcd34d" stroke="#b45309" strokeWidth="2"/>
         <path d="M55 90c-15-5-15-40 0-45 10 5 15 35 0 45z M145 90c15-5 15-40 0-45 -10 5 -15 35 0 45z" fill="#fbbf24" stroke="#b45309" strokeWidth="2"/>
         <path d="M75 110c0-15 50-15 50 0" fill="#fffbeb" />
@@ -113,7 +110,7 @@ export const RetrieverAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
 );
 
 export const FemaleAvatar1 = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
+    <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
             <radialGradient id="grad_female1_skin" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#fef3f1"/><stop offset="100%" stopColor="#fbe5e0"/></radialGradient>
             <linearGradient id="grad_female1_hair" x1="0.5" y1="0" x2="0.5" y2="1"><stop offset="0%" stopColor="#6d4c41"/><stop offset="100%" stopColor="#4e342e"/></linearGradient>
@@ -142,7 +139,7 @@ export const FemaleAvatar1 = () => (
 );
 
 export const MaleAvatar1 = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
+    <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
             <radialGradient id="grad_male1_skin" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#fbebe1"/><stop offset="100%" stopColor="#f8dcc8"/></radialGradient>
             <linearGradient id="grad_male1_hair" x1="0.5" y1="0" x2="0.5" y2="1"><stop offset="0%" stopColor="#4e342e"/><stop offset="100%" stopColor="#3e2723"/></linearGradient>
@@ -170,7 +167,7 @@ export const MaleAvatar1 = () => (
 );
 
 export const FemaleAvatar2 = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
+    <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
             <radialGradient id="grad_female2_skin" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#fef3f1"/><stop offset="100%" stopColor="#fbe5e0"/></radialGradient>
             <linearGradient id="grad_female2_hair" x1="0.5" y1="0" x2="0.5" y2="1"><stop offset="0%" stopColor="#4a4a4a"/><stop offset="100%" stopColor="#212121"/></linearGradient>
@@ -197,7 +194,7 @@ export const FemaleAvatar2 = () => (
 );
 
 export const MaleAvatar2 = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
+    <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
             <radialGradient id="grad_male2_skin" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#fef0e7"/><stop offset="100%" stopColor="#fbdcc6"/></radialGradient>
             <linearGradient id="grad_male2_hair" x1="0.5" y1="0" x2="0.5" y2="1"><stop offset="0%" stopColor="#f57c00"/><stop offset="100%" stopColor="#d84315"/></linearGradient>
@@ -230,9 +227,10 @@ interface AIAvatarProps {
   aiName: string;
   isLoading: boolean;
   mood?: Mood;
+  isCompact?: boolean;
 }
 
-const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood = 'neutral' }) => {
+const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood = 'neutral', isCompact = false }) => {
   
   const renderAvatar = () => {
     switch (avatarKey) {
@@ -248,22 +246,51 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
     }
   };
 
+  if (isCompact) {
+    return (
+      <div className="w-full h-full bg-slate-800 flex items-center justify-center relative overflow-hidden rounded-full shadow-inner">
+        <div className="absolute inset-0 bg-grid-slate-700 opacity-20"></div>
+        <div className="relative w-full h-full p-1.5 flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center transform scale-110">
+            {renderAvatar()}
+          </div>
+        </div>
+        {isLoading && (
+          <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center backdrop-blur-[1px]">
+             <div className="w-full h-full border-2 border-sky-300 border-t-transparent rounded-full animate-spin opacity-60"></div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full bg-slate-800 rounded-2xl flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-2xl">
+    <div className="w-full h-full min-h-[400px] bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-2xl border border-slate-700">
       <div className="absolute inset-0 bg-grid-slate-700 [mask-image:linear-gradient(0deg,transparent,rgba(0,0,0,0.8))] opacity-50"></div>
       
-      <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl mb-6 bg-slate-900 overflow-visible">
+      <div className="relative w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-full border-8 border-slate-700 shadow-2xl mb-8 bg-slate-900 overflow-visible z-10">
         {isLoading && (
-          <div className="absolute inset-0 bg-sky-500/30 z-10 flex items-center justify-center backdrop-blur-sm rounded-full">
+          <div className="absolute inset-0 bg-sky-500/20 z-10 flex items-center justify-center backdrop-blur-sm rounded-full">
              <div className="w-24 h-24 border-8 border-sky-300 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
-        {renderAvatar()}
+        <div className="w-full h-full transform scale-105">
+           {renderAvatar()}
+        </div>
       </div>
-      <h2 className="text-2xl font-bold text-white z-10">{aiName}</h2>
-      <p className="text-slate-400 z-10 transition-all duration-300">
-        {isLoading ? '考え中...' : mood === 'happy' ? 'しっぽを振っています！' : mood === 'curious' ? '興味津々ですワン' : mood === 'thinking' ? 'じっくり考えています' : '相談受付中'}
-      </p>
+      
+      <div className="z-10 text-center">
+          <h2 className="text-3xl font-black text-white tracking-tight mb-2">{aiName}</h2>
+          <div className="px-4 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-full">
+            <p className="text-sky-300 text-sm font-bold transition-all duration-300">
+                {isLoading ? '考え中...' : mood === 'happy' ? 'しっぽを振っています！' : mood === 'curious' ? '興味津々ですワン' : mood === 'thinking' ? 'じっくり考えています' : '相談受付中'}
+            </p>
+          </div>
+      </div>
+
+      <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-400 select-none bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
+        Ver 2.26
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.22 - Dog Reassurance & Emotional Intelligence
+// views/UserView.tsx - Final Robust Optimized Layout
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -54,7 +54,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isInputActive, setIsInputActive] = useState<boolean>(false);
+  const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
@@ -62,8 +62,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionsVisible, setSuggestionsVisible] = useState<boolean>(false); 
   const [hasError, setHasError] = useState<boolean>(false);
-  
-  // v2.22 - Mood management
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const startTimeRef = useRef<number>(0);
@@ -87,15 +85,34 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
+  const startSuggestionTimer = useCallback((delayOverride?: number) => {
+    if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current);
+    if (suggestions.length === 0 || onboardingStep < 6 || isLoading) return;
+
+    const lastMsg = messages[messages.length - 1];
+    const aiText = lastMsg?.author === MessageAuthor.AI ? lastMsg.text : "";
+    const delay = delayOverride || Math.min(Math.max(2000 + (aiText.length * 30), 3000), 8000);
+
+    suggestionTimerRef.current = setTimeout(() => {
+      if (!isTyping) {
+        setSuggestionsVisible(true);
+      }
+    }, delay);
+  }, [messages, suggestions, onboardingStep, isLoading, isTyping]);
+
   useEffect(() => {
-    if (isInputActive) {
+    if (isTyping) {
       setSuggestionsVisible(false);
       if (suggestionTimerRef.current) {
         clearTimeout(suggestionTimerRef.current);
         suggestionTimerRef.current = null;
       }
+    } else {
+      if (!suggestionsVisible && onboardingStep >= 6 && !isLoading) {
+        startSuggestionTimer(3000);
+      }
     }
-  }, [isInputActive]);
+  }, [isTyping, suggestionsVisible, onboardingStep, isLoading, startSuggestionTimer]);
 
   useEffect(() => {
     const user = getUserById(userId);
@@ -159,7 +176,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
 
-      // v2.22 - Emotional Intelligence: Analyze AI text to set mood
       if (aiType === 'dog') {
         if (aiText.includes('[HAPPY]')) setAiMood('happy');
         else if (aiText.includes('[CURIOUS]') || aiText.includes('？')) setAiMood('curious');
@@ -169,23 +185,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         else setAiMood('neutral');
       }
 
-      const calculatedDelay = 3000 + (aiText.length * 40); 
-      const finalDelay = Math.min(Math.max(calculatedDelay, 5000), 15000);
-
       try {
         const response = await generateSuggestions(currentMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-            suggestionTimerRef.current = setTimeout(() => {
-                if (!isInputActive) {
-                    setSuggestionsVisible(true);
-                }
-            }, finalDelay);
         }
       } catch (e) {
         console.warn("Suggestions failed", e);
       }
   };
+
+  useEffect(() => {
+    if (!isLoading && onboardingStep >= 6 && messages.length > 0 && messages[messages.length - 1].author === MessageAuthor.AI) {
+      startSuggestionTimer();
+    }
+  }, [isLoading, onboardingStep, messages, startSuggestionTimer]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -237,10 +251,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
-            // Instant mood change while streaming for realism
-            if (aiType === 'dog' && aiResponseText.length > 5 && aiMood === 'thinking') {
-               if (aiResponseText.includes('ワン！') || aiResponseText.includes('！')) setAiMood('happy');
-            }
           }
       }
       setIsConsultationReady(true);
@@ -400,9 +410,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
           </div>
         )}
-        {onboardingStep >= 6 && (
-           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
-        )}
       </div>
     );
   };
@@ -432,18 +439,35 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   return (
-    <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full' : 'min-h-[100dvh]'}`}>
+    <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
-      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden' : 'p-0 sm:p-4 md:p-6'}`}>
+      
+      {/* Mobile Floating Avatar */}
+      {view === 'chatting' && (
+        <div className="lg:hidden fixed top-20 right-4 z-[100] w-16 h-16 rounded-full border-2 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all">
+          <div className={`w-full h-full ${isLoading ? 'animate-pulse' : ''}`}>
+            <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} isCompact={true} />
+          </div>
+        </div>
+      )}
+
+      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
-         <div className="w-full max-w-7xl h-full flex flex-row gap-6">
-            <div className="hidden lg:flex w-[400px] h-full flex-shrink-0">
-               <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} />
+         <div className="w-full max-w-7xl h-full flex flex-row gap-6 relative">
+            
+            {/* Desktop Side Profile (Persistent & Sticky) */}
+            <div className="hidden lg:flex w-[400px] flex-shrink-0 h-full">
+               <div className="sticky top-0 w-full flex flex-col h-[calc(100vh-140px)] transition-all duration-500">
+                  <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} />
+               </div>
             </div>
-            <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden relative">
+
+            {/* Chat Area */}
+            <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
-              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+              
+              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-10">
                   {renderOnboardingUI()}
                   <ChatInput 
                     onSubmit={handleSendMessage} 
@@ -451,8 +475,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     isEditing={false} 
                     initialText={''} 
                     onCancelEdit={() => {}} 
-                    onStateChange={setIsInputActive}
+                    onStateChange={(state) => setIsTyping(state.isTyping)}
                   />
+                  {onboardingStep >= 6 && (
+                    <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
+                  )}
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>

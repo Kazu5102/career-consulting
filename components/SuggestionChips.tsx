@@ -1,11 +1,12 @@
 
+// components/SuggestionChips.tsx - v2.23 - Fluid Transition
 import React from 'react';
 import LightbulbIcon from './icons/LightbulbIcon';
 
 interface SuggestionChipsProps {
   suggestions: string[];
   onSuggestionClick: (suggestion: string) => void;
-  isVisible?: boolean; // 表示状態かどうかのフラグ
+  isVisible?: boolean; 
 }
 
 const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSuggestionClick, isVisible }) => {
@@ -14,10 +15,10 @@ const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSugges
   }
 
   return (
-    <div className={`w-full px-4 pt-2 pb-1 transition-all ease-in-out ${
+    <div className={`w-full px-4 pt-2 pb-1 transition-all duration-700 ease-out ${
       isVisible 
-        ? 'opacity-100 scale-100 pointer-events-auto duration-1000' 
-        : 'opacity-0 scale-95 pointer-events-none duration-200'
+        ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' 
+        : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
     }`}>
       <div className="flex items-center gap-1.5 mb-2 px-1">
         <div className="text-sky-500">
@@ -34,8 +35,8 @@ const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSugges
             onClick={() => onSuggestionClick(suggestion)}
             className="w-full text-left p-3 bg-white/80 backdrop-blur-sm border border-sky-100 rounded-xl shadow-sm hover:bg-sky-50 hover:border-sky-300 hover:shadow-md transition-all duration-200 group active:scale-[0.98]"
             style={{ 
-              animation: isVisible ? 'slideUp 0.5s ease-out forwards' : 'none',
-              animationDelay: `${index * 100}ms`
+              animation: isVisible ? 'slideUpSuggestion 0.5s ease-out forwards' : 'none',
+              animationDelay: `${index * 80}ms`
             }}
           >
             <div className="flex items-start gap-3">
@@ -52,8 +53,8 @@ const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSugges
         ))}
       </div>
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(10px); }
+        @keyframes slideUpSuggestion {
+          from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
       `}} />

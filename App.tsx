@@ -1,5 +1,5 @@
 
-// App.tsx - v2.18 - User Summary Aesthetic Optimization
+// App.tsx - v2.26 - Global Version Visibility
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -7,8 +7,6 @@ import PasswordModal from './components/PasswordModal';
 import { checkPassword } from './services/authService';
 import { checkServerStatus } from './services/index';
 import UserSelectionView from './views/UserSelectionView';
-import * as devLogService from './services/devLogService';
-
 
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
@@ -20,22 +18,13 @@ const App: React.FC = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        const userPrompt = "ユーザー向けサマリーの視覚的表現を強化。太字や箇条書き、温かみのあるMarkdown構造を導入。";
-        const aiSummary = "handleGenerateSummaryのプロンプトを刷新し、ユーザー用サマリーに4つの構造化セクション（気づき、価値観、強み、一歩）を強制。UI側でもProse設定を調整し、重要箇所の太字強調を際立たせる意匠化を完了。Ver2.18。";
-        
-        const logs = devLogService.getLogs();
-        const lastEntry = logs.entries[logs.entries.length - 1];
-        if (!lastEntry || lastEntry.aiSummary !== aiSummary) {
-             devLogService.addLogEntry({
-                userPrompt,
-                aiSummary
-             });
-        }
-    }, []);
-
-    useEffect(() => {
         const verifyServer = async () => {
-            try { await checkServerStatus(); setServerStatus('ok'); } catch (error) { setServerStatus('error'); }
+            try { 
+                await checkServerStatus(); 
+                setServerStatus('ok'); 
+            } catch (error) { 
+                setServerStatus('error'); 
+            }
         };
         verifyServer();
     }, []);
@@ -43,7 +32,11 @@ const App: React.FC = () => {
     const handleUserSelect = (userId: string) => setCurrentUserId(userId);
     const handleSwitchUser = () => setCurrentUserId(null);
     const handlePasswordSubmit = (password: string): boolean => {
-        if (checkPassword(password)) { setMode('admin'); setIsPasswordModalOpen(false); return true; }
+        if (checkPassword(password)) { 
+            setMode('admin'); 
+            setIsPasswordModalOpen(false); 
+            return true; 
+        }
         return false;
     };
 
@@ -56,10 +49,18 @@ const App: React.FC = () => {
 
     return (
         <div className="flex flex-col min-h-[100dvh] font-sans bg-slate-100 relative overflow-x-hidden">
-            <header className="bg-slate-800 text-white p-2 text-center shadow-md z-10 sticky top-0">
-                <div className="flex justify-center items-center">
-                    <span className="mr-4 font-bold text-sm sm:text-base">モード: {mode === 'user' ? 'ユーザー' : '管理者'}</span>
-                    <button onClick={handleSwitchMode} className="bg-sky-600 hover:bg-sky-700 px-3 py-1 rounded-md text-xs sm:text-sm transition-colors">切替</button>
+            <header className="bg-slate-800 text-white p-2 shadow-md z-10 sticky top-0">
+                <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
+                    {/* Visual Version Indicator - Visible on all screens */}
+                    <div className="flex items-center gap-2">
+                        <span className="bg-sky-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
+                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.26</span>
+                    </div>
+
+                    <div className="flex items-center">
+                        <span className="mr-4 font-bold text-sm sm:text-base">モード: {mode === 'user' ? 'ユーザー' : '管理者'}</span>
+                        <button onClick={handleSwitchMode} className="bg-sky-600 hover:bg-sky-700 px-3 py-1 rounded-md text-xs sm:text-sm transition-colors font-bold shadow-sm">切替</button>
+                    </div>
                 </div>
             </header>
             
@@ -68,15 +69,22 @@ const App: React.FC = () => {
                   mode === 'user' ? renderUserContent() : <AdminView />
               ) : (
                   <div className="h-full flex-1 flex items-center justify-center text-slate-500 p-4 text-center">
-                    {serverStatus === 'checking' ? <p>接続中...</p> : <p>接続エラー</p>}
+                    {serverStatus === 'checking' ? (
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="font-bold">接続確認中...</p>
+                        </div>
+                    ) : (
+                        <div className="bg-red-50 text-red-600 p-6 rounded-2xl border border-red-100">
+                            <p className="font-black text-xl">接続エラー</p>
+                            <p className="text-sm mt-2">サーバーとの通信に失敗しました。再読み込みしてください。</p>
+                        </div>
+                    )}
                   </div>
               )}
             </div>
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
-            <div className="fixed bottom-1 right-2 z-[90] pointer-events-none opacity-50">
-                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.18</span>
-            </div>
         </div>
     );
 }
