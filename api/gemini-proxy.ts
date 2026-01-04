@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.22 - Dog Personality Enhancement
+// api/gemini-proxy.ts - v2.23 - Suggestions Engine Improvement
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -213,17 +213,45 @@ async function handleGenerateSummaryFromText(payload: { textToAnalyze: string })
 async function handlePerformSkillMatching(payload: { conversations: any[] }) {
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `適性診断：${JSON.stringify(payload)}`,
+        contents: `适性診断：${JSON.stringify(payload)}`,
         config: { responseMimeType: "application/json" }
     });
     return robustParseJSON(result.text || "{}");
 }
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
+    const { messages } = payload;
+    const historyText = messages.map(m => `${m.author}: ${m.text}`).join('\n');
+    
+    const prompt = `
+あなたは有能なキャリアコンサルタントです。
+これまでの相談内容を踏まえて、相談者が次に質問したり話したりしそうな「3つの具体的な返答候補」を提案してください。
+
+【ルール】
+- 相談者の状況（年代、現在の仕事、悩み）に寄り添ったものにする。
+- 1つは現状の深掘り、1つは未来への展望、1つは具体的なスキルや行動に関するもの。
+- 30文字以内の自然な話し言葉にする。
+
+相談履歴:
+${historyText}`;
+
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `提案生成：${JSON.stringify(payload)}`,
-        config: { responseMimeType: "application/json" }
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    suggestions: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    }
+                },
+                required: ["suggestions"]
+            }
+        }
     });
     return robustParseJSON(result.text || "{}");
 }
+

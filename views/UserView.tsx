@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - Final Robust Optimized Layout
+// views/UserView.tsx - v2.28 - Fixed Suggestion Race Condition
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -65,7 +65,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const startTimeRef = useRef<number>(0);
-  const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
 
@@ -85,34 +84,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
-  const startSuggestionTimer = useCallback((delayOverride?: number) => {
-    if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current);
-    if (suggestions.length === 0 || onboardingStep < 6 || isLoading) return;
-
-    const lastMsg = messages[messages.length - 1];
-    const aiText = lastMsg?.author === MessageAuthor.AI ? lastMsg.text : "";
-    const delay = delayOverride || Math.min(Math.max(2000 + (aiText.length * 30), 3000), 8000);
-
-    suggestionTimerRef.current = setTimeout(() => {
-      if (!isTyping) {
-        setSuggestionsVisible(true);
-      }
-    }, delay);
-  }, [messages, suggestions, onboardingStep, isLoading, isTyping]);
-
+  // 入力中は即座に候補を消す
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
-      if (suggestionTimerRef.current) {
-        clearTimeout(suggestionTimerRef.current);
-        suggestionTimerRef.current = null;
-      }
-    } else {
-      if (!suggestionsVisible && onboardingStep >= 6 && !isLoading) {
-        startSuggestionTimer(3000);
-      }
     }
-  }, [isTyping, suggestionsVisible, onboardingStep, isLoading, startSuggestionTimer]);
+  }, [isTyping]);
 
   useEffect(() => {
     const user = getUserById(userId);
@@ -171,7 +148,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSuggestionsVisible(false);
   };
 
-  const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
+  const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
       setIsLoading(false);
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
@@ -185,21 +162,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         else setAiMood('neutral');
       }
 
-      try {
-        const response = await generateSuggestions(currentMessages);
-        if (response?.suggestions?.length) {
-            setSuggestions(response.suggestions);
-        }
-      } catch (e) {
-        console.warn("Suggestions failed", e);
+      // オンボーディング終了後のみ候補を表示 (引数のcurrentStepを参照してState更新遅延を回避)
+      if (currentStep >= 6) {
+          try {
+            const response = await generateSuggestions(currentMessages);
+            if (response?.suggestions?.length) {
+                setSuggestions(response.suggestions);
+                // AIが話し終わったら即座に表示！
+                setSuggestionsVisible(true);
+            }
+          } catch (e) {
+            console.warn("Suggestions failed", e);
+          }
       }
   };
-
-  useEffect(() => {
-    if (!isLoading && onboardingStep >= 6 && messages.length > 0 && messages[messages.length - 1].author === MessageAuthor.AI) {
-      startSuggestionTimer();
-    }
-  }, [isLoading, onboardingStep, messages, startSuggestionTimer]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -215,7 +191,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestions([]);
-    setSuggestionsVisible(false); 
+    setSuggestionsVisible(false); // 送信した瞬間に消す
     setIsLoading(true);
     if (aiType === 'dog') setAiMood('thinking');
 
@@ -254,7 +230,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           }
       }
       setIsConsultationReady(true);
-      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
+      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }], onboardingStep);
     } catch (error) {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
@@ -295,7 +271,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         };
         setUserProfile(finalProfile);
         setOnboardingStep(6);
-        await startActualConsultation(history, finalProfile);
+        await startActualConsultation(history, finalProfile, 6);
         return;
     }
 
@@ -304,7 +280,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsLoading(false);
   };
 
-  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
+  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile, stepAtFinalize: number) => {
     try {
       const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
       if (!stream) throw new Error("Stream failed");
@@ -335,7 +311,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           }
       }
       setIsConsultationReady(true);
-      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }], stepAtFinalize);
     } catch (e) { 
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
