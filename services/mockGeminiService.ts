@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v2.18 - Updated Mock Summary Template
+// services/mockGeminiService.ts - v2.19 - Fixed Suggestion Sentences
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -215,14 +215,10 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
 
 export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => {
     await delay(800);
-    // The check `lastMessage.author === MessageAuthor.AI` was removed because it was causing a bug.
-    // The function is called *after* the AI responds, so the last message is always from the AI.
-    // In the mock, we now consistently return suggestions to allow for UI testing.
-    // The real AI service will determine when to return an empty array.
     console.log("[Mock] Generating suggestions.");
     return { suggestions: [
-        '私の強みは何だと思いますか？',
-        '他にどんな職種が向いていますか？',
-        '今後のキャリアプランについてアドバイスはありますか？'
+        '対話を通じて見えた自分の強みを知りたい',
+        '自分に合う他の職種についても深掘りしたい',
+        '今後のプランについて一緒に整理してほしい'
     ]};
 };

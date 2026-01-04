@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.41 - Interrupt & Save Stability Fix
+// views/UserView.tsx - v2.45 - Warm Welcome & Positive Guidance
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -123,7 +123,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
-    const greetingText = `こんにちは。私はあなたが「本当の自分」を整理するお手伝いをします。アドバイスはしません。じっくりとお話を聞かせてください。まずは、今のあなたの「心の状況」に近いものはどれですか？`;
+    const greetingText = `こんにちは。あなたの想いや今の状況を、まずはありのままにお聞かせください。対話を通じて今の状態を丁寧に解きほぐし、あなたが「次の一歩」をスムーズに踏み出せるよう、心を込めて整理のお手伝いをさせていただきます。まずは、今のあなたの「心の状況」に近いものはどれですか？`;
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setOnboardingStep(1);
     setUserProfile({ lifeRoles: [] });
