@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v2.78 - Expert Insight & Reactive Data Management
+// views/AdminView.tsx - v2.80 - Expert Insight & Reactive Data Management
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
 import * as userService from '../services/userService';
@@ -116,7 +116,6 @@ const AdminView: React.FC = () => {
     const [selectedDetailConv, setSelectedDetailConv] = useState<StoredConversation | null>(null);
 
     const loadData = useCallback(() => {
-        // スプレッド演算子を用いて新しい配列参照を確実に作成し、Reactに更新を通知する
         const users = userService.getUsers();
         setAllUsers([...users]);
         
@@ -130,19 +129,16 @@ const AdminView: React.FC = () => {
         }
     }, []);
 
-    // 初回読み込みと、インポート等のリフレッシュ用
     useEffect(() => {
         loadData();
     }, [loadData]);
 
-    // リストが読み込まれた後、未選択なら最初のユーザーを選択
     useEffect(() => {
         if (allUsers.length > 0 && !selectedUserId) {
             setSelectedUserId(allUsers[0].id);
         }
     }, [allUsers, selectedUserId]);
 
-    // ユーザー切り替え時に分析状態をリセット
     useEffect(() => { 
         setAnalysesState(initialAnalysesState); 
     }, [selectedUserId]);
@@ -182,7 +178,6 @@ const AdminView: React.FC = () => {
             } catch (e) { currentAll = []; }
         }
         
-        // ユーザーが存在しない場合は追加
         const users = userService.getUsers();
         if (!users.find(u => u.id === newConversation.userId)) {
             const newUser: UserInfo = {
@@ -211,7 +206,7 @@ const AdminView: React.FC = () => {
                     <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg"><TrajectoryIcon className="w-7 h-7" /></div>
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">Professional Dashboard</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.78 Expert Insight Dashboard</p>
+                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.80 Expert Insight Dashboard</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">

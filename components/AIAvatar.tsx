@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v2.78 - Expert Insight Edition
+// components/AIAvatar.tsx - v2.80 - Expert Insight Edition
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -231,7 +231,6 @@ interface AIAvatarProps {
 }
 
 const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood = 'neutral', isCompact = false }) => {
-  
   const renderAvatar = () => {
     switch (avatarKey) {
       case 'human_female_1': return <FemaleAvatar1 />;
@@ -289,7 +288,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-400 select-none bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-        Ver 2.78
+        Ver 2.80
       </div>
     </div>
   );
