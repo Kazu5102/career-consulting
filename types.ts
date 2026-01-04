@@ -141,9 +141,10 @@ export interface TrajectoryAnalysisData {
     areasForDevelopment: string[];
     suggestedNextSteps: string[];
     overallSummary: string;
-    // New Expert Fields
     triageLevel: 'high' | 'medium' | 'low';
     ageStageGap: number; // 0-100
+    theoryBasis?: string; // Ver 2.72 追加
+    expertAdvice?: string; // Ver 2.72 追加
     reframedSkills: ReframedSkill[];
     sessionStarter: string;
     narrativeTimeline?: { topic: string; emotionalTone: number }[];

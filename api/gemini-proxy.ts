@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.51 - Strategic Expert Analysis
+// api/gemini-proxy.ts - v2.72 - Gap Navigator Strategy
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -33,6 +33,19 @@ function robustParseJSON(text: string) {
             try { return JSON.parse(jsonMatch[0]); } catch (e2) { throw new Error("JSON extraction failed"); }
         }
         throw e;
+    }
+}
+
+function normalizeSummary(summary: string): string {
+    if (!summary || summary === '中断') return "（対話中断：詳細なサマリーなし）";
+    try {
+        const parsed = JSON.parse(summary);
+        if (parsed.user_summary || parsed.pro_notes) {
+            return `【相談者向け振り返り】\n${parsed.user_summary || 'なし'}\n\n【専門家向け詳細ノート】\n${parsed.pro_notes || 'なし'}`;
+        }
+        return summary;
+    } catch (e) {
+        return summary;
     }
 }
 
@@ -120,16 +133,22 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
 
 async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: string }) {
     const { conversations } = payload;
-    const historyText = conversations.map(c => c.summary).join('\n---\n');
+    const normalizedHistory = conversations.map((c, idx) => {
+        return `### セッション記録 ${idx + 1} (日時: ${c.date})\n${normalizeSummary(c.summary)}`;
+    }).join('\n\n---\n\n');
     
-    const prompt = `あなたはプロのキャリアコンサルタントです。複数の相談サマリーから専門的分析を行ってください。
-1. **トリアージレベル**: 心理的負荷や乖離度に基づき high (要介入), medium (経過観察), low (安定) を判定。
-2. **Age-Stage Gap**: 実年齢と語られている心理的発達段階の乖離を0-100で数値化（高いほど乖離）。
-3. **リフレーミング**: ユーザーが日常的に語る活動や趣味を、専門的な「職業スキル」に言い換えてください。
-4. **セッション・スターター**: 面談冒頭でラポールを形成し、核心に触れるための最高の一言を提案。
+    const prompt = `あなたはプロのキャリアコンサルタントです。提供された複数のセッション記録から、専門的な臨床的分析を行ってください。
+
+【分析の視点】
+1. **トリアージレベル**: 心理的負荷、発達課題の深刻度、キャリアに対する停滞感に基づき high (要介入), medium (経過観察), low (安定) を判定。
+2. **Age-Stage Gap**: スーパーやレヴィンソンの発達理論に照らし、実年齢と語られている心理的発達段階（未解決の課題など）の乖離を0-100で数値化。
+3. **理論的背景 (theoryBasis)**: なぜそのGap数値になったのか、どの発達理論（例：スーパーの探索期、レヴィンソンの30代の転機、エリクソンの同一性など）に基づいた見立てかを100文字程度で説明。
+4. **専門家向け戦略アドバイス (expertAdvice)**: 面談でラポールを維持しつつ、核心に触れるためにコンサルタントが取るべき具体的な態度や、避けるべき表現を助言。
+5. **リフレーミング**: ユーザーが日常的な言葉で語る活動を、より高度な「専門的職業スキル」として再定義。
+6. **セッション・スターター**: 次回の面談で、核心に触れるための最も効果的な第一声を提案。
 
 相談履歴:
-${historyText}`;
+${normalizedHistory}`;
 
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -142,6 +161,8 @@ ${historyText}`;
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
                     triageLevel: { type: Type.STRING, description: "high | medium | low" },
                     ageStageGap: { type: Type.NUMBER },
+                    theoryBasis: { type: Type.STRING },
+                    expertAdvice: { type: Type.STRING },
                     reframedSkills: { 
                         type: Type.ARRAY, 
                         items: { 
@@ -156,7 +177,7 @@ ${historyText}`;
                     sessionStarter: { type: Type.STRING },
                     overallSummary: { type: Type.STRING }
                 },
-                required: ["keyTakeaways", "triageLevel", "ageStageGap", "reframedSkills", "sessionStarter", "overallSummary"]
+                required: ["keyTakeaways", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "reframedSkills", "sessionStarter", "overallSummary"]
             }
         }
     });
