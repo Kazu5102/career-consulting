@@ -1,5 +1,5 @@
 
-// App.tsx - v2.10 - Deep Psychological Analysis Integrated
+// App.tsx - v2.14 - Layout Refinement
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -20,12 +20,12 @@ const App: React.FC = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        const userPrompt = "「考え中...」不具合修正後の詳細分析機能の強化。";
-        const aiSummary = "意思決定スタイルやキャリア・アダプタビリティの4次元分析をpro_notesに統合。パースロジックの安定性も継続。Ver2.10。";
+        const userPrompt = "AIコンサルタントの説明文を左寄せにし、カード全体はセンタリングを維持。";
+        const aiSummary = "AvatarSelectionViewのカード内説明文をtext-leftに変更。可読性を向上させつつセンターバランスを維持。Ver2.14。";
         
         const logs = devLogService.getLogs();
         const lastEntry = logs.entries[logs.entries.length - 1];
-        if (!lastEntry || lastEntry.userPrompt !== userPrompt) {
+        if (!lastEntry || lastEntry.aiSummary !== aiSummary) {
              devLogService.addLogEntry({
                 userPrompt,
                 aiSummary
@@ -75,7 +75,7 @@ const App: React.FC = () => {
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
             <div className="fixed bottom-1 right-2 z-[90] pointer-events-none opacity-50">
-                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.10</span>
+                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.14</span>
             </div>
         </div>
     );

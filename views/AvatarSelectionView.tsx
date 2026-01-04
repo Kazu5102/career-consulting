@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { AIType } from '../types';
 import { ASSISTANTS } from '../config/aiAssistants';
@@ -46,7 +47,7 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect }) =
               {selectedAssistants.human.avatarComponent}
             </div>
             <h3 className="text-xl font-bold text-slate-800">AIコンサルタント</h3>
-            <p className="text-slate-600 mt-2 text-center h-16">丁寧な対話で、あなたの考えを整理するお手伝いをします。</p>
+            <p className="text-slate-600 mt-2 text-left w-full h-16 px-1">丁寧な対話で、あなたの考えを整理するお手伝いをします。</p>
             <div className="mt-4 w-full px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md group-hover:bg-sky-700 transition-colors">
               このアシスタントと話す
             </div>
@@ -63,7 +64,7 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect }) =
               {selectedAssistants.dog.avatarComponent}
             </div>
             <h3 className="text-xl font-bold text-slate-800">キャリア相談わんこ</h3>
-            <p className="text-slate-600 mt-2 text-center h-16">元気な対話で、あなたに寄り添い、励まします。</p>
+            <p className="text-slate-600 mt-2 text-left w-full h-16 px-1">元気な対話で、あなたに寄り添い、励まします。</p>
             <div className="mt-4 w-full px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md group-hover:bg-sky-700 transition-colors">
               このアシスタントと話す
             </div>

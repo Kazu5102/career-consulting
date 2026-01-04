@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.10 - Advanced Narrative Analysis
+// api/gemini-proxy.ts - v2.12 - Balanced Interaction Optimization
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -66,10 +66,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
+    
     const baseInstruction = `
 あなたはプロフェッショナルなキャリア支援AI「Repotta」です。
 ドナルド・スーパーのライフキャリア理論とサビカスのナラティブ・アプローチを基盤とします。
-${aiType === 'human' ? `落ち着いた専門家${aiName}として深層心理に寄り添ってください。` : `親しみやすい${aiName}として、感情を動かす「ワン！」を交えて励ましてください。`}
+
+【出力のゴール：読みやすさと対話のテンポの最適化】
+1. **短文構成**: 1つの段落は最大3文まで。適宜、空白行（空行）を挿入して視覚的な余白を作ってください。
+2. **視覚的構造**: 複数のポイントを伝える際は、Markdownの箇条書き（- ）を必ず使用してください。
+3. **段階的対話**: 一度の返信で全ての解決策を提示せず、現在のトピックに集中してください。返信の最後には、ユーザーの「語り」を促す問いかけを1つだけ添えてください。
+4. **ミラーリング**: ユーザーの入力の熱量や文章量に合わせつつ、専門用語は避け、日常的で温かい言葉を選んでください。
+
+${aiType === 'human' ? `落ち着いた専門家${aiName}として、深い共感をベースに深層心理に寄り添ってください。` : `親しみやすい${aiName}として、感情を動かす「ワン！」を適度に交えて励ましてください。`}
+
 ユーザー背景：${JSON.stringify(profile)}
 `;
 
@@ -143,7 +152,6 @@ ${historyText}`;
     return { text: JSON.stringify(robustParseJSON(result.text || "{}")) };
 }
 
-// FIX: Added missing handleReviseSummary function
 async function handleReviseSummary(payload: { originalSummary: string, correctionRequest: string }) {
     const { originalSummary, correctionRequest } = payload;
     const prompt = `
@@ -164,7 +172,6 @@ ${correctionRequest}
     return { text: result.text || "" };
 }
 
-// FIX: Added missing handleAnalyzeConversations function
 async function handleAnalyzeConversations(payload: { summaries: any[] }) {
     const { summaries } = payload;
     const summariesText = summaries.map((s, i) => `[相談 ${i+1}]\n${s.summary}`).join('\n\n');
@@ -222,7 +229,6 @@ ${summariesText}
     return robustParseJSON(result.text || "{}");
 }
 
-// FIX: Added missing handleAnalyzeTrajectory function
 async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: string }) {
     const { conversations, userId } = payload;
     const historyText = conversations.map(c => `[${c.date}] ${c.summary}`).join('\n\n');
@@ -266,7 +272,6 @@ ${historyText}
     return robustParseJSON(result.text || "{}");
 }
 
-// FIX: Added missing handleFindHiddenPotential function
 async function handleFindHiddenPotential(payload: { conversations: any[], userId: string }) {
     const { conversations, userId } = payload;
     const historyText = conversations.map(c => c.summary).join('\n\n');
@@ -302,7 +307,6 @@ ${historyText}
     return robustParseJSON(result.text || "{}");
 }
 
-// FIX: Added missing handleGenerateSummaryFromText function
 async function handleGenerateSummaryFromText(payload: { textToAnalyze: string }) {
     const { textToAnalyze } = payload;
     const prompt = `
@@ -317,7 +321,6 @@ ${textToAnalyze}
     return { text: result.text || "" };
 }
 
-// FIX: Added missing handlePerformSkillMatching function
 async function handlePerformSkillMatching(payload: { conversations: any[] }) {
     const { conversations } = payload;
     const historyText = conversations.map(c => c.summary).join('\n\n');
@@ -379,7 +382,6 @@ ${historyText}
     return robustParseJSON(result.text || "{}");
 }
 
-// FIX: Added missing handleGenerateSuggestions function
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
     const historyText = messages.map(m => `${m.author}: ${m.text}`).join('\n');

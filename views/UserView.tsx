@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.11 - Fixed "Thinking" state hang
+// views/UserView.tsx - v2.14 - Suggestion Transparency Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -48,6 +48,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInputActive, setIsInputActive] = useState<boolean>(false); // NEW: 入力アクティブ状態
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
@@ -101,7 +102,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     startTimeRef.current = Date.now();
     resetOnboarding(false);
     setView('chatting');
-  }, [aiAvatarKey]);
+  }, []);
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
@@ -179,8 +180,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);
-    
-    // Simulate thinking for UX
     await new Promise(r => setTimeout(r, 400));
 
     let nextText = '';
@@ -320,7 +319,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         )}
         
         {onboardingStep >= 6 && (
-           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} />
+           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isInputActive={isInputActive} />
         )}
       </div>
     );
@@ -354,7 +353,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200">
                   {renderOnboardingUI()}
-                  <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText={''} onCancelEdit={() => {}} />
+                  <ChatInput 
+                    onSubmit={handleSendMessage} 
+                    isLoading={isLoading} 
+                    isEditing={false} 
+                    initialText={''} 
+                    onCancelEdit={() => {}} 
+                    onStateChange={setIsInputActive} // 入力状態の同期
+                  />
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>

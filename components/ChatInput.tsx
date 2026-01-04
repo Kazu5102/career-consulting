@@ -1,12 +1,11 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
 import SaveIcon from './icons/SaveIcon';
 import EditIcon from './icons/EditIcon';
 
-// Manually define types for Web Speech API to fix TypeScript errors.
+// Manually define types for Web Speech API
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   lang: string;
@@ -40,7 +39,6 @@ interface SpeechRecognitionAlternative {
     readonly confidence: number;
 }
 
-
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
 }
@@ -51,7 +49,6 @@ declare global {
     webkitSpeechRecognition: { new (): SpeechRecognition };
   }
 }
-// End of type definitions
 
 interface ChatInputProps {
   onSubmit: (text: string) => void;
@@ -59,12 +56,14 @@ interface ChatInputProps {
   isEditing: boolean;
   initialText: string;
   onCancelEdit: () => void;
+  onStateChange?: (isActive: boolean) => void; // 入力アクティブ状態の通知
 }
 
-const MAX_TEXTAREA_HEIGHT = 128; // Set a max height of 128px (approx. 5-6 lines)
+const MAX_TEXTAREA_HEIGHT = 128;
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
@@ -74,34 +73,34 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText(isEditing ? initialText : '');
   }, [isEditing, initialText]);
   
-  // Auto-resize textarea to show all content, with a max height.
+  // 入力状態の変化を親に通知
+  useEffect(() => {
+    onStateChange?.(isFocused || text.length > 0 || isListening);
+  }, [isFocused, text, isListening, onStateChange]);
+
   useEffect(() => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
-      textarea.style.height = 'auto'; // Reset height to get accurate scrollHeight
+      textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
 
       if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
         textarea.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
-        textarea.style.overflowY = 'auto'; // Show scrollbar when max height is reached
+        textarea.style.overflowY = 'auto';
       } else {
         textarea.style.height = `${scrollHeight}px`;
-        textarea.style.overflowY = 'hidden'; // Hide scrollbar when below max height
+        textarea.style.overflowY = 'hidden';
       }
     }
   }, [text]);
 
   const handleMicClick = () => {
-    // Stop listening
     if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false); // Make UI responsive immediately
+      recognitionRef.current?.stop();
+      setIsListening(false);
       return;
     }
 
-    // Lazy initialization on first click for iOS compatibility
     if (!recognitionRef.current) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognitionAPI) {
@@ -110,72 +109,38 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
             recognition.continuous = false;
             recognition.lang = 'ja-JP';
             recognition.interimResults = false;
-
-            recognition.onresult = (event: SpeechRecognitionEvent) => {
+            recognition.onresult = (event) => {
               const transcript = event.results[0][0].transcript;
               setText(prev => (prev ? prev + ' ' : '') + transcript);
             };
-
-            recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-              console.error('Speech recognition error:', event.error);
-              if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                setMicError('マイクの使用が許可されていません。ブラウザの設定を確認してください。');
-              } else {
-                setMicError('音声認識エラーが発生しました。');
-              }
+            recognition.onerror = (event) => {
+              setMicError('音声認識エラーが発生しました。');
               setIsListening(false);
             };
-
-            recognition.onend = () => {
-              setIsListening(false);
-            };
-            
+            recognition.onend = () => setIsListening(false);
             recognitionRef.current = recognition;
         } catch (err) {
-            console.error("Failed to initialize SpeechRecognition", err);
-            const message = 'お使いのブラウザは音声入力に対応していないか、設定に問題があります。';
-            setMicError(message);
-            alert(message);
+            setMicError('音声入力の初期化に失敗しました。');
             return;
         }
       } else {
-        const message = 'お使いのブラウザは音声入力に対応していません。';
-        setMicError(message);
-        alert(message);
+        setMicError('お使いのブラウザは音声入力に対応していません。');
         return;
       }
     }
     
-    // Start listening
-    const recognition = recognitionRef.current;
-    if (recognition) {
-        setMicError('');
-        try {
-            recognition.start();
-            setIsListening(true);
-        } catch (e) {
-            console.error("Error starting recognition:", e);
-             if (e instanceof DOMException && e.name === 'InvalidStateError') {
-                console.warn("Recognition already started.");
-            } else {
-                setMicError('音声認識を開始できませんでした。');
-                setIsListening(false);
-            }
-        }
+    try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+    } catch (e) {
+        setIsListening(false);
     }
   };
 
   const handleTextSubmit = () => {
     if (!text.trim() || isLoading) return;
     onSubmit(text);
-    if (!isEditing) {
-        setText('');
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    handleTextSubmit();
+    if (!isEditing) setText('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -185,39 +150,28 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     }
   };
 
-  const handleCancel = () => {
-    onCancelEdit();
-  };
-  
-  const placeholderText = isLoading 
-    ? "AIが応答中です..." 
-    : isListening 
-    ? "お話しください..." 
-    : isEditing 
-    ? "メッセージを編集..." 
-    : "メッセージを入力してください (Shift+Enterで改行)";
-
   return (
     <div className="p-4">
        {isEditing && (
         <div className="text-sm text-slate-600 mb-2 px-2 flex justify-between items-center animate-pulse">
           <span className="font-semibold flex items-center gap-2"><EditIcon /> メッセージを編集中...</span>
-          <button type="button" onClick={handleCancel} className="font-semibold px-2 py-1 rounded-md text-sky-600 hover:bg-sky-100 transition-colors">
+          <button type="button" onClick={onCancelEdit} className="font-semibold px-2 py-1 rounded-md text-sky-600 hover:bg-sky-100 transition-colors">
             キャンセル
           </button>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex items-end gap-3">
+      <form onSubmit={(e) => { e.preventDefault(); handleTextSubmit(); }} className="flex items-end gap-3">
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholderText}
+          placeholder={isLoading ? "AIが応答中です..." : isListening ? "お話しください..." : isEditing ? "メッセージを編集..." : "メッセージを入力してください..."}
           disabled={isLoading || isListening}
           className="flex-1 w-full px-4 py-3 bg-slate-100 rounded-2xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition duration-200 resize-none"
           rows={1}
-          autoFocus
         />
         <button
           type="button"
@@ -226,7 +180,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
           className={`flex-shrink-0 w-12 h-12 rounded-full text-white flex items-center justify-center transition-colors duration-200 ${
             isListening ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-sky-600 hover:bg-sky-700'
           } disabled:bg-slate-400 disabled:cursor-not-allowed`}
-          title={micError || (isListening ? '録音を停止' : '音声入力')}
         >
           <MicrophoneIcon />
         </button>
@@ -234,7 +187,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
           type="submit"
           disabled={isLoading || !text.trim()}
           className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center transition-colors duration-200 hover:bg-emerald-600 disabled:bg-slate-400 disabled:cursor-not-allowed"
-          aria-label={isEditing ? '編集を保存' : 'メッセージを送信'}
         >
           {isEditing ? <SaveIcon /> : <SendIcon />}
         </button>
