@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v2.11 - Robust Stream Handling
+// services/geminiService.ts - v2.19 - Enhanced Error Propagation
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
@@ -22,7 +22,9 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.details || errorData.error || `サーバーエラー: ${response.status}`;
-            throw new Error(errorMessage);
+            const error: any = new Error(errorMessage);
+            error.code = errorData.code; // Propagation of safety codes
+            throw error;
         }
         
         if (isStreaming) return response;
@@ -57,6 +59,10 @@ export const checkServerStatus = async (): Promise<{status: string}> => {
 export interface StreamUpdate {
     text?: string;
     groundingMetadata?: GroundingMetadata;
+    error?: {
+        message: string;
+        code?: string;
+    };
 }
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
@@ -88,7 +94,6 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
                         if (!trimmed.startsWith('data: ')) continue;
                         
                         const jsonStr = trimmed.slice(6);
-                        // CRITICAL: Immediately close if [DONE] is received to prevent hanging
                         if (jsonStr === '[DONE]') {
                             controller.close();
                             await reader.cancel();
@@ -101,6 +106,8 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
                                 controller.enqueue({ text: parsed.content });
                             } else if (parsed.type === 'grounding') {
                                 controller.enqueue({ groundingMetadata: parsed.content });
+                            } else if (parsed.type === 'error') {
+                                controller.enqueue({ error: { message: parsed.content, code: parsed.code } });
                             }
                         } catch (e) {
                             console.warn("JSON Parse Error", jsonStr);
@@ -114,8 +121,14 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
                 reader.cancel();
             }
         });
-    } catch (error) {
-        throw error;
+    } catch (error: any) {
+        // Handle immediate fetch errors
+        return new ReadableStream({
+            start(controller) {
+                controller.enqueue({ error: { message: error.message, code: error.code } });
+                controller.close();
+            }
+        });
     }
 };
 

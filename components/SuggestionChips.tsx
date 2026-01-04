@@ -5,19 +5,19 @@ import LightbulbIcon from './icons/LightbulbIcon';
 interface SuggestionChipsProps {
   suggestions: string[];
   onSuggestionClick: (suggestion: string) => void;
-  isInputActive?: boolean; // 入力中かどうかのフラグ
+  isVisible?: boolean; // 表示状態かどうかのフラグ
 }
 
-const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSuggestionClick, isInputActive }) => {
+const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSuggestionClick, isVisible }) => {
   if (suggestions.length === 0) {
     return null;
   }
 
   return (
-    <div className={`w-full px-4 pt-2 pb-1 transition-all duration-500 ease-in-out ${
-      isInputActive 
-        ? 'opacity-20 scale-[0.98] pointer-events-none blur-[0.5px]' 
-        : 'opacity-100 scale-100 pointer-events-auto'
+    <div className={`w-full px-4 pt-2 pb-1 transition-all ease-in-out ${
+      isVisible 
+        ? 'opacity-100 scale-100 pointer-events-auto duration-1000' 
+        : 'opacity-0 scale-95 pointer-events-none duration-200'
     }`}>
       <div className="flex items-center gap-1.5 mb-2 px-1">
         <div className="text-sky-500">
@@ -34,7 +34,7 @@ const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSugges
             onClick={() => onSuggestionClick(suggestion)}
             className="w-full text-left p-3 bg-white/80 backdrop-blur-sm border border-sky-100 rounded-xl shadow-sm hover:bg-sky-50 hover:border-sky-300 hover:shadow-md transition-all duration-200 group active:scale-[0.98]"
             style={{ 
-              animation: 'slideUp 0.5s ease-out forwards',
+              animation: isVisible ? 'slideUp 0.5s ease-out forwards' : 'none',
               animationDelay: `${index * 100}ms`
             }}
           >

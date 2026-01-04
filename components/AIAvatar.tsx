@@ -1,4 +1,116 @@
+
+// components/AIAvatar.tsx - v2.22 - Dynamic Facial Expression System
 import React from 'react';
+
+export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
+
+interface AvatarComponentProps {
+  mood?: Mood;
+}
+
+const getHeadTransform = (mood?: Mood) => {
+  if (mood === 'curious') return 'rotate(-8deg)';
+  if (mood === 'thinking') return 'rotate(5deg) translateY(2px)';
+  return 'none';
+};
+
+export const ShibaAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
+    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+        <path d="M 100,160 C 60,160 50,110 50,90 C 50,60 70,40 100,40 C 130,40 150,60 150,90 C 150,110 140,160 100,160 Z" fill="#f6e8d8" stroke="#a16207" strokeWidth="2"/>
+        <path d="M 50,80 C 20,80 20,40 55,50 C 60,70 55,80 50,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
+        <path d="M 150,80 C 180,80 180,40 145,50 C 140,70 145,80 150,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
+        {/* Eyes */}
+        <g className="transition-all duration-300">
+          {mood === 'happy' ? (
+            <>
+              <path d="M 70,85 Q 80,75 90,85" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M 110,85 Q 120,75 130,85" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+            </>
+          ) : mood === 'thinking' ? (
+            <>
+              <ellipse cx="80" cy="85" rx="5" ry="3" fill="#27272a"/>
+              <ellipse cx="120" cy="85" rx="5" ry="3" fill="#27272a"/>
+            </>
+          ) : (
+            <>
+              <ellipse cx="80" cy="85" rx="7" ry="9" fill="#27272a"/>
+              <ellipse cx="120" cy="85" rx="7" ry="9" fill="#27272a"/>
+            </>
+          )}
+        </g>
+        {/* Mouth */}
+        <path d={mood === 'happy' ? "M 90,120 Q 100,135 110,120" : "M 95,115 Q 100,110 105,115"} fill="none" stroke="#27272a" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M 95,105 C 90,115 110,115 105,105 Q 100,100 95,105 Z" fill="#27272a"/>
+    </svg>
+);
+
+export const PoodleAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
+     <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+        <path d="M100 165c-22.1 0-40-17.9-40-40 0-15 10-30 20-40 10-10 20-15 40-15s30 5 40 15c10 10 20 25 20 40 0 22.1-17.9 40-40 40z" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
+        <circle cx="100" cy="70" r="35" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
+        <circle cx="65" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
+        <circle cx="135" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
+        {/* Eyes */}
+        <g className="transition-all duration-300">
+          {mood === 'happy' ? (
+             <>
+               <path d="M 75,100 Q 85,90 95,100" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+               <path d="M 105,100 Q 115,90 125,100" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+             </>
+          ) : (
+             <>
+               <ellipse cx="85" cy="100" rx="6" ry="8" fill="#27272a"/>
+               <ellipse cx="115" cy="100" rx="6" ry="8" fill="#27272a"/>
+             </>
+          )}
+        </g>
+        <path d="M97 115a5 5 0 016 0" stroke="#27272a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+     </svg>
+);
+
+export const CorgiAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
+    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+        <path d="M100 160c-35 0-50-40-50-60 0-30 20-40 50-40s50 10 50 40c0 20 15 60-50 60z" fill="#eab308" stroke="#a16207" strokeWidth="2"/>
+        <path d="M65 50 c-20-25 10-40 20-15z M135 50 c20-25 -10-40 -20-15z" fill="#eab308" stroke="#a16207" strokeWidth="2" />
+        <path d="M68 50 c0-15 12-15 12-5z M132 50 c0-15 -12-15 -12-5z" fill="#fef3c7"/>
+        <g className="transition-all duration-300">
+           {mood === 'happy' ? (
+             <>
+               <path d="M 75,95 Q 85,85 95,95" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+               <path d="M 105,95 Q 115,85 125,95" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+             </>
+           ) : (
+             <>
+               <circle cx="85" cy="95" r="7" fill="#27272a"/>
+               <circle cx="115" cy="95" r="7" fill="#27272a"/>
+             </>
+           )}
+        </g>
+        <path d={mood === 'happy' ? "M 90,120 Q 100,130 110,120" : "M95 110 c5 8 15 8 20 0"} fill="none" stroke="#27272a" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+);
+
+export const RetrieverAvatar: React.FC<AvatarComponentProps> = ({ mood }) => (
+    <svg viewBox="0 0 200 200" className="w-full h-full object-cover transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
+        <path d="M100 160c-30 0-45-30-45-50 0-30 20-50 45-50s45 20 45 50c0 20 15 50-45 50z" fill="#fcd34d" stroke="#b45309" strokeWidth="2"/>
+        <path d="M55 90c-15-5-15-40 0-45 10 5 15 35 0 45z M145 90c15-5 15-40 0-45 -10 5 -15 35 0 45z" fill="#fbbf24" stroke="#b45309" strokeWidth="2"/>
+        <path d="M75 110c0-15 50-15 50 0" fill="#fffbeb" />
+        <g className="transition-all duration-300">
+          {mood === 'happy' ? (
+            <>
+              <path d="M 70,90 Q 80,80 90,90" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M 110,90 Q 120,80 130,90" fill="none" stroke="#27272a" strokeWidth="3" strokeLinecap="round"/>
+            </>
+          ) : (
+            <>
+              <circle cx="80" cy="90" r="7" fill="#27272a"/>
+              <circle cx="120" cy="90" r="7" fill="#27272a"/>
+            </>
+          )}
+        </g>
+        <path d="M98 105a3 3 0 014 0" fill="#27272a"/>
+    </svg>
+);
 
 export const FemaleAvatar1 = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
@@ -113,96 +225,45 @@ export const MaleAvatar2 = () => (
     </svg>
 );
 
-export const ShibaAvatar = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
-        <path d="M 100,160 C 60,160 50,110 50,90 C 50,60 70,40 100,40 C 130,40 150,60 150,90 C 150,110 140,160 100,160 Z" fill="#f6e8d8" stroke="#a16207" strokeWidth="2"/>
-        <path d="M 50,80 C 20,80 20,40 55,50 C 60,70 55,80 50,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
-        <path d="M 150,80 C 180,80 180,40 145,50 C 140,70 145,80 150,80" fill="#ca8a04" stroke="#854d0e" strokeWidth="2"/>
-        <ellipse cx="80" cy="85" rx="7" ry="9" fill="#27272a"/><ellipse cx="120" cy="85" rx="7" ry="9" fill="#27272a"/>
-        <path d="M 95,105 C 90,115 110,115 105,105 Q 100,100 95,105 Z" fill="#27272a"/>
-    </svg>
-);
-
-export const PoodleAvatar = () => (
-     <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
-        <path d="M100 165c-22.1 0-40-17.9-40-40 0-15 10-30 20-40 10-10 20-15 40-15s30 5 40 15c10 10 20 25 20 40 0 22.1-17.9 40-40 40z" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
-        <circle cx="100" cy="70" r="35" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
-        <circle cx="65" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
-        <circle cx="135" cy="75" r="20" fill="#fffbeb" stroke="#d97706" strokeWidth="2"/>
-        <ellipse cx="85" cy="100" rx="6" ry="8" fill="#27272a"/><ellipse cx="115" cy="100" rx="6" ry="8" fill="#27272a"/>
-        <path d="M97 115a5 5 0 016 0" stroke="#27272a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-     </svg>
-);
-
-export const CorgiAvatar = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
-        <path d="M100 160c-35 0-50-40-50-60 0-30 20-40 50-40s50 10 50 40c0 20 15 60-50 60z" fill="#eab308" stroke="#a16207" strokeWidth="2"/>
-        <path d="M65 50 c-20-25 10-40 20-15z M135 50 c20-25 -10-40 -20-15z" fill="#eab308" stroke="#a16207" strokeWidth="2" />
-        <path d="M68 50 c0-15 12-15 12-5z M132 50 c0-15 -12-15 -12-5z" fill="#fef3c7"/>
-        <circle cx="85" cy="95" r="7" fill="#27272a"/>
-        <circle cx="115" cy="95" r="7" fill="#27272a"/>
-        <path d="M95 110 c5 8 15 8 20 0" fill="none" stroke="#27272a" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-);
-
-export const RetrieverAvatar = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full object-cover">
-        <path d="M100 160c-30 0-45-30-45-50 0-30 20-50 45-50s45 20 45 50c0 20 15 50-45 50z" fill="#fcd34d" stroke="#b45309" strokeWidth="2"/>
-        <path d="M55 90c-15-5-15-40 0-45 10 5 15 35 0 45z M145 90c15-5 15-40 0-45 -10 5 -15 35 0 45z" fill="#fbbf24" stroke="#b45309" strokeWidth="2"/>
-        <path d="M75 110c0-15 50-15 50 0" fill="#fffbeb" />
-        <circle cx="80" cy="90" r="7" fill="#27272a"/>
-        <circle cx="120" cy="90" r="7" fill="#27272a"/>
-        <path d="M98 105a3 3 0 014 0" fill="#27272a"/>
-    </svg>
-);
-
-
 interface AIAvatarProps {
   avatarKey: string;
   aiName: string;
   isLoading: boolean;
+  mood?: Mood;
 }
 
-const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading }) => {
+const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood = 'neutral' }) => {
   
   const renderAvatar = () => {
     switch (avatarKey) {
-      case 'human_female_1':
-        return <FemaleAvatar1 />;
-      case 'human_male_1':
-        return <MaleAvatar1 />;
-      case 'human_female_2':
-        return <FemaleAvatar2 />;
-      case 'human_male_2':
-        return <MaleAvatar2 />;
-      case 'dog_shiba_1':
-        return <ShibaAvatar />;
-      case 'dog_poodle_1':
-        return <PoodleAvatar />;
-      case 'dog_corgi_1':
-        return <CorgiAvatar />;
-      case 'dog_retriever_1':
-        return <RetrieverAvatar />;
-      default:
-        return <FemaleAvatar1 />;
+      case 'human_female_1': return <FemaleAvatar1 />;
+      case 'human_male_1': return <MaleAvatar1 />;
+      case 'human_female_2': return <FemaleAvatar2 />;
+      case 'human_male_2': return <MaleAvatar2 />;
+      case 'dog_shiba_1': return <ShibaAvatar mood={mood} />;
+      case 'dog_poodle_1': return <PoodleAvatar mood={mood} />;
+      case 'dog_corgi_1': return <CorgiAvatar mood={mood} />;
+      case 'dog_retriever_1': return <RetrieverAvatar mood={mood} />;
+      default: return <FemaleAvatar1 />;
     }
   };
 
   return (
     <div className="w-full h-full bg-slate-800 rounded-2xl flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-2xl">
       <div className="absolute inset-0 bg-grid-slate-700 [mask-image:linear-gradient(0deg,transparent,rgba(0,0,0,0.8))] opacity-50"></div>
-      <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-slate-900/50 to-transparent"></div>
       
-      <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-slate-700 shadow-2xl mb-6 bg-slate-900">
+      <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl mb-6 bg-slate-900 overflow-visible">
         {isLoading && (
-          <div className="absolute inset-0 bg-sky-500/30 z-10 flex items-center justify-center backdrop-blur-sm">
+          <div className="absolute inset-0 bg-sky-500/30 z-10 flex items-center justify-center backdrop-blur-sm rounded-full">
              <div className="w-24 h-24 border-8 border-sky-300 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
         {renderAvatar()}
       </div>
       <h2 className="text-2xl font-bold text-white z-10">{aiName}</h2>
-      <p className="text-slate-400 z-10">{isLoading ? '考え中...' : '相談受付中'}</p>
+      <p className="text-slate-400 z-10 transition-all duration-300">
+        {isLoading ? '考え中...' : mood === 'happy' ? 'しっぽを振っています！' : mood === 'curious' ? '興味津々ですワン' : mood === 'thinking' ? 'じっくり考えています' : '相談受付中'}
+      </p>
     </div>
   );
 };

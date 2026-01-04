@@ -1,4 +1,5 @@
 
+// components/MessageBubble.tsx - v2.22 - Dog Action Chip Implementation
 import React from 'react';
 import { marked } from 'marked';
 import { ChatMessage, MessageAuthor } from '../types';
@@ -16,7 +17,17 @@ interface MessageBubbleProps {
 
 const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
-    const rawMarkup = marked.parse(markdownText, { breaks: true, gfm: true }) as string;
+    // Remove special [MOOD] tags from rendering as normal text
+    const cleanText = markdownText.replace(/\[(HAPPY|CURIOUS|THINKING|REASSURE)\]/g, '');
+    
+    // Process action tags like [くんくん] as styled spans
+    const textWithActions = cleanText.replace(/\[([^\]]+)\]/g, (match, p1) => {
+        // Skip mood tags already handled
+        if (['HAPPY', 'CURIOUS', 'THINKING', 'REASSURE'].includes(p1)) return '';
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 mx-1 border border-amber-200">🐕 ${p1}</span>`;
+    });
+
+    const rawMarkup = marked.parse(textWithActions, { breaks: true, gfm: true }) as string;
     return { __html: rawMarkup };
 };
 
@@ -50,13 +61,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEd
   const uniqueSources = groundingChunks
       .filter(chunk => chunk.web?.uri)
       .map(chunk => ({ uri: chunk.web!.uri!, title: chunk.web!.title }))
-      // Deduplicate by URI
       .filter((source, index, self) => 
           index === self.findIndex((s) => s.uri === source.uri)
       );
 
   return (
-    <div className={`group flex items-end gap-2 ${containerClasses}`}>
+    <div className={`group flex items-end gap-2 ${containerClasses} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
       {!isUser && (
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center">
           <RobotIcon isThinking={isThinking} />
@@ -77,15 +87,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEd
             {message.text ? (
               <div dangerouslySetInnerHTML={createMarkup(message.text)} />
             ) : (
-              <div className="flex items-center justify-center space-x-1">
-                <div className="w-2 h-2 bg-slate-500 rounded-full animate-pulse" style={{animationDelay: '-0.3s'}}></div>
-                <div className="w-2 h-2 bg-slate-500 rounded-full animate-pulse" style={{animationDelay: '-0.15s'}}></div>
-                <div className="w-2 h-2 bg-slate-500 rounded-full animate-pulse"></div>
+              <div className="flex items-center justify-center space-x-1 py-1">
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
               </div>
             )}
           </div>
           
-          {/* Grounding Sources (Search Results) */}
           {uniqueSources.length > 0 && !isUser && (
               <div className="flex flex-wrap gap-2 ml-2">
                   {uniqueSources.map((source, idx) => (

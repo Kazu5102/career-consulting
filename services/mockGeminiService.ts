@@ -1,4 +1,5 @@
 
+// services/mockGeminiService.ts - v2.18 - Updated Mock Summary Template
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -118,12 +119,30 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     console.log("[Mock] generateSummary called", { profile });
     await delay(2000);
-    return `
-### デモ用サマリー
-- **状況**: これはモックデータです。
-- **課題**: サーバー機能が使えないプレビュー環境でも動作確認ができるようにしています。
-- **希望**: UIの確認や改善をスムーズに進めること。
-    `;
+    const mockStructured = {
+        user_summary: `
+## 💡 今日の気づき
+今日は**「現状への違和感を、成長への種として捉え直す」**という大切な一歩を踏み出せましたね。
+
+## 🌟 大切にしたいあなたの価値観
+対話を通じて、あなたが**「周囲との調和」**と**「専門性の追求」**の両方を、妥協せずに大切にしたいと考えていることが伝わってきました。
+
+## 💪 見つかった「あなたらしさ」
+- **誠実な対話力**: 自分の弱さを隠さず、正直に言葉にできる強さ。
+- **高い学習意欲**: 未知の領域に対しても、自ら情報を集めようとする姿勢。
+- **論理的な整理能力**: 複雑な状況を一つずつ分解して考える力。
+
+## 🌱 未来への小さな一歩
+まずは明日、**「今の自分が一番わくわくする瞬間」**を一つだけメモ帳に書き出してみてください。
+        `,
+        pro_notes: `
+### キャリア分析ノート
+- **発達段階**: 確立期における再探索の状態。
+- **葛藤レベル**: 中程度。自己効力感の回復に向けたリフレーミングが奏功している。
+- **提言**: 具体的なキャリア・アンカーの特定に向けたワークを推奨。
+        `
+    };
+    return JSON.stringify(mockStructured);
 };
 
 export const reviseSummary = async (originalSummary: string, correctionRequest: string): Promise<string> => {

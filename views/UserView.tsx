@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.14 - Suggestion Transparency Logic
+// views/UserView.tsx - v2.22 - Dog Reassurance & Emotional Intelligence
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -9,7 +9,8 @@ import ChatWindow from '../components/ChatWindow';
 import ChatInput from '../components/ChatInput';
 import SummaryModal from '../components/SummaryModal';
 import InterruptModal from '../components/InterruptModal';
-import AIAvatar from '../components/AIAvatar';
+import CrisisNoticeModal from '../components/CrisisNoticeModal';
+import AIAvatar, { Mood } from '../components/AIAvatar';
 import AvatarSelectionView from './AvatarSelectionView';
 import UserDashboard from '../components/UserDashboard';
 import ActionFooter from '../components/ActionFooter';
@@ -41,6 +42,11 @@ const LIFE_ROLES = [
   { id: 'care', label: '自分のケア・休息', icon: '🧘' },
 ];
 
+const CRISIS_KEYWORDS = [
+    /死にたい/, /自殺/, /消えたい/, /死にたくなった/, /自死/, /終わりにしたい/, 
+    /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
+];
+
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);
@@ -48,15 +54,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isInputActive, setIsInputActive] = useState<boolean>(false); // NEW: 入力アクティブ状態
+  const [isInputActive, setIsInputActive] = useState<boolean>(false);
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionsVisible, setSuggestionsVisible] = useState<boolean>(false); 
   const [hasError, setHasError] = useState<boolean>(false);
+  
+  // v2.22 - Mood management
+  const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const startTimeRef = useRef<number>(0);
+  const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
 
@@ -72,6 +83,19 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [summary, setSummary] = useState<string>('');
   const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
   const [isInterruptModalOpen, setIsInterruptModalOpen] = useState<boolean>(false);
+  
+  const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
+  const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isInputActive) {
+      setSuggestionsVisible(false);
+      if (suggestionTimerRef.current) {
+        clearTimeout(suggestionTimerRef.current);
+        suggestionTimerRef.current = null;
+      }
+    }
+  }, [isInputActive]);
 
   useEffect(() => {
     const user = getUserById(userId);
@@ -113,6 +137,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setOnboardingHistory([]);
     setSelectedRoles([]);
     setHasError(false);
+    setSuggestionsVisible(false);
+    setAiMood('neutral');
   };
 
   const handleGoBack = () => {
@@ -125,13 +151,37 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setUserProfile(prevProfile);
     setOnboardingHistory(prevHistory);
     setHasError(false);
+    setSuggestionsVisible(false);
   };
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
+      const lastAiMessage = currentMessages[currentMessages.length - 1];
+      const aiText = lastAiMessage?.text || "";
+
+      // v2.22 - Emotional Intelligence: Analyze AI text to set mood
+      if (aiType === 'dog') {
+        if (aiText.includes('[HAPPY]')) setAiMood('happy');
+        else if (aiText.includes('[CURIOUS]') || aiText.includes('？')) setAiMood('curious');
+        else if (aiText.includes('[THINKING]') || aiText.includes('…')) setAiMood('thinking');
+        else if (aiText.includes('[REASSURE]') || aiText.includes('大丈夫')) setAiMood('reassure');
+        else if (aiText.includes('！')) setAiMood('happy');
+        else setAiMood('neutral');
+      }
+
+      const calculatedDelay = 3000 + (aiText.length * 40); 
+      const finalDelay = Math.min(Math.max(calculatedDelay, 5000), 15000);
+
       try {
         const response = await generateSuggestions(currentMessages);
-        if (response?.suggestions?.length) setSuggestions(response.suggestions);
+        if (response?.suggestions?.length) {
+            setSuggestions(response.suggestions);
+            suggestionTimerRef.current = setTimeout(() => {
+                if (!isInputActive) {
+                    setSuggestionsVisible(true);
+                }
+            }, finalDelay);
+        }
       } catch (e) {
         console.warn("Suggestions failed", e);
       }
@@ -139,12 +189,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+    
+    const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
+    if (hasCrisisWord) {
+        setIsCrisisModalOpen(true);
+        return;
+    }
+
     setHasError(false);
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestions([]);
+    setSuggestionsVisible(false); 
     setIsLoading(true);
+    if (aiType === 'dog') setAiMood('thinking');
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
         await processOnboarding(text, newMessages);
@@ -160,6 +219,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          
+          if (value.error) {
+              if (value.error.code === 'SAFETY_BLOCK') {
+                  setIsCrisisModalOpen(true);
+                  setMessages(prev => prev.slice(0, -1));
+                  setIsLoading(false);
+                  return;
+              }
+              throw new Error(value.error.message);
+          }
+
           if (value.text) {
             aiResponseText += value.text;
             setMessages(prev => {
@@ -167,6 +237,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
+            // Instant mood change while streaming for realism
+            if (aiType === 'dog' && aiResponseText.length > 5 && aiMood === 'thinking') {
+               if (aiResponseText.includes('ワン！') || aiResponseText.includes('！')) setAiMood('happy');
+            }
           }
       }
       setIsConsultationReady(true);
@@ -175,13 +249,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
       setIsLoading(false);
+      setAiMood('neutral');
     }
   };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);
     await new Promise(r => setTimeout(r, 400));
-
     let nextText = '';
     let nextStep = onboardingStep + 1;
 
@@ -230,6 +304,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          
+          if (value.error) {
+            if (value.error.code === 'SAFETY_BLOCK') {
+                setIsCrisisModalOpen(true);
+                setMessages(prev => prev.slice(0, -1));
+                setIsLoading(false);
+                return;
+            }
+            throw new Error(value.error.message);
+          }
+
           if (value.text) {
             aiResponseText += value.text;
             setMessages(prev => {
@@ -250,76 +335,73 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const renderOnboardingUI = () => {
     if (isLoading) return null;
-    
     return (
       <div className="flex flex-col">
         {onboardingStep === 1 && (
-          <div className="grid grid-cols-1 gap-2 p-4">
+          <div className="grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500">
             {STAGES.map(s => (
-              <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all">
+              <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all shadow-sm active:scale-[0.98]">
                 <p className="font-bold text-slate-800">{s.label}</p>
-                <p className="text-xs text-slate-500">{s.sub}</p>
+                <p className="text-xs text-slate-500 mt-1">{s.sub}</p>
               </button>
             ))}
           </div>
         )}
         {onboardingStep === 2 && (
-          <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500">
             {AGES.map(a => (
-              <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700">
+              <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {a}
               </button>
             ))}
           </div>
         )}
         {onboardingStep === 3 && (
-          <div className="flex flex-wrap gap-2 p-4">
+          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
             {['男性', '女性', 'その他', '回答しない'].map(g => (
-              <button key={g} onClick={() => handleSendMessage(g)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+              <button key={g} onClick={() => handleSendMessage(g)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {g}
               </button>
             ))}
           </div>
         )}
         {onboardingStep === 4 && (
-          <div className="p-4 flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2">
+          <div className="p-4 flex flex-col gap-5 animate-in fade-in duration-500">
+            <div className="flex flex-wrap gap-3">
               {LIFE_ROLES.map(r => (
                 <button 
                   key={r.id} 
                   onClick={() => setSelectedRoles(prev => prev.includes(r.label) ? prev.filter(x => x !== r.label) : [...prev, r.label])}
-                  className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 font-semibold ${
-                    selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white' : 'bg-white border-slate-200 text-slate-700'
+                  className={`px-5 py-2.5 rounded-full border transition-all flex items-center gap-2.5 font-bold shadow-sm active:scale-[0.98] ${
+                    selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white shadow-sky-100' : 'bg-white border-slate-200 text-slate-700'
                   }`}
                 >
-                  <span>{r.icon}</span><span>{r.label}</span>
+                  <span className="text-lg">{r.icon}</span><span>{r.label}</span>
                 </button>
               ))}
             </div>
-            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-3 bg-sky-600 text-white font-bold rounded-xl shadow-md disabled:bg-slate-300">決定</button>
+            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-[0.98]">これで決定する</button>
           </div>
         )}
         {onboardingStep === 5 && (
-          <div className="flex flex-wrap gap-2 p-4">
+          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
             {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
-              <button key={c} onClick={() => handleSendMessage(c)} className="px-6 py-2 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700">
+              <button key={c} onClick={() => handleSendMessage(c)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {c}
               </button>
             ))}
           </div>
         )}
-        
         {onboardingStep >= 1 && onboardingStep <= 5 && (
-          <div className="flex justify-center gap-6 pb-4 text-xs font-semibold text-slate-400">
+          <div className="flex justify-center gap-8 pb-4 text-xs font-bold text-slate-400">
             {onboardingStep > 1 && (
-              <button onClick={handleGoBack} className="hover:text-sky-500 transition-colors">一つ前の質問に戻る</button>
+              <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>
             )}
-            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-500 transition-colors">最初からやり直す</button>
+            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
           </div>
         )}
-        
         {onboardingStep >= 6 && (
-           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isInputActive={isInputActive} />
+           <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
         )}
       </div>
     );
@@ -332,13 +414,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
   };
 
-  const finalizeAndSave = (conversation: StoredConversation) => {
+  const finalizeAndSave = async (conversation: StoredConversation) => {
+      setIsSummaryModalOpen(false);
+      setIsFinalizing(true);
+      await new Promise(r => setTimeout(r, 2000));
       const storedDataRaw = localStorage.getItem('careerConsultations');
       let currentAllConversations = storedDataRaw ? JSON.parse(storedDataRaw).data || [] : [];
       let updated = [...currentAllConversations, conversation];
       localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
       setUserConversations(updated.filter((c:any) => c.userId === userId));
-      setView('dashboard'); setMessages([]); setOnboardingStep(0);
+      setIsFinalizing(false);
+      setView('dashboard'); 
+      setMessages([]); 
+      setOnboardingStep(0);
+      setIsConsultationReady(false);
+      setAiMood('neutral');
   };
 
   return (
@@ -348,10 +438,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
          <div className="w-full max-w-7xl h-full flex flex-row gap-6">
-            <div className="hidden lg:flex w-[400px] h-full flex-shrink-0"><AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} /></div>
-            <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="hidden lg:flex w-[400px] h-full flex-shrink-0">
+               <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} />
+            </div>
+            <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
-              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200">
+              <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
                   {renderOnboardingUI()}
                   <ChatInput 
                     onSubmit={handleSendMessage} 
@@ -359,15 +451,42 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     isEditing={false} 
                     initialText={''} 
                     onCancelEdit={() => {}} 
-                    onStateChange={setIsInputActive} // 入力状態の同期
+                    onStateChange={setIsInputActive}
                   />
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>
          </div>}
       </main>
+
+      {isFinalizing && (
+        <div className="fixed inset-0 bg-slate-900/60 z-[300] flex flex-col items-center justify-center p-6 backdrop-blur-lg animate-in fade-in duration-500">
+          <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full text-center scale-up-center">
+             <div className="relative mb-8">
+               <div className="w-16 h-16 border-4 border-emerald-100 rounded-full"></div>
+               <div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+               <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+               </div>
+             </div>
+             <h3 className="text-2xl font-bold text-slate-800">相談を完了しています</h3>
+             <p className="text-slate-500 mt-4 leading-relaxed font-medium">対話の内容を安全に保存し、<br/>振り返りの準備をしています。</p>
+             <div className="w-full bg-slate-100 h-1.5 rounded-full mt-8 overflow-hidden">
+                <div className="bg-emerald-500 h-full animate-[progress_2s_ease-in-out]"></div>
+             </div>
+          </div>
+        </div>
+      )}
+
       <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} />
       <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => setView('dashboard')} onContinue={() => setIsInterruptModalOpen(false)} />
+      <CrisisNoticeModal isOpen={isCrisisModalOpen} onClose={() => { setIsCrisisModalOpen(false); setView('dashboard'); setMessages([]); setOnboardingStep(0); }} />
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes progress { from { width: 0%; } to { width: 100%; } }
+        .scale-up-center { animation: scale-up-center 0.4s cubic-bezier(0.390, 0.575, 0.565, 1.000) both; }
+        @keyframes scale-up-center { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+      `}} />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 
-// App.tsx - v2.14 - Layout Refinement
+// App.tsx - v2.18 - User Summary Aesthetic Optimization
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -20,8 +20,8 @@ const App: React.FC = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        const userPrompt = "AIコンサルタントの説明文を左寄せにし、カード全体はセンタリングを維持。";
-        const aiSummary = "AvatarSelectionViewのカード内説明文をtext-leftに変更。可読性を向上させつつセンターバランスを維持。Ver2.14。";
+        const userPrompt = "ユーザー向けサマリーの視覚的表現を強化。太字や箇条書き、温かみのあるMarkdown構造を導入。";
+        const aiSummary = "handleGenerateSummaryのプロンプトを刷新し、ユーザー用サマリーに4つの構造化セクション（気づき、価値観、強み、一歩）を強制。UI側でもProse設定を調整し、重要箇所の太字強調を際立たせる意匠化を完了。Ver2.18。";
         
         const logs = devLogService.getLogs();
         const lastEntry = logs.entries[logs.entries.length - 1];
@@ -75,7 +75,7 @@ const App: React.FC = () => {
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
             <div className="fixed bottom-1 right-2 z-[90] pointer-events-none opacity-50">
-                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.14</span>
+                <span className="text-[10px] text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Ver2.18</span>
             </div>
         </div>
     );
