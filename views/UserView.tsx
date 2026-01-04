@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.45 - Warm Welcome & Positive Guidance
+// views/UserView.tsx - v2.49 - Balanced Flow Control
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -123,7 +123,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
-    const greetingText = `こんにちは。あなたの想いや今の状況を、まずはありのままにお聞かせください。対話を通じて今の状態を丁寧に解きほぐし、あなたが「次の一歩」をスムーズに踏み出せるよう、心を込めて整理のお手伝いをさせていただきます。まずは、今のあなたの「心の状況」に近いものはどれですか？`;
+    // [修正] 「お子様の状態」等の誤記を排除し、キャリア相談に相応しい挨拶に統一
+    const greetingText = `こんにちは。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて今の「心の状態」を丁寧に解きほぐし、あなたが次の一歩をスムーズに踏み出せるよう、心を込めて整理のお手伝いをさせていただきます。まずは、今のあなたに最も近い状況はどれですか？`;
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setOnboardingStep(1);
     setUserProfile({ lifeRoles: [] });
@@ -160,6 +161,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         else setAiMood('neutral');
       }
 
+      // 相談の準備が整った（要約可能）かを判定。4メッセージ（2往復）以上。
+      if (currentMessages.length >= 4) {
+          setIsConsultationReady(true);
+      }
+
       if (currentStep >= 6) {
           try {
             const response = await generateSuggestions(currentMessages);
@@ -176,6 +182,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
+    // 特定の完了キーワードが含まれる場合、要約処理へ誘導
+    if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
+        handleGenerateSummary();
+        return;
+    }
+
     const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
     if (hasCrisisWord) {
         setIsCrisisModalOpen(true);
@@ -225,7 +237,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      setIsConsultationReady(true);
       await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }], onboardingStep);
     } catch (error) {
       setHasError(true);
@@ -295,7 +306,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      setIsConsultationReady(true);
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }], stepAtFinalize);
     } catch (e) { 
       setHasError(true);
@@ -384,10 +394,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const finalizeAndSave = async (conversation: StoredConversation) => {
       setIsSummaryModalOpen(false);
-      setIsInterruptModalOpen(false); // モーダルを確実に閉じる
+      setIsInterruptModalOpen(false); 
       setIsFinalizing(true);
       
-      // 保存前の待機時間を短縮しつつUIを維持
       await new Promise(r => setTimeout(r, 1000));
       
       const storedDataRaw = localStorage.getItem('careerConsultations');

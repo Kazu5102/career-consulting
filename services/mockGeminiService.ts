@@ -166,6 +166,7 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
     console.log("[Mock] analyzeTrajectory called for user:", userId);
     await delay(2500);
+    // FIX: Added missing expert analysis fields to match TrajectoryAnalysisData interface
     return {
         keyTakeaways: [
             "相談を通じて自己理解が着実に深まっている。",
@@ -182,7 +183,14 @@ export const analyzeTrajectory = async (conversations: StoredConversation[], use
         detectedStrengths: ['学習意欲', '協調性', '課題発見能力'],
         areasForDevelopment: ['ポートフォリオ作成', '面接対策'],
         suggestedNextSteps: ['具体的な職種研究', '情報収集の継続'],
-        overallSummary: `ユーザー **${userId}** のデモ用個別分析レポートです。\n- **相談の軌跡**: 複数回の相談を通じて、自己理解が深まっている様子が伺えます。\n- **今後の展望**: 具体的なアクションプランの策定が次のステップです。`
+        overallSummary: `ユーザー **${userId}** のデモ用個別分析レポートです。\n- **相談の軌跡**: 複数回の相談を通じて、自己理解が深まっている様子が伺えます。\n- **今後の展望**: 具体的なアクションプランの策定が次のステップです。`,
+        triageLevel: 'medium',
+        ageStageGap: 35,
+        reframedSkills: [
+            { userWord: 'コツコツやる', professionalSkill: '継続的改善能力', insight: '地道な作業を苦にせず、品質を高め続ける姿勢が見られます。' },
+            { userWord: '人の話を聞く', professionalSkill: 'アクティブリスニング', insight: '相手の意図を汲み取り、円滑なコミュニケーションを促進できます。' }
+        ],
+        sessionStarter: '最近の取り組みの中で、一番手応えを感じていることは何ですか？',
     };
 };
 

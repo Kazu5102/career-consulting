@@ -125,6 +125,12 @@ export interface ConsultationEntry {
     estimatedDurationMinutes: number;
 }
 
+export interface ReframedSkill {
+  userWord: string;
+  professionalSkill: string;
+  insight: string;
+}
+
 export interface TrajectoryAnalysisData {
     keyTakeaways: string[];
     userId: string;
@@ -135,6 +141,12 @@ export interface TrajectoryAnalysisData {
     areasForDevelopment: string[];
     suggestedNextSteps: string[];
     overallSummary: string;
+    // New Expert Fields
+    triageLevel: 'high' | 'medium' | 'low';
+    ageStageGap: number; // 0-100
+    reframedSkills: ReframedSkill[];
+    sessionStarter: string;
+    narrativeTimeline?: { topic: string; emotionalTone: number }[];
 }
 
 export interface HiddenPotentialData {

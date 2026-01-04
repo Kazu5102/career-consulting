@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v2.47 - Version Sync
+// components/AIAvatar.tsx - v2.60 - Expert Insight Edition
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -289,7 +289,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-400 select-none bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-        Ver 2.47
+        Ver 2.60
       </div>
     </div>
   );
