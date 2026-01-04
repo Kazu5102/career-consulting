@@ -31,8 +31,8 @@ const Header: React.FC<HeaderProps> = ({ showBackButton, onBackClick }) => {
                 </svg>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-800">
-                  AIキャリア相談
+                <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+                  Career Consulting
                 </h1>
               </div>
           </div>

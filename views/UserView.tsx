@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.28 - Fixed Suggestion Race Condition
+// views/UserView.tsx - v2.41 - Interrupt & Save Stability Fix
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -84,7 +84,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
-  // 入力中は即座に候補を消す
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
@@ -124,7 +123,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
-    const greetingText = `こんにちは。あなたのこれからの歩みを一緒に考えるパートナーです。話したくないことは飛ばしても大丈夫。あなたのペースで、今のことを少しだけ教えてください。\n\nまず、**今のあなたの「心の状況」に近いものはどれですか？**`;
+    const greetingText = `こんにちは。私はあなたが「本当の自分」を整理するお手伝いをします。アドバイスはしません。じっくりとお話を聞かせてください。まずは、今のあなたの「心の状況」に近いものはどれですか？`;
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setOnboardingStep(1);
     setUserProfile({ lifeRoles: [] });
@@ -158,18 +157,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         else if (aiText.includes('[CURIOUS]') || aiText.includes('？')) setAiMood('curious');
         else if (aiText.includes('[THINKING]') || aiText.includes('…')) setAiMood('thinking');
         else if (aiText.includes('[REASSURE]') || aiText.includes('大丈夫')) setAiMood('reassure');
-        else if (aiText.includes('！')) setAiMood('happy');
         else setAiMood('neutral');
       }
 
-      // オンボーディング終了後のみ候補を表示 (引数のcurrentStepを参照してState更新遅延を回避)
       if (currentStep >= 6) {
           try {
             const response = await generateSuggestions(currentMessages);
             if (response?.suggestions?.length) {
                 setSuggestions(response.suggestions);
-                // AIが話し終わったら即座に表示！
-                setSuggestionsVisible(true);
+                setTimeout(() => setSuggestionsVisible(true), 0);
             }
           } catch (e) {
             console.warn("Suggestions failed", e);
@@ -191,7 +187,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestions([]);
-    setSuggestionsVisible(false); // 送信した瞬間に消す
+    setSuggestionsVisible(false); 
     setIsLoading(true);
     if (aiType === 'dog') setAiMood('thinking');
 
@@ -251,7 +247,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     } 
     else if (onboardingStep === 2) {
         setUserProfile(prev => ({ ...prev, age: choice }));
-        nextText = `差し支えなければ、**性別**を教えていただけますか？`;
+        nextText = `差し替なければ、**性別**を教えていただけますか？`;
     }
     else if (onboardingStep === 3) {
         setUserProfile(prev => ({ ...prev, gender: choice }));
@@ -260,7 +256,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     else if (onboardingStep === 4) {
         const roles = choice.split('、');
         setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
-        nextText = `準備が整いました。本日は**どのようなことをお話ししたいですか？**`;
+        nextText = `対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで大丈夫ですよ。`;
     }
     else if (onboardingStep === 5) {
         const totalTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -290,17 +286,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
-          if (value.error) {
-            if (value.error.code === 'SAFETY_BLOCK') {
-                setIsCrisisModalOpen(true);
-                setMessages(prev => prev.slice(0, -1));
-                setIsLoading(false);
-                return;
-            }
-            throw new Error(value.error.message);
-          }
-
           if (value.text) {
             aiResponseText += value.text;
             setMessages(prev => {
@@ -399,12 +384,26 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const finalizeAndSave = async (conversation: StoredConversation) => {
       setIsSummaryModalOpen(false);
+      setIsInterruptModalOpen(false); // モーダルを確実に閉じる
       setIsFinalizing(true);
-      await new Promise(r => setTimeout(r, 2000));
+      
+      // 保存前の待機時間を短縮しつつUIを維持
+      await new Promise(r => setTimeout(r, 1000));
+      
       const storedDataRaw = localStorage.getItem('careerConsultations');
-      let currentAllConversations = storedDataRaw ? JSON.parse(storedDataRaw).data || [] : [];
+      let currentAllConversations = [];
+      if (storedDataRaw) {
+          try {
+              const parsed = JSON.parse(storedDataRaw);
+              currentAllConversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
+          } catch(e) {
+              console.error("Save error: failed to parse local storage", e);
+          }
+      }
+      
       let updated = [...currentAllConversations, conversation];
       localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
+      
       setUserConversations(updated.filter((c:any) => c.userId === userId));
       setIsFinalizing(false);
       setView('dashboard'); 
@@ -418,7 +417,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
       
-      {/* Mobile Floating Avatar */}
       {view === 'chatting' && (
         <div className="lg:hidden fixed top-20 right-4 z-[100] w-16 h-16 rounded-full border-2 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all">
           <div className={`w-full h-full ${isLoading ? 'animate-pulse' : ''}`}>
@@ -432,14 +430,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
          <div className="w-full max-w-7xl h-full flex flex-row gap-6 relative">
             
-            {/* Desktop Side Profile (Persistent & Sticky) */}
             <div className="hidden lg:flex w-[400px] flex-shrink-0 h-full">
                <div className="sticky top-0 w-full flex flex-col h-[calc(100vh-140px)] transition-all duration-500">
                   <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} />
                </div>
             </div>
 
-            {/* Chat Area */}
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               
@@ -468,21 +464,22 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
              <div className="relative mb-8">
                <div className="w-16 h-16 border-4 border-emerald-100 rounded-full"></div>
                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-               <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-               </div>
              </div>
-             <h3 className="text-2xl font-bold text-slate-800">相談を完了しています</h3>
-             <p className="text-slate-500 mt-4 leading-relaxed font-medium">対話の内容を安全に保存し、<br/>振り返りの準備をしています。</p>
-             <div className="w-full bg-slate-100 h-1.5 rounded-full mt-8 overflow-hidden">
-                <div className="bg-emerald-500 h-full animate-[progress_2s_ease-in-out]"></div>
-             </div>
+             <h3 className="text-2xl font-bold text-slate-800">相談データを保存しています</h3>
+             <p className="text-slate-500 mt-4 leading-relaxed font-medium">整理した内容を安全に保存しました。<br/>ダッシュボードへ戻ります。</p>
           </div>
         </div>
       )}
 
       <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} />
-      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => setView('dashboard')} onContinue={() => setIsInterruptModalOpen(false)} />
+      
+      <InterruptModal 
+        isOpen={isInterruptModalOpen} 
+        onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} 
+        onExitWithoutSaving={() => { setIsInterruptModalOpen(false); setView('dashboard'); }} 
+        onContinue={() => setIsInterruptModalOpen(false)} 
+      />
+
       <CrisisNoticeModal isOpen={isCrisisModalOpen} onClose={() => { setIsCrisisModalOpen(false); setView('dashboard'); setMessages([]); setOnboardingStep(0); }} />
 
       <style dangerouslySetInnerHTML={{ __html: `

@@ -1,11 +1,9 @@
 
-
-
-
+// views/AdminView.tsx - v2.42 - Flexible Import Logic
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StoredConversation, StoredData, UserInfo, STORAGE_VERSION, AnalysisType, AnalysesState, UserAnalysisCache, AnalysisStateItem } from '../types';
 import * as userService from '../services/userService';
-import { getStoredPassword, setPassword } from '../services/authService';
+import { setPassword } from '../services/authService';
 import * as devLogService from '../services/devLogService';
 import { analyzeTrajectory, findHiddenPotential, performSkillMatching } from '../services/index';
 
@@ -103,37 +101,25 @@ const AdminView: React.FC = () => {
     const [isDevLogModalOpen, setIsDevLogModalOpen] = useState(false);
     const [isMatchingModalOpen, setIsMatchingModalOpen] = useState(false);
 
-    // --- NEW: Unified state management for all individual analyses ---
     const [analysesState, setAnalysesState] = useState<AnalysesState>(initialAnalysesState);
-    
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const loadData = () => {
         const users = userService.getUsers();
         setAllUsers(users);
-
         const allDataRaw = localStorage.getItem('careerConsultations');
         if (allDataRaw) {
             try {
-                const parsed = JSON.parse(allDataRaw) as StoredData | StoredConversation[];
-                const conversations = ('data' in parsed && Array.isArray(parsed.data)) ? parsed.data : Array.isArray(parsed) ? parsed : [];
+                const parsed = JSON.parse(allDataRaw);
+                const conversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
                 setAllConversations(conversations);
-            } catch (e) { console.error("Failed to parse conversations", e); setAllConversations([]); }
-        } else {
-            setAllConversations([]);
-        }
-
-        if (users.length > 0 && !users.some(u => u.id === selectedUserId)) {
-            setSelectedUserId(users[0]?.id || null);
-        }
+            } catch (e) { setAllConversations([]); }
+        } else { setAllConversations([]); }
+        if (users.length > 0 && !users.some(u => u.id === selectedUserId)) setSelectedUserId(users[0]?.id || null);
     };
 
     useEffect(loadData, []);
-    
-    // Reset analysis when user changes
-    useEffect(() => {
-        setAnalysesState(initialAnalysesState);
-    }, [selectedUserId]);
+    useEffect(() => { setAnalysesState(initialAnalysesState); }, [selectedUserId]);
 
     const conversationsByUser = useMemo(() => {
         return allConversations.reduce<Record<string, StoredConversation[]>>((acc, conv) => {
@@ -152,17 +138,21 @@ const AdminView: React.FC = () => {
         reader.onload = (e) => {
             try {
                 const text = e.target?.result;
-                if (typeof text !== 'string') throw new Error("File content is not text.");
-                const importedData = JSON.parse(text) as StoredData;
-                if (importedData.version !== STORAGE_VERSION || !Array.isArray(importedData.data)) throw new Error("Invalid data format or version mismatch.");
+                if (typeof text !== 'string') return;
+                const imported = JSON.parse(text);
+                const importedConvs = Array.isArray(imported) ? imported : (imported.data || []);
+                
+                if (!Array.isArray(importedConvs)) throw new Error("Invalid format");
+
                 const existingIds = new Set(allConversations.map(c => c.id));
-                const newConversations = importedData.data.filter(c => !existingIds.has(c.id));
+                const newConversations = importedConvs.filter((c: any) => !existingIds.has(c.id));
                 const updatedConversations = [...allConversations, ...newConversations];
+                
                 localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updatedConversations }));
-                alert(`${newConversations.length}件の新しい相談履歴がインポートされました。`);
+                alert(`${newConversations.length}件の履歴を統合しました。`);
                 loadData();
             } catch (error) {
-                alert(`インポートに失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
+                alert(`インポートに失敗しました。正しいJSONファイルを選択してください。`);
             } finally {
                 if(event.target) event.target.value = '';
             }
@@ -172,118 +162,74 @@ const AdminView: React.FC = () => {
     
     const handleRunAnalysis = async (type: AnalysisType, conversations: StoredConversation[], userId: string) => {
       if (conversations.length === 0) {
-          alert("分析には少なくとも1件の相談履歴が必要です。");
+          alert("履歴がありません。");
           return;
       }
-
-      setAnalysesState(prev => ({
-        ...prev,
-        [type]: { status: 'loading', data: prev[type].data, error: null }
-      }));
-      
-      if (type === 'skillMatching') {
-        setIsMatchingModalOpen(true);
-      }
-      
+      setAnalysesState(prev => ({ ...prev, [type]: { status: 'loading', data: prev[type].data, error: null } }));
+      if (type === 'skillMatching') setIsMatchingModalOpen(true);
       try {
           let result;
           if (type === 'trajectory') result = await analyzeTrajectory(conversations, userId);
           else if (type === 'skillMatching') result = await performSkillMatching(conversations);
           else if (type === 'hiddenPotential') result = await findHiddenPotential(conversations, userId);
-          
-          setAnalysesState(prev => ({
-            ...prev,
-            [type]: { status: 'success', data: result, error: null }
-          }));
-
+          setAnalysesState(prev => ({ ...prev, [type]: { status: 'success', data: result, error: null } }));
       } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : "不明なエラーが発生しました。";
-          console.error(`Analysis failed for ${type}:`, errorMessage);
-          setAnalysesState(prev => ({
-            ...prev,
-            [type]: { status: 'error', data: prev[type].data, error: errorMessage }
-          }));
+          setAnalysesState(prev => ({ ...prev, [type]: { status: 'error', data: prev[type].data, error: "分析に失敗しました。" } }));
       }
     };
 
     const handleClearAllData = () => {
-        if (window.confirm("本当にすべてのユーザーと相談履歴を削除しますか？この操作は元に戻せません。")) {
+        if (window.confirm("全データを削除しますか？")) {
             localStorage.removeItem('careerConsultations');
             localStorage.removeItem('careerConsultingUsers_v1');
             devLogService.clearLogs();
             setAllConversations([]);
             setAllUsers([]);
             setSelectedUserId(null);
-            alert("すべてのデータが削除されました。");
+            alert("削除しました。");
         }
     };
 
     const handleClearUserData = (userId: string) => {
-        const user = allUsers.find(u => u.id === userId);
-        if (window.confirm(`本当に「${user?.nickname}」のすべての相談履歴 (${conversationsByUser[userId]?.length || 0}件) を削除しますか？`)) {
-            const updatedConversations = allConversations.filter(c => c.userId !== userId);
-            localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updatedConversations }));
-            alert(`「${user?.nickname}」のデータが削除されました。`);
+        if (window.confirm(`この相談者の全履歴を削除しますか？`)) {
+            const updated = allConversations.filter(c => c.userId !== userId);
+            localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
             loadData();
         }
     };
     
     const handleAddTextSubmit = (newConversation: StoredConversation) => {
-        const updatedConversations = [...allConversations, newConversation];
-        localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updatedConversations }));
+        const updated = [...allConversations, newConversation];
+        localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
         if (!allUsers.some(u => u.id === newConversation.userId)) {
             userService.saveUsers([...allUsers, { id: newConversation.userId, nickname: ` imported_${newConversation.userId}`, pin: '0000'}]);
         }
         loadData();
         setIsAddTextModalOpen(false);
         setSelectedUserId(newConversation.userId);
-        alert('テキストから新しい相談履歴が追加されました。');
     };
     
     const selectedUserConversations = selectedUserId ? (conversationsByUser[selectedUserId] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
-    // FIX: Add explicit type annotation to the callback parameter `s` to resolve the error.
     const isAnyAnalysisLoading = Object.values(analysesState).some((s: AnalysisStateItem<unknown>) => s.status === 'loading');
     
-    // FIX: Refactored function to be type-safe by handling each analysis type explicitly, avoiding complex union/intersection type errors.
     const convertStateToCacheForReport = (state: AnalysesState): UserAnalysisCache => {
         const cache: UserAnalysisCache = {};
-        
-        if (state.trajectory.status === 'success' && state.trajectory.data) {
-            cache.trajectory = state.trajectory.data;
-        } else if (state.trajectory.status === 'error' && state.trajectory.error) {
-            cache.trajectory = { error: state.trajectory.error };
-        }
-
-        if (state.skillMatching.status === 'success' && state.skillMatching.data) {
-            cache.skillMatching = state.skillMatching.data;
-        } else if (state.skillMatching.status === 'error' && state.skillMatching.error) {
-            cache.skillMatching = { error: state.skillMatching.error };
-        }
-
-        if (state.hiddenPotential.status === 'success' && state.hiddenPotential.data) {
-            cache.hiddenPotential = state.hiddenPotential.data;
-        } else if (state.hiddenPotential.status === 'error' && state.hiddenPotential.error) {
-            cache.hiddenPotential = { error: state.hiddenPotential.error };
-        }
-        
+        if (state.trajectory.status === 'success' && state.trajectory.data) cache.trajectory = state.trajectory.data;
+        if (state.skillMatching.status === 'success' && state.skillMatching.data) cache.skillMatching = state.skillMatching.data;
+        if (state.hiddenPotential.status === 'success' && state.hiddenPotential.data) cache.hiddenPotential = state.hiddenPotential.data;
         return cache;
     };
 
-
-    const TabButton: React.FC<{ tabId: AdminTab; children: React.ReactNode }> = ({ tabId, children }) => (
-        <button onClick={() => setActiveTab(tabId)} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tabId ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{children}</button>
-    );
-    
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 bg-white rounded-2xl shadow-2xl border border-slate-200 my-4 md:my-6 min-h-[80vh]">
             <header className="pb-4 border-b border-slate-200 mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h1 className="text-2xl font-bold text-slate-800">管理者ダッシュボード</h1>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
-                        <TabButton tabId="user">ユーザー別分析</TabButton>
-                        <TabButton tabId="comprehensive">総合分析</TabButton>
+                        <button onClick={() => setActiveTab('user')} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'user' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>個別分析</button>
+                        <button onClick={() => setActiveTab('comprehensive')} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'comprehensive' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>全体分析</button>
                     </div>
-                    <button onClick={() => setIsDevLogModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 p-2 rounded-lg text-sm transition-colors text-white shadow-md" title="開発ログ"><LogIcon /></button>
+                    <button onClick={() => setIsDevLogModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 p-2 rounded-lg text-sm text-white shadow-md"><LogIcon /></button>
                 </div>
             </header>
 
@@ -291,68 +237,43 @@ const AdminView: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <aside className="lg:col-span-4 space-y-4">
                         <div className="flex flex-col sm:flex-row gap-2">
+                            <button onClick={handleImportClick} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-sm hover:bg-sky-700 transition-all"><ImportIcon /> 読込</button>
+                            <button onClick={() => setIsAddTextModalOpen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500 text-white font-semibold rounded-lg shadow-sm hover:bg-emerald-600 transition-all"><PlusCircleIcon /> 追加</button>
                             <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
-                            <button onClick={handleImportClick} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-sm hover:bg-sky-700 transition-all"><ImportIcon /> データインポート</button>
-                            <button onClick={() => setIsAddTextModalOpen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500 text-white font-semibold rounded-lg shadow-sm hover:bg-emerald-600 transition-all"><PlusCircleIcon /> テキストから追加</button>
                         </div>
                         <UserManagementPanel allUsers={allUsers} selectedUserId={selectedUserId} onUserSelect={setSelectedUserId} conversationsByUser={conversationsByUser} />
                         <PasswordManager />
-                        <button onClick={handleClearAllData} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-all"><TrashIcon /> 全データ削除</button>
+                        <button onClick={handleClearAllData} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-all"><TrashIcon /> 全削除</button>
                     </aside>
 
                     <main className="lg:col-span-8">
-                        {selectedUserId && allUsers.find(u => u.id === selectedUserId) ? (
+                        {selectedUserId ? (
                            <div className="bg-slate-50 rounded-lg border border-slate-200 h-full flex flex-col">
                                 <div className="p-4 border-b border-slate-200">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-                                        <div>
-                                            <h2 className="text-xl font-bold text-slate-800 truncate" title={allUsers.find(u => u.id === selectedUserId)?.nickname}>{allUsers.find(u => u.id === selectedUserId)?.nickname} のデータ</h2>
-                                        </div>
+                                        <h2 className="text-xl font-bold text-slate-800">相談者の詳細分析</h2>
                                         <div className="flex gap-2">
-                                            <button onClick={() => setUserToShare(allUsers.find(u => u.id === selectedUserId) || null)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-600 text-white rounded-md hover:bg-slate-700"><ShareIcon /> レポート共有</button>
-                                            <button onClick={() => handleClearUserData(selectedUserId)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"><TrashIcon /> データ削除</button>
+                                            <button onClick={() => setUserToShare(allUsers.find(u => u.id === selectedUserId) || null)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-600 text-white rounded-md hover:bg-slate-700"><ShareIcon /> 共有</button>
+                                            <button onClick={() => handleClearUserData(selectedUserId)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"><TrashIcon /> 削除</button>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                         {(['trajectory', 'skillMatching', 'hiddenPotential'] as AnalysisType[]).map(type => (
-                                            <button key={type} onClick={() => handleRunAnalysis(type, selectedUserConversations, selectedUserId)} disabled={isAnyAnalysisLoading || selectedUserConversations.length === 0} className="relative group flex items-center justify-center gap-2 p-2 text-sm font-semibold rounded-md transition-colors bg-white border hover:bg-slate-100 disabled:bg-slate-200 disabled:cursor-not-allowed">
-                                                {analysesState[type].status === 'loading' && (
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-md">
-                                                        <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                                                    </div>
-                                                )}
+                                            <button key={type} onClick={() => handleRunAnalysis(type, selectedUserConversations, selectedUserId)} disabled={isAnyAnalysisLoading || selectedUserConversations.length === 0} className="flex items-center justify-center gap-2 p-2 text-sm font-semibold rounded-md transition-colors bg-white border hover:bg-slate-100 disabled:bg-slate-200">
                                                 {type === 'trajectory' ? <TrajectoryIcon /> : type === 'skillMatching' ? <TargetIcon /> : <BrainIcon />}
-                                                <span>{type === 'trajectory' ? '相談の軌跡' : type === 'skillMatching' ? '適性診断' : '隠れた可能性'}</span>
+                                                <span>{type === 'trajectory' ? '軌跡' : type === 'skillMatching' ? '適性' : '可能性'}</span>
                                             </button>
                                         ))}
                                     </div>
                                 </div>
-                                
                                 <div className="p-4 flex-1 overflow-y-auto">
-                                    <AnalysisDisplay 
-                                        trajectoryState={analysesState.trajectory}
-                                        hiddenPotentialState={analysesState.hiddenPotential}
-                                    />
-                                </div>
-
-                                <div className="p-4 border-t border-slate-200 bg-slate-100 max-h-48 overflow-y-auto">
-                                    <h3 className="font-bold text-slate-700 mb-2">相談履歴 ({selectedUserConversations.length}件)</h3>
-                                    <div className="space-y-1">
-                                        {selectedUserConversations.map(conv => (
-                                            <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-2 rounded-md hover:bg-slate-200 text-xs flex justify-between items-center">
-                                                <span>{new Date(conv.date).toLocaleString('ja-JP')} - {conv.aiName}</span>
-                                                <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${conv.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{conv.status === 'completed' ? '完了' : '中断'}</span>
-                                            </button>
-                                        ))}
-                                        {selectedUserConversations.length === 0 && <p className="text-xs text-slate-500 text-center py-2">このユーザーの相談履歴はありません。</p>}
-                                    </div>
+                                    <AnalysisDisplay trajectoryState={analysesState.trajectory} hiddenPotentialState={analysesState.hiddenPotential} />
                                 </div>
                            </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-500 text-center">
                                 <UserIcon />
                                 <h2 className="mt-2 font-semibold">相談者を選択してください</h2>
-                                <p className="text-sm">左のリストから分析したい相談者を選択できます。</p>
                             </div>
                         )}
                     </main>
@@ -360,21 +281,11 @@ const AdminView: React.FC = () => {
             ) : (
                 <AnalysisDashboard conversations={allConversations} />
             )}
-            
             {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
             <AddTextModal isOpen={isAddTextModalOpen} onClose={() => setIsAddTextModalOpen(false)} onSubmit={handleAddTextSubmit} existingUserIds={allUsers.map(u => u.id)} />
             {userToShare && <ShareReportModal isOpen={!!userToShare} onClose={() => setUserToShare(null)} userId={userToShare.id} conversations={conversationsByUser[userToShare.id] || []} analysisCache={convertStateToCacheForReport(analysesState)} />}
             <DevLogModal isOpen={isDevLogModalOpen} onClose={() => setIsDevLogModalOpen(false)} />
-            <SkillMatchingModal 
-                isOpen={isMatchingModalOpen} 
-                onClose={() => {
-                    setIsMatchingModalOpen(false);
-                    if (analysesState.skillMatching.status === 'loading') {
-                       setAnalysesState(prev => ({...prev, skillMatching: {...prev.skillMatching, status: 'idle'} }));
-                    }
-                }}
-                analysisState={analysesState.skillMatching}
-            />
+            <SkillMatchingModal isOpen={isMatchingModalOpen} onClose={() => setIsMatchingModalOpen(false)} analysisState={analysesState.skillMatching} />
         </div>
     );
 };

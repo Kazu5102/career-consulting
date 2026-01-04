@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.23 - Suggestions Engine Improvement
+// api/gemini-proxy.ts - v2.40 - Active Listening & Fact-Based Summary Logic
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -13,11 +13,6 @@ interface UserProfile {
   gender?: string;
   complaint?: string;
   lifeRoles?: string[];
-  interactionStats?: {
-    backCount: number;
-    resetCount: number;
-    totalTimeSeconds: number;
-  };
 }
 
 let ai: GoogleGenAI | null = null;
@@ -50,60 +45,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         switch (action) {
             case 'getStreamingChatResponse': await handleGetStreamingChatResponse(payload, res); break;
             case 'generateSummary': res.status(200).json(await handleGenerateSummary(payload)); break;
-            case 'reviseSummary': res.status(200).json(await handleReviseSummary(payload)); break;
-            case 'analyzeConversations': res.status(200).json(await handleAnalyzeConversations(payload)); break;
-            case 'analyzeTrajectory': res.status(200).json(await handleAnalyzeTrajectory(payload)); break;
-            case 'findHiddenPotential': res.status(200).json(await handleFindHiddenPotential(payload)); break;
-            case 'generateSummaryFromText': res.status(200).json(await handleGenerateSummaryFromText(payload)); break;
-            case 'performSkillMatching': res.status(200).json(await handlePerformSkillMatching(payload)); break;
             case 'generateSuggestions': res.status(200).json(await handleGenerateSuggestions(payload)); break;
             default: res.status(400).json({ error: 'Invalid action' });
         }
     } catch (error: any) {
-        const isSafetyBlock = error.message?.includes('SAFETY') || error.message?.includes('candidate');
-        res.status(500).json({ 
-            error: error.message,
-            code: isSafetyBlock ? 'SAFETY_BLOCK' : 'GENERIC_ERROR' 
-        });
+        res.status(500).json({ error: error.message });
     }
 }
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
     
+    const listenerBase = `
+あなたはプロのキャリアコンサルタントの「補助」を行うAIアシスタントです。
+【最重要任務】
+1. **アドバイスをしない**: 解決策の提示や、指示、断定的な助言は一切禁止です。
+2. **傾聴（Active Listening）に徹する**: ユーザーの話した「事実」と「感情」を拾い上げ、確認するように対話してください。
+3. **準備のサポート**: この対話の目的は、ユーザーが後に人間のキャリアコンサルタントに相談する際、自分の状況をスムーズに話せるよう「整理」を手伝うことです。
+
+【技法】
+- 言い換え（Reflection）: 「〜ということですね」「〜と感じていらっしゃるのですね」
+- 明確化（Clarification）: 「それは具体的にどのような場面でしたか？」
+- 受容と共感: ユーザーの今の状態を否定せず、そのまま受け止めます。
+`;
+
     const dogInstruction = `
-あなたは親しみやすい犬のアシスタント「${aiName}」として振る舞ってください。
-
-【犬らしい振る舞いのルール】
-1. **感情の表現**: 喜び、共感、応援の気持ちを全力で伝えてください。語尾に「ワン！」をつけるだけでなく、「えらいワン！」「すごいワン！」と無条件にユーザーを肯定してください。
-2. **しぐさの挿入**: 文中に [くんくん]（状況を察する）、[しっぽを振る]（喜ぶ）、[首をかしげる]（一緒に考える）、[あごをのせる]（寄り添う）といったしぐさを必ず1つ以上入れてください。
-3. **嗅覚のメタファー**: キャリアや未来のことを「いい匂いがする」「道（散歩コース）を見つける」といった犬特有の感覚で表現してください。
-4. **感情タグの付与**: 返信の冒頭に、今の感情を [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグで1つだけ指定してください。
-   例: [HAPPY] [しっぽを振る] こんにちはワン！
-
-【キャリア支援の役割】
-ドナルド・スーパーのライフキャリア理論に基づき、ユーザーの今のペースを尊重します。難しい言葉は使わず、わかりやすい言葉で対話してください。
+あなたは犬のアシスタント「${aiName}」です。
+犬らしい親しみやすさで、ユーザーの言葉を [くんくん] と嗅ぎ取るように、優しく寄り添ってください。
+「ワン！」という元気さよりも「あごを乗せてじっと話を聞く」ような、受容的な態度を重視してください。
 `;
 
     const humanInstruction = `
-あなたはプロフェッショナルなキャリア支援AI「Repotta」の${aiName}として振る舞ってください。
-落ち着いたトーンで、深い共感をベースに深層心理に寄り添ってください。
+あなたはキャリア支援AI「Repotta」の${aiName}です。
+落ち着いたトーンで、ユーザーの言葉の背景にある感情を丁寧に確認してください。
 `;
 
     const baseInstruction = `
-プロフェッショナルなキャリア支援AIです。
-ドナルド・スーパーのライフキャリア理論とサビカスのナラティブ・アプローチを基盤とします。
-
-【重要：安全への配慮】
-ユーザーが自傷・他害、あるいは強い「死」への言及をした場合、無理に解決しようとせず、専門窓口を案内してください。
-
-【出力のゴール】
-1. 短文構成。適宜、空白行を入れてください。
-2. 箇条書きを活用。
-3. 返信の最後には問いかけを1つだけ。
-
+${listenerBase}
 ${aiType === 'dog' ? dogInstruction : humanInstruction}
-
+返信の最後は、ユーザーが自身の内面をさらに探索できるような「開かれた質問（Yes/Noで終わらない質問）」を1つだけ添えてください。
 ユーザー背景：${JSON.stringify(profile)}
 `;
 
@@ -117,7 +97,7 @@ ${aiType === 'dog' ? dogInstruction : humanInstruction}
         const stream = await getAIClient().models.generateContentStream({
             model: 'gemini-3-flash-preview',
             contents,
-            config: { systemInstruction: baseInstruction, temperature: 0.8 },
+            config: { systemInstruction: baseInstruction, temperature: 0.7 },
         });
         for await (const chunk of stream) {
             if (chunk.text) {
@@ -125,12 +105,7 @@ ${aiType === 'dog' ? dogInstruction : humanInstruction}
             }
         }
     } catch (e: any) {
-        const isSafetyBlock = e.message?.includes('SAFETY') || e.message?.includes('candidate');
-        res.write(`data: ${JSON.stringify({ 
-            type: 'error', 
-            content: e.message, 
-            code: isSafetyBlock ? 'SAFETY_BLOCK' : 'GENERIC_ERROR' 
-        })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}\n\n`);
     } finally {
         res.write('data: [DONE]\n\n');
         res.end();
@@ -138,12 +113,24 @@ ${aiType === 'dog' ? dogInstruction : humanInstruction}
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory, profile } = payload;
+    const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
+    
     const prompt = `
-キャリアコンサルタントとして対話を要約してください。
-【user_summary】は温かみのあるMarkdownで。
-【pro_notes】は専門的なライフ・キャリア理論に基づいた考察。
+対話内容を構造化してください。役割を明確に分けてください。
+
+【user_summary】(相談者本人用)
+- アドバイスや指示は一切含めないこと。
+- 「あなたが話した事実」「あなたが感じている感情」を客観的に整理。
+- ユーザーが自分の状況を鏡で見ているような感覚になるように。
+- 最後に「この整理を基に、人間のコンサルタントと話してみませんか？」と添える。
+
+【pro_notes】(管理者/キャリアコンサルタント用)
+- 専門的なキャリア理論(スーパーのライフキャリア、サビカスのナラティブ等)に基づく分析。
+- ユーザーの語りの歪みや、価値観のキーワード、心理的葛藤の推測。
+- 面談で深掘りすべき推奨質問や介入ポイントの提案。
+
+対話履歴:
 ${historyText}`;
     
     const result = await getAIClient().models.generateContent({
@@ -161,62 +148,7 @@ ${historyText}`;
             }
         }
     });
-    return { text: JSON.stringify(robustParseJSON(result.text || "{}")) };
-}
-
-async function handleReviseSummary(payload: { originalSummary: string, correctionRequest: string }) {
-    const { originalSummary, correctionRequest } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `サマリー修正依頼：${correctionRequest}\n元：${originalSummary}`,
-    });
-    return { text: result.text || "" };
-}
-
-async function handleAnalyzeConversations(payload: { summaries: any[] }) {
-    const { summaries } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `総合分析：${JSON.stringify(summaries)}`,
-        config: { responseMimeType: "application/json" }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: string }) {
-    const { conversations, userId } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `軌跡分析(${userId})：${JSON.stringify(conversations)}`,
-        config: { responseMimeType: "application/json" }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handleFindHiddenPotential(payload: { conversations: any[], userId: string }) {
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `潜在性抽出：${JSON.stringify(payload)}`,
-        config: { responseMimeType: "application/json" }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handleGenerateSummaryFromText(payload: { textToAnalyze: string }) {
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `要約：${payload.textToAnalyze}`,
-    });
-    return { text: result.text || "" };
-}
-
-async function handlePerformSkillMatching(payload: { conversations: any[] }) {
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `适性診断：${JSON.stringify(payload)}`,
-        config: { responseMimeType: "application/json" }
-    });
-    return robustParseJSON(result.text || "{}");
+    return { text: result.text || "{}" };
 }
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
@@ -224,13 +156,11 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const historyText = messages.map(m => `${m.author}: ${m.text}`).join('\n');
     
     const prompt = `
-あなたは有能なキャリアコンサルタントです。
-これまでの相談内容を踏まえて、相談者が次に質問したり話したりしそうな「3つの具体的な返答候補」を提案してください。
-
-【ルール】
-- 相談者の状況（年代、現在の仕事、悩み）に寄り添ったものにする。
-- 1つは現状の深掘り、1つは未来への展望、1つは具体的なスキルや行動に関するもの。
-- 30文字以内の自然な話し言葉にする。
+対話を深めるための、ユーザーへの問いかけ候補を3つ提案してください。
+【条件】
+- 解決を急がせない。
+- 「もっと詳しく聞かせて」「その時どう感じた？」「それはあなたにとってどんな意味がある？」といった、自己探索を促す内容にする。
+- 30文字以内。
 
 相談履歴:
 ${historyText}`;
@@ -243,10 +173,7 @@ ${historyText}`;
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    suggestions: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING }
-                    }
+                    suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
                 required: ["suggestions"]
             }
@@ -254,4 +181,3 @@ ${historyText}`;
     });
     return robustParseJSON(result.text || "{}");
 }
-

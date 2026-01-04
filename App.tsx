@@ -1,5 +1,5 @@
 
-// App.tsx - v2.26 - Global Version Visibility
+// App.tsx - v2.42 - Import/Export Compatibility Update
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -51,10 +51,9 @@ const App: React.FC = () => {
         <div className="flex flex-col min-h-[100dvh] font-sans bg-slate-100 relative overflow-x-hidden">
             <header className="bg-slate-800 text-white p-2 shadow-md z-10 sticky top-0">
                 <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-                    {/* Visual Version Indicator - Visible on all screens */}
                     <div className="flex items-center gap-2">
                         <span className="bg-sky-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
-                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.26</span>
+                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.42</span>
                     </div>
 
                     <div className="flex items-center">
