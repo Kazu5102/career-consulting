@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.80 - Absolute Action Sync & Robust Error Tracking
+// api/gemini-proxy.ts - v2.81 - Absolute Fact-Check & Empathy Guardrails
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -55,13 +55,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
         const { action, payload } = req.body;
         
-        // 1. ヘルスチェック（最優先）
         if (action === 'healthCheck') { res.status(200).json({ status: 'ok' }); return; }
         
-        // AIクライアントの初期化
         const client = getAIClient();
 
-        // 2. アクションのルーティング（文字列の完全一致を保証）
         switch (action) {
             case 'getStreamingChatResponse': 
                 await handleGetStreamingChatResponse(payload, res); 
@@ -91,8 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 res.status(200).json(await handleFindHiddenPotential(payload)); 
                 break;
             default: 
-                // 不明なアクションの場合は詳細を返す（デバッグ効率化）
-                res.status(400).json({ error: `Invalid action received: '${action}'. Possible mismatch between frontend and proxy.` });
+                res.status(400).json({ error: `Invalid action received: '${action}'.` });
         }
     } catch (error: any) {
         console.error(`[Proxy Error] ${error.message}`);
@@ -104,9 +100,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    const listenerBase = `あなたはプロのキャリアコンサルタントの「最高の聞き手」です。ユーザー自身の中にある想いを引き出し、3〜4往復で完了（要約）を促してください。`;
-    const aiSpecific = aiType === 'dog' ? `犬のアシスタント「${aiName}」として親しみやすく振る舞ってください。` : `AIコンサルタント「${aiName}」として落ち着いて寄り添ってください。`;
-    const baseInstruction = `${listenerBase}\n${aiSpecific}\nユーザー背景：${JSON.stringify(profile)}`;
+    
+    // プロンプト刷新：事実確認の徹底と不当な決めつけの排除（案C：ハイブリッド）
+    const systemInstruction = `
+あなたはプロのキャリアコンサルタントとして、相談者の「最高の聞き手」になってください。
+
+【最優先行動原則：事実限定原則】
+1. ユーザーが明示的に話した内容、または以下の「ユーザー背景」にある情報のみを事実として扱ってください。
+2. 家族構成（配偶者や子供の有無）、生活環境、趣味、価値観を勝手に推測したり、前提として会話を進めることは厳禁です。
+3. 明示されていない情報が必要な場合は、「差し支えなければ」といったクッション言葉を用い、丁寧に確認してください。
+4. ステレオタイプ（例：「この年代なら子供がいるはずだ」「女性なら家庭を優先するはずだ」等）に基づいた発言は絶対にしないでください。
+
+【対話の目的】
+- ユーザーの心の中にある「未言語化された想い」を引き出すこと。
+- 3〜4往復程度の対話で状況を整理し、専門家へ繋ぐための「要約（完了）」へ促すこと。
+
+【スタイル設定】
+- ${aiType === 'dog' ? `犬のアシスタント「${aiName}」として、親しみやすく、かつ相手を尊重して振る舞ってください。語尾にワンをつけるなど愛嬌を出しつつ、聞き手として徹してください。` : `AIコンサルタント「${aiName}」として、落ち着いたトーンで深く寄り添い、心理的安全性を確保してください。`}
+
+【ユーザー背景（この情報のみを参照すること）】
+${JSON.stringify(profile)}
+`.trim();
+
     const contents = messages.map(msg => ({
         role: msg.author === MessageAuthor.USER ? 'user' : 'model',
         parts: [{ text: msg.text }],
@@ -117,7 +132,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         const stream = await getAIClient().models.generateContentStream({
             model: 'gemini-3-flash-preview',
             contents,
-            config: { systemInstruction: baseInstruction, temperature: 0.7 },
+            config: { systemInstruction, temperature: 0.6 },
         });
         for await (const chunk of stream) {
             if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
@@ -135,7 +150,9 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `対話内容をユーザー向けの「振り返り」と専門家向けの「詳細ノート」に構造化してください。\n履歴:\n${historyText}`,
+        contents: `対話履歴から、「ユーザー向けの振り返り」と「専門家への引継ぎノート」を作成してください。
+事実として語られたことのみを記述し、推測は「懸念される点」等として明確に区別してください。
+履歴:\n${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -152,7 +169,8 @@ async function handleReviseSummary(payload: { originalSummary: string, correctio
     const { originalSummary, correctionRequest } = payload;
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `以下のサマリーを、ユーザーの修正依頼に基づき書き直してください。\n元サマリー:\n${originalSummary}\n修正依頼:\n${correctionRequest}`,
+        contents: `ユーザーの意向を反映し、サマリーを更新してください。
+元サマリー:\n${originalSummary}\n修正依頼:\n${correctionRequest}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -169,18 +187,9 @@ async function handleAnalyzeConversations(payload: { summaries: any[] }) {
     const { summaries } = payload;
     const combinedText = summaries.map((s, i) => `[相談 ${i+1}]\n${normalizeSummary(s.summary)}`).join('\n\n');
     
-    const prompt = `システム全体の相談データを総合分析してください。
-    
-    【分析対象データ】
-    ${combinedText}
-    
-    【分析要件】
-    1. keyMetrics: 全体の相談件数と主要な業界
-    2. commonChallenges: 共通の課題（ラベルと割合%）
-    3. careerAspirations: キャリア志向（ラベルと割合%）
-    4. commonStrengths: 共通の強み
-    5. overallInsights: 全体的な総括（Markdown形式）
-    6. keyTakeaways: キャリア専門家向けの重要指摘`;
+    const prompt = `全相談データを総合分析してください。
+【分析対象データ】
+${combinedText}`;
 
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -217,7 +226,8 @@ async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: 
         return `### セッション記録 ${idx + 1} (日時: ${c.date})\n${normalizeSummary(c.summary)}`;
     }).join('\n\n---\n\n');
     
-    const prompt = `あなたはプロのキャリアコンサルタントです。複数のセッション記録から臨床的分析を行ってください。\n相談履歴:\n${normalizedHistory}`;
+    const prompt = `キャリアの軌跡を臨床的に分析してください。
+相談履歴:\n${normalizedHistory}`;
 
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -246,7 +256,7 @@ async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: 
 async function handlePerformSkillMatching(payload: { conversations: any[] }) {
     const { conversations } = payload;
     const historyText = conversations.map(c => normalizeSummary(c.summary)).join('\n');
-    const prompt = `相談内容から詳細な適性診断を行ってください。\n履歴:\n${historyText}`;
+    const prompt = `適性診断を行ってください。履歴:\n${historyText}`;
 
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -274,7 +284,7 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const historyText = messages.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `ユーザーの次の発話候補を3つ提案してください。履歴: ${historyText}`,
+        contents: `次の発話候補を3つ提案してください。履歴: ${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -291,7 +301,7 @@ async function handleGenerateSummaryFromText(payload: { textToAnalyze: string })
     const { textToAnalyze } = payload;
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `以下のテキストをキャリア相談のサマリーとして整形してください。\nテキスト:\n${textToAnalyze}`,
+        contents: `テキストを要約してください。\nテキスト:\n${textToAnalyze}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -309,7 +319,7 @@ async function handleFindHiddenPotential(payload: { conversations: any[], userId
     const historyText = conversations.map(c => normalizeSummary(c.summary)).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `本人が気づいていない可能性を抽出してください。\n履歴:\n${historyText}`,
+        contents: `隠れた可能性を抽出してください。\n履歴:\n${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

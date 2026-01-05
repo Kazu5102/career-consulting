@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v2.80 - Expert Insight & Reactive Data Management
+// views/AdminView.tsx - v2.81 - Expert Insight & Reactive Data Management
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
 import * as userService from '../services/userService';
@@ -206,7 +206,7 @@ const AdminView: React.FC = () => {
                     <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg"><TrajectoryIcon className="w-7 h-7" /></div>
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">Professional Dashboard</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.80 Expert Insight Dashboard</p>
+                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.81 Expert Insight Dashboard</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">
