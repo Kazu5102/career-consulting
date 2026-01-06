@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v2.86 - Japanese Localization Guard Edition
+// components/AIAvatar.tsx - v2.89 - Floating Hub Visual Optimization
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -247,16 +247,16 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
 
   if (isCompact) {
     return (
-      <div className="w-full h-full bg-slate-800 flex items-center justify-center relative overflow-hidden rounded-full shadow-inner">
+      <div className="w-full h-full bg-slate-800 flex items-center justify-center relative overflow-hidden rounded-full shadow-inner border border-white/10">
         <div className="absolute inset-0 bg-grid-slate-700 opacity-20"></div>
-        <div className="relative w-full h-full p-1.5 flex items-center justify-center">
-          <div className="w-full h-full flex items-center justify-center transform scale-110">
+        <div className="relative w-full h-full p-1 flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center transform scale-[1.3] lg:scale-[1.5]">
             {renderAvatar()}
           </div>
         </div>
         {isLoading && (
           <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center backdrop-blur-[1px]">
-             <div className="w-full h-full border-2 border-sky-300 border-t-transparent rounded-full animate-spin opacity-60"></div>
+             <div className="w-full h-full border-4 border-sky-400 border-t-transparent rounded-full animate-spin opacity-60"></div>
           </div>
         )}
       </div>
@@ -288,7 +288,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-400 select-none bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-        Ver 2.86
+        Ver 2.89
       </div>
     </div>
   );

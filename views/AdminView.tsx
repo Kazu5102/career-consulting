@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v2.86 - Strategic Expert Dashboard with Advanced Sorting
+// views/AdminView.tsx - v2.93 - Strategic Inbox Upgrade with Search and Smart Sort
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
 import * as userService from '../services/userService';
@@ -23,6 +23,7 @@ import TargetIcon from '../components/icons/TargetIcon';
 
 type AdminTab = 'user' | 'comprehensive';
 type SortOrder = 'desc' | 'asc';
+type InboxSortBy = 'latest' | 'name' | 'sessions';
 
 const initialAnalysesState: AnalysesState = {
   trajectory: { status: 'idle', data: null, error: null },
@@ -34,7 +35,6 @@ const ConsultationHistoryItem: React.FC<{
     conv: StoredConversation,
     onClick: () => void
 }> = ({ conv, onClick }) => {
-    // Ver 2.86: 秒単位まで表示し、正確な操作時間を可視化
     const dateStr = new Date(conv.date).toLocaleDateString('ja-JP', { 
         year: 'numeric', month: '2-digit', day: '2-digit', 
         hour: '2-digit', minute: '2-digit', second: '2-digit' 
@@ -70,42 +70,111 @@ const UserManagementPanel: React.FC<{
     selectedUserId: string | null,
     onUserSelect: (userId: string) => void,
     conversationsByUser: Record<string, StoredConversation[]>,
-}> = ({ allUsers, selectedUserId, onUserSelect, conversationsByUser }) => (
-    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        <h2 className="text-lg font-bold text-slate-800 mb-4 px-1">相談者インボックス</h2>
-        <div className="max-h-[600px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin scrollbar-thumb-slate-200">
-            {allUsers.map(user => {
-                const count = conversationsByUser[user.id]?.length || 0;
-                const riskLevel = count === 0 ? 'low' : count === 1 ? 'high' : count < 3 ? 'medium' : 'low';
-                const riskColors = { high: 'bg-rose-500', medium: 'bg-amber-500', low: 'bg-emerald-500' };
+}> = ({ allUsers, selectedUserId, onUserSelect, conversationsByUser }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState<InboxSortBy>('latest');
 
-                return (
-                    <button 
-                        key={user.id} 
-                        onClick={() => onUserSelect(user.id)} 
-                        className={`w-full text-left p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden group ${
-                            selectedUserId === user.id ? 'bg-sky-50 ring-2 ring-sky-500 shadow-md' : 'hover:bg-slate-50 border border-slate-100'
-                        }`}
-                    >
-                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${riskColors[riskLevel]}`}></div>
-                        <div className="flex-shrink-0 w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 group-hover:scale-105 transition-transform"><UserIcon /></div>
-                        <div className="flex-1 overflow-hidden">
-                            <div className="flex justify-between items-center mb-0.5">
-                                <p className="font-bold text-slate-800 truncate">{user.nickname}</p>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{count} Sessions</span>
+    const processedUsers = useMemo(() => {
+        let filtered = allUsers.filter(u => 
+            u.nickname.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            u.id.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        const getLatestDate = (uid: string) => {
+            const convs = conversationsByUser[uid] || [];
+            if (convs.length === 0) return 0;
+            return Math.max(...convs.map(c => new Date(c.date).getTime()));
+        };
+
+        return filtered.sort((a, b) => {
+            if (sortBy === 'name') return a.nickname.localeCompare(b.nickname);
+            if (sortBy === 'sessions') return (conversationsByUser[b.id]?.length || 0) - (conversationsByUser[a.id]?.length || 0);
+            return getLatestDate(b.id) - getLatestDate(a.id);
+        });
+    }, [allUsers, searchTerm, sortBy, conversationsByUser]);
+
+    const formatRelativeTime = (uid: string) => {
+        const convs = conversationsByUser[uid] || [];
+        if (convs.length === 0) return '相談なし';
+        const latestDate = new Date(Math.max(...convs.map(c => new Date(c.date).getTime())));
+        return latestDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const hasRecentActivity = (uid: string) => {
+        const convs = conversationsByUser[uid] || [];
+        if (convs.length === 0) return false;
+        const latest = Math.max(...convs.map(c => new Date(c.date).getTime()));
+        return (Date.now() - latest) < 24 * 60 * 60 * 1000; // 24時間以内
+    };
+
+    return (
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full max-h-[800px]">
+            <div className="mb-4">
+                <h2 className="text-lg font-black text-slate-800 px-1 mb-3">相談者インボックス</h2>
+                
+                {/* Search Bar */}
+                <div className="relative mb-3">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        placeholder="名前・IDで検索"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none"
+                    />
+                </div>
+
+                {/* Sort Tabs */}
+                <div className="flex gap-1 p-1 bg-slate-50 rounded-xl border border-slate-100 mb-1">
+                    <button onClick={() => setSortBy('latest')} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${sortBy === 'latest' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400'}`}>Latest</button>
+                    <button onClick={() => setSortBy('name')} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${sortBy === 'name' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400'}`}>Name</button>
+                    <button onClick={() => setSortBy('sessions')} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${sortBy === 'sessions' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400'}`}>Count</button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin scrollbar-thumb-slate-200 pb-2">
+                {processedUsers.map(user => {
+                    const count = conversationsByUser[user.id]?.length || 0;
+                    const riskLevel = count === 0 ? 'low' : count === 1 ? 'high' : count < 3 ? 'medium' : 'low';
+                    const riskColors = { high: 'bg-rose-500', medium: 'bg-amber-500', low: 'bg-emerald-500' };
+                    const isRecent = hasRecentActivity(user.id);
+
+                    return (
+                        <button 
+                            key={user.id} 
+                            onClick={() => onUserSelect(user.id)} 
+                            className={`w-full text-left p-4 rounded-2xl transition-all flex items-center gap-4 relative overflow-hidden group ${
+                                selectedUserId === user.id ? 'bg-sky-50 ring-2 ring-sky-500 shadow-md' : 'hover:bg-slate-50 border border-slate-100'
+                            }`}
+                        >
+                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${riskColors[riskLevel]}`}></div>
+                            <div className="flex-shrink-0 w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 group-hover:scale-105 transition-transform relative">
+                                <UserIcon />
+                                {isRecent && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-sky-500 border-2 border-white rounded-full"></span>}
                             </div>
-                            <div className="flex gap-1.5">
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9px] text-slate-500 uppercase font-black">Active</span>
-                                {riskLevel === 'high' && <span className="px-1.5 py-0.5 rounded bg-rose-100 text-[9px] text-rose-600 uppercase font-black">Attention</span>}
+                            <div className="flex-1 overflow-hidden">
+                                <div className="flex justify-between items-center mb-0.5">
+                                    <p className="font-black text-slate-800 truncate leading-tight">{user.nickname}</p>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter whitespace-nowrap ml-2">{count} sessions</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex gap-1.5">
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9px] text-slate-500 uppercase font-black">Active</span>
+                                        {riskLevel === 'high' && <span className="px-1.5 py-0.5 rounded bg-rose-100 text-[9px] text-rose-600 uppercase font-black">Attention</span>}
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 italic">{formatRelativeTime(user.id)}</span>
+                                </div>
                             </div>
-                        </div>
-                    </button>
-                );
-            })}
-            {allUsers.length === 0 && <p className="text-sm text-slate-400 text-center py-10 italic">相談者がまだいません。</p>}
+                        </button>
+                    );
+                })}
+                {processedUsers.length === 0 && <p className="text-sm text-slate-400 text-center py-10 italic font-medium">該当する相談者が見つかりません</p>}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const AdminView: React.FC = () => {
     const [activeTab, setActiveTab] = useState<AdminTab>('user');
@@ -114,7 +183,6 @@ const AdminView: React.FC = () => {
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [userToShare, setUserToShare] = useState<UserInfo | null>(null);
     
-    // Ver 2.86: 履歴のソート設定
     const [historySortOrder, setHistorySortOrder] = useState<SortOrder>('desc');
     
     const [isDevLogModalOpen, setIsDevLogModalOpen] = useState(false);
@@ -229,7 +297,7 @@ const AdminView: React.FC = () => {
                     <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg"><TrajectoryIcon className="w-7 h-7" /></div>
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">Professional Dashboard</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.86 Expert Strategy Dashboard</p>
+                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.93 Expert Strategy Dashboard</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">

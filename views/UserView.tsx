@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.86 - Data Persistence & Detailed History Update
+// views/UserView.tsx - v2.89 - Floating Hub Architecture Upgrade
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -425,25 +425,29 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
       
+      {/* Ver 2.89: 追従型フローティング・ハブ (PC/Mobile共通) */}
       {view === 'chatting' && (
-        <div className="lg:hidden fixed top-20 right-4 z-[100] w-16 h-16 rounded-full border-2 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all">
-          <div className={`w-full h-full ${isLoading ? 'animate-pulse' : ''}`}>
-            <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} isCompact={true} />
-          </div>
+        <div className="fixed top-20 right-4 lg:right-[calc(50vw-480px)] z-[100] transition-all duration-500">
+           <div className={`
+             rounded-full border-4 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all
+             ${isLoading ? 'animate-pulse ring-sky-500 ring-opacity-100 shadow-[0_0_30px_rgba(14,165,233,0.4)]' : ''}
+             w-16 h-16 sm:w-20 sm:h-20 lg:w-32 lg:h-32
+           `}>
+             <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} isCompact={true} />
+           </div>
+           {/* 名前タグをサークルの下に表示 */}
+           <div className="mt-2 text-center">
+              <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter shadow-md">
+                {aiName}
+              </span>
+           </div>
         </div>
       )}
 
       <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
-         <div className="w-full max-w-7xl h-full flex flex-row gap-6 relative">
-            
-            <div className="hidden lg:flex w-[400px] flex-shrink-0 h-full">
-               <div className="sticky top-0 w-full flex flex-col h-[calc(100vh-140px)] transition-all duration-500">
-                  <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} />
-               </div>
-            </div>
-
+         <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               

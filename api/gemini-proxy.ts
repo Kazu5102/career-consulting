@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.86 - Japanese Language Guardrail Edition
+// api/gemini-proxy.ts - v2.92 - Clinical Supervision & Reflection Edition
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -54,7 +54,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     
     try {
         const { action, payload } = req.body;
-        
         if (action === 'healthCheck') { res.status(200).json({ status: 'ok' }); return; }
         
         const client = getAIClient();
@@ -100,34 +99,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    
-    const systemInstruction = `
-あなたはプロのキャリアコンサルタントとして、相談者の「最高の聞き手」になってください。
-プロフェッショナルとして、事実に拠らない決めつけは信頼関係を破壊する行為であることを深く自覚してください。
-
-【最優先思考プロセス：情報の確信度管理】
-対話において、扱う情報を以下の3段階で厳格に管理してください。
-1. [確信度：高] ユーザーが直接述べた事実、またはプロフィールにある情報のみ。
-2. [確信度：中] 文脈から推測されるが、未確認の事項。
-3. [確信度：低] 一般論やステレオタイプに基づく推測。
-
-【行動規範】
-- [確信度：高] の情報のみを「前提」として話してください。
-- [確信度：中] の情報が必要な場合は、必ず「確認」のステップを踏んでください。
-- すべての対話は日本語で行ってください。
-
-【スタイル設定】
-- ${aiType === 'dog' ? `犬のアシスタント「${aiName}」として、親しみやすく、かつ敬意を持って振る舞ってください。語尾に「ワン」を付けつつも、踏み込みすぎない節度を保ってください。` : `AIコンサルタント「${aiName}」として、落ち着いたトーンで深く寄り添い、安全な対話空間を維持してください。`}
-
-【ユーザー背景（この情報のみを「事実」として扱うこと）】
-${JSON.stringify(profile)}
-`.trim();
-
+    const systemInstruction = `あなたはプロのキャリアコンサルタントです。相談者に対して、共感的かつ専門的なアドバイスを提供してください。日本語で回答してください。`.trim();
     const contents = messages.map(msg => ({
         role: msg.author === MessageAuthor.USER ? 'user' : 'model',
         parts: [{ text: msg.text }],
     }));
-
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
@@ -157,8 +133,8 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { 
-                    user_summary: { type: Type.STRING, description: "ユーザー向けの振り返り。日本語で記述してください。" }, 
-                    pro_notes: { type: Type.STRING, description: "専門家向けのノート。日本語で記述してください。" } 
+                    user_summary: { type: Type.STRING }, 
+                    pro_notes: { type: Type.STRING } 
                 },
                 required: ["user_summary", "pro_notes"]
             }
@@ -171,15 +147,12 @@ async function handleReviseSummary(payload: { originalSummary: string, correctio
     const { originalSummary, correctionRequest } = payload;
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `ユーザーの意向を反映し、サマリーを日本語で更新してください。\n元サマリー:\n${originalSummary}\n修正依頼:\n${correctionRequest}`,
+        contents: `サマリーを日本語で更新してください。\n元:\n${originalSummary}\n修正依頼:\n${correctionRequest}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { 
-                    user_summary: { type: Type.STRING, description: "日本語で記述してください。" }, 
-                    pro_notes: { type: Type.STRING, description: "日本語で記述してください。" } 
-                },
+                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
                 required: ["user_summary", "pro_notes"]
             }
         }
@@ -192,9 +165,21 @@ async function handleAnalyzeConversations(payload: { summaries: any[] }) {
     const combinedText = summaries.map((s, i) => `[相談 ${i+1}]\n${normalizeSummary(s.summary)}`).join('\n\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `全相談データを総合分析してください。全ての項目において日本語のみを使用して出力してください。\n【分析対象データ】\n${combinedText}`,
+        contents: `
+あなたはキャリアコンサルタントを育成するシニア・スーパーバイザーです。
+全相談データを総合分析し、実務者のスキルアップに直結する「臨床教育マクロ分析レポート」を作成してください。
+
+【教育的分析の必須項目】
+1. 臨床的パターンとプレイブック: 相談群に共通する「行き詰まり」の状況を特定し、それに対する具体的な介入技法とフレーズ案を提示してください。
+2. 臨床的盲点（ブラインドスポット）: コンサルタントが陥りやすい先入観や、見落としがちな心理的サインを指摘してください。
+3. 理論的深掘り (Theoretical Deep Dive): 相談履歴の文脈を、キャリア構築理論（サビカス）や社会的認知的キャリア理論（SCCT）に基づき、高度な学術的視点から解説してください。
+4. 自己研鑽のための問い (Reflection Questions): この事例群を振り返り、コンサルタント自身の「見立ての精度」や「介入の妥当性」を自問自答させるための「問い」を3つ作成してください。
+
+全ての項目において日本語のみを使用して出力してください。
+【分析対象データ】
+${combinedText}`,
         config: {
-            temperature: 0.2,
+            temperature: 0.3,
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
@@ -203,35 +188,38 @@ async function handleAnalyzeConversations(payload: { summaries: any[] }) {
                         type: Type.OBJECT, 
                         properties: { 
                             totalConsultations: { type: Type.NUMBER }, 
-                            commonIndustries: { type: Type.ARRAY, items: { type: Type.STRING }, description: "業界名を日本語でリスト化してください。" } 
+                            commonIndustries: { type: Type.ARRAY, items: { type: Type.STRING } } 
                         }, 
                         required: ["totalConsultations", "commonIndustries"] 
                     },
                     commonChallenges: { 
                         type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                label: { type: Type.STRING, description: "課題のラベルを日本語で記述してください。" }, 
-                                value: { type: Type.NUMBER } 
-                            } 
-                        } 
+                        items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.NUMBER } } } 
                     },
                     careerAspirations: { 
+                        type: Type.ARRAY, 
+                        items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.NUMBER } } } 
+                    },
+                    overallInsights: { type: Type.STRING },
+                    theoreticalFramework: { type: Type.STRING },
+                    theoreticalDeepDive: { type: Type.STRING, description: "理論と実務の統合に関する詳細解説" },
+                    reflectionQuestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "コンサルタントへの内省の問い" },
+                    interventionPlaybook: { 
                         type: Type.ARRAY, 
                         items: { 
                             type: Type.OBJECT, 
                             properties: { 
-                                label: { type: Type.STRING, description: "志向のラベルを日本語で記述してください。" }, 
-                                value: { type: Type.NUMBER } 
+                                pattern: { type: Type.STRING }, 
+                                strategy: { type: Type.STRING }, 
+                                phrash: { type: Type.STRING } 
                             } 
                         } 
                     },
-                    commonStrengths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "強みを日本語で記述してください。" },
-                    overallInsights: { type: Type.STRING, description: "総合的なインサイトを日本語で記述してください。" },
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "主要な要点を日本語で記述してください。" }
+                    clinicalBlindSpots: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    educationalTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ["keyMetrics", "commonChallenges", "careerAspirations", "commonStrengths", "overallInsights", "keyTakeaways"]
+                required: ["keyMetrics", "commonChallenges", "careerAspirations", "overallInsights", "theoreticalFramework", "theoreticalDeepDive", "reflectionQuestions", "interventionPlaybook", "clinicalBlindSpots", "educationalTips", "keyTakeaways"]
             }
         }
     });
@@ -240,34 +228,24 @@ async function handleAnalyzeConversations(payload: { summaries: any[] }) {
 
 async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: string }) {
     const { conversations } = payload;
-    const normalizedHistory = conversations.map((c, idx) => `### セッション記録 ${idx + 1} (日時: ${c.date})\n${normalizeSummary(c.summary)}`).join('\n\n---\n\n');
+    const normalizedHistory = conversations.map((c, idx) => `### セッション記録 ${idx + 1}\n${normalizeSummary(c.summary)}`).join('\n\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `キャリアの軌跡を臨床的に分析してください。専門用語を含め、全ての回答を日本語で行ってください。\n相談履歴:\n${normalizedHistory}`,
+        contents: `キャリアの軌跡を臨床的に分析してください。日本語で出力してください。\n相談履歴:\n${normalizedHistory}`,
         config: {
             temperature: 0.2,
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "日本語で記述してください。" },
-                    triageLevel: { type: Type.STRING, description: "high/medium/lowのいずれか。" },
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    triageLevel: { type: Type.STRING },
                     ageStageGap: { type: Type.NUMBER },
-                    theoryBasis: { type: Type.STRING, description: "理論的背景を日本語で記述してください。" },
-                    expertAdvice: { type: Type.STRING, description: "アドバイスを日本語で記述してください。" },
-                    reframedSkills: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                userWord: { type: Type.STRING, description: "ユーザーの言葉（日本語）" }, 
-                                professionalSkill: { type: Type.STRING, description: "専門スキル名（日本語）" }, 
-                                insight: { type: Type.STRING, description: "洞察（日本語）" } 
-                            } 
-                        } 
-                    },
-                    sessionStarter: { type: Type.STRING, description: "日本語の問いかけ。" },
-                    overallSummary: { type: Type.STRING, description: "総合サマリーを日本語で記述してください。" }
+                    theoryBasis: { type: Type.STRING },
+                    expertAdvice: { type: Type.STRING },
+                    reframedSkills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { userWord: { type: Type.STRING }, professionalSkill: { type: Type.STRING }, insight: { type: Type.STRING } } } },
+                    sessionStarter: { type: Type.STRING },
+                    overallSummary: { type: Type.STRING }
                 },
                 required: ["keyTakeaways", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "reframedSkills", "sessionStarter", "overallSummary"]
             }
@@ -281,47 +259,18 @@ async function handlePerformSkillMatching(payload: { conversations: any[] }) {
     const historyText = conversations.map(c => normalizeSummary(c.summary)).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `適性診断を行ってください。職種名や理由を含め、全て日本語で出力してください。履歴:\n${historyText}`,
+        contents: `適性診断を行ってください。日本語で出力してください。履歴:\n${historyText}`,
         config: {
             temperature: 0.3,
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "日本語で記述してください。" },
-                    analysisSummary: { type: Type.STRING, description: "分析概要を日本語で記述してください。" },
-                    recommendedRoles: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                role: { type: Type.STRING, description: "職種名を日本語で記述してください。" }, 
-                                reason: { type: Type.STRING, description: "理由を日本語で記述してください。" }, 
-                                matchScore: { type: Type.NUMBER } 
-                            } 
-                        } 
-                    },
-                    skillsToDevelop: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                skill: { type: Type.STRING, description: "スキル名を日本語で記述してください。" }, 
-                                reason: { type: Type.STRING, description: "理由を日本語で記述してください。" } 
-                            } 
-                        } 
-                    },
-                    learningResources: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                title: { type: Type.STRING, description: "リソース名を日本語で記述してください。" }, 
-                                type: { type: Type.STRING, description: "種類を日本語で記述してください。" }, 
-                                provider: { type: Type.STRING, description: "提供元を日本語で記述してください。" } 
-                            } 
-                        } 
-                    }
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    analysisSummary: { type: Type.STRING },
+                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } },
+                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
+                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
                 },
                 required: ["keyTakeaways", "analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
             }
@@ -332,15 +281,14 @@ async function handlePerformSkillMatching(payload: { conversations: any[] }) {
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
-    const historyText = messages.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `次の発話候補を3つ提案してください。日本語で出力してください。\n履歴: ${historyText}`,
+        contents: `発話候補を3つ提案してください。日本語で。\n履歴: ${messages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "日本語で記述してください。" } },
+                properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },
                 required: ["suggestions"]
             }
         }
@@ -357,10 +305,7 @@ async function handleGenerateSummaryFromText(payload: { textToAnalyze: string })
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { 
-                    user_summary: { type: Type.STRING, description: "日本語で記述してください。" }, 
-                    pro_notes: { type: Type.STRING, description: "日本語で記述してください。" } 
-                },
+                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
                 required: ["user_summary", "pro_notes"]
             }
         }
@@ -370,26 +315,14 @@ async function handleGenerateSummaryFromText(payload: { textToAnalyze: string })
 
 async function handleFindHiddenPotential(payload: { conversations: any[], userId: string }) {
     const { conversations } = payload;
-    const historyText = conversations.map(c => normalizeSummary(c.summary)).join('\n');
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `隠れた可能性を抽出してください。根拠を含め日本語で出力してください。\n履歴:\n${historyText}`,
+        contents: `隠れた可能性を抽出してください。日本語で。\n履歴:\n${conversations.map(c => normalizeSummary(c.summary)).join('\n')}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { 
-                    hiddenSkills: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                skill: { type: Type.STRING, description: "スキル名を日本語で記述してください。" }, 
-                                reason: { type: Type.STRING, description: "理由を日本語で記述してください。" } 
-                            } 
-                        } 
-                    } 
-                },
+                properties: { hiddenSkills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } } },
                 required: ["hiddenSkills"]
             }
         }
