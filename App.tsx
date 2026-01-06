@@ -1,5 +1,5 @@
 
-// App.tsx - v2.81 - Fact-Checked Response Edition
+// App.tsx - v2.86 - Japanese Localization Guard Edition
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -53,7 +53,7 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <span className="bg-sky-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
-                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.81</span>
+                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.86</span>
                     </div>
 
                     <div className="flex items-center">

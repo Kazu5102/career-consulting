@@ -1,3 +1,5 @@
+
+// components/AddTextModal.tsx - v2.86 - AI Text Ingestion with Nickname
 import React, { useState, useEffect } from 'react';
 import { StoredConversation } from '../types';
 import { generateSummaryFromText } from '../services/index';
@@ -6,13 +8,14 @@ import PlusCircleIcon from './icons/PlusCircleIcon';
 interface AddTextModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (newConversation: StoredConversation) => void;
+  onSubmit: (newConversation: StoredConversation, nickname?: string) => void;
   existingUserIds: string[];
 }
 
 const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, existingUserIds }) => {
   const [textToAnalyze, setTextToAnalyze] = useState('');
   const [userId, setUserId] = useState('');
+  const [nickname, setNickname] = useState(''); 
   const [isNewUser, setIsNewUser] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,6 +24,7 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
     if (isOpen) {
       setTextToAnalyze('');
       setUserId('');
+      setNickname('');
       setError('');
       setIsNewUser(existingUserIds.length === 0);
       if (existingUserIds.length > 0) {
@@ -35,6 +39,11 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
       setError('テキストと相談者IDの両方を入力してください。');
       return;
     }
+    if (isNewUser && !nickname.trim()) {
+        setError('新しい相談者の場合はニックネームを入力してください。');
+        return;
+    }
+
     setError('');
     setIsLoading(true);
     try {
@@ -48,10 +57,9 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
         messages: [],
         summary: summary,
         date: new Date().toISOString(),
-        // FIX: Added missing 'status' property to conform to StoredConversation type.
         status: 'completed',
       };
-      onSubmit(newConversation);
+      onSubmit(newConversation, isNewUser ? nickname.trim() : undefined);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '不明なエラーです。';
       setError(`処理中にエラーが発生しました: ${errorMessage}`);
@@ -74,9 +82,9 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
         
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="p-6 space-y-4 overflow-y-auto">
-            <div>
-              <label htmlFor="user-id-select" className="block text-sm font-bold text-slate-700 mb-2">相談者ID</label>
-              <div className="flex items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="user-id-select" className="block text-sm font-bold text-slate-700 mb-2">相談者ID</label>
                 <select 
                   id="user-id-select"
                   value={isNewUser ? 'new' : userId} 
@@ -89,23 +97,37 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
                       setUserId(e.target.value);
                     }
                   }}
-                  className="p-2 border border-slate-300 rounded-md bg-white w-full"
+                  className="p-2 border border-slate-300 rounded-md bg-white w-full h-[42px]"
                   disabled={existingUserIds.length === 0}
                 >
                   {existingUserIds.map(id => <option key={id} value={id}>{id}</option>)}
                   <option value="new">新しい相談者として追加</option>
                 </select>
+                {isNewUser && (
+                  <input
+                    type="text"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="ID (例: user_123)"
+                    className="mt-2 w-full p-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                )}
               </div>
               {isNewUser && (
-                <input
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="新しい相談者IDを入力 (例: user_123)"
-                  className="mt-2 w-full p-2 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
+                <div>
+                    <label htmlFor="user-nickname" className="block text-sm font-bold text-slate-700 mb-2">ニックネーム</label>
+                    <input
+                      id="user-nickname"
+                      type="text"
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      placeholder="表示名を入力"
+                      className="w-full p-2 h-[42px] bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                </div>
               )}
             </div>
+            
             <div>
               <label htmlFor="text-to-analyze" className="block text-sm font-bold text-slate-700 mb-2">
                 履歴に追加するテキスト
@@ -114,11 +136,10 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
                 id="text-to-analyze"
                 value={textToAnalyze}
                 onChange={(e) => setTextToAnalyze(e.target.value)}
-                rows={10}
+                rows={8}
                 className="w-full p-3 bg-slate-50 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 placeholder="ここにWebサイトやドキュメントからコピーしたテキストを貼り付けてください。AIが内容を要約し、相談履歴として整形します。"
                 required
-                autoFocus
               />
             </div>
             {error && <p className="text-sm text-red-500 bg-red-50 p-3 rounded-md">{error}</p>}
@@ -133,12 +154,12 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>処理中...</span>
+                  <span>分析中...</span>
                 </>
               ) : (
                 <>
                   <PlusCircleIcon />
-                  AIで要約して履歴に追加
+                  AIで解析して履歴に追加
                 </>
               )}
             </button>

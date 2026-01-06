@@ -1,7 +1,7 @@
 
-// components/DataManagementModal.tsx - v2.78 - Ultra-Robust & Auto-User Creation Engine
+// components/DataManagementModal.tsx - v2.86 - Enhanced Portability Logic
 import React, { useRef, useState } from 'react';
-import { STORAGE_VERSION, UserInfo, StoredConversation } from '../types';
+import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
 import DatabaseIcon from './icons/DatabaseIcon';
 import ExportIcon from './icons/ExportIcon';
@@ -44,11 +44,10 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
         conversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
       }
 
-      const backupData = {
+      const backupData: StoredData = {
         version: STORAGE_VERSION,
-        timestamp: new Date().toISOString(),
         users,
-        conversations
+        data: conversations
       };
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -77,21 +76,25 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
             const text = e.target?.result;
             if (typeof text !== 'string') throw new Error("ファイルの読み込みに失敗しました。");
             
-            const imported = JSON.parse(text);
+            const imported: StoredData | any = JSON.parse(text);
             
             let importedUsers: UserInfo[] = [];
             let importedConvs: StoredConversation[] = [];
 
-            // データ構造の正規化
+            // データ構造の正規化 (Ver 2.86 拡張)
             if (imported && typeof imported === 'object') {
                 if (imported.users && Array.isArray(imported.users)) {
                     importedUsers = imported.users;
                 }
+                // 単一ユーザーのエクスポート（userInfo）がある場合
+                if (imported.userInfo) {
+                    importedUsers.push(imported.userInfo);
+                }
                 
-                if (imported.conversations && Array.isArray(imported.conversations)) {
-                    importedConvs = imported.conversations;
-                } else if (imported.data && Array.isArray(imported.data)) {
+                if (imported.data && Array.isArray(imported.data)) {
                     importedConvs = imported.data;
+                } else if (imported.conversations && Array.isArray(imported.conversations)) {
+                    importedConvs = imported.conversations;
                 } else if (Array.isArray(imported)) {
                     importedConvs = imported;
                 }
@@ -103,28 +106,33 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
 
             if (window.confirm(`${importedConvs.length}件の履歴が見つかりました。システムに統合しますか？`)) {
                 
-                // 1. ユーザー情報の統合と「幽霊ユーザー」の自動作成
+                // 1. ユーザー情報の統合
                 const currentUsers = userService.getUsers();
-                const currentUserIdSet = new Set(currentUsers.map(u => u.id));
+                const currentUserIdMap = new Map(currentUsers.map(u => [u.id, u]));
                 
-                // インポートされたユーザーリストを反映
                 const mergedUsers = [...currentUsers];
                 importedUsers.forEach(iu => {
-                    if (iu.id && !currentUserIdSet.has(iu.id)) {
-                        mergedUsers.push(iu);
-                        currentUserIdSet.add(iu.id);
+                    if (iu.id) {
+                        if (!currentUserIdMap.has(iu.id)) {
+                            mergedUsers.push(iu);
+                            currentUserIdMap.set(iu.id, iu);
+                        } else {
+                            // 既存ユーザーがいる場合、バックアップ側の名前で上書き（最新情報とみなす）
+                            const idx = mergedUsers.findIndex(u => u.id === iu.id);
+                            if (idx !== -1) mergedUsers[idx] = iu;
+                        }
                     }
                 });
 
-                // 履歴に含まれるがユーザーリストにいないIDを自動生成
+                // 履歴に含まれるがユーザーリストにいないIDを補完（予備ロジック）
                 importedConvs.forEach(conv => {
-                    if (conv.userId && !currentUserIdSet.has(conv.userId)) {
+                    if (conv.userId && !currentUserIdMap.has(conv.userId)) {
                         mergedUsers.push({
                             id: conv.userId,
                             nickname: `復元相談者_${conv.userId.slice(-4)}`,
                             pin: '0000'
                         });
-                        currentUserIdSet.add(conv.userId);
+                        currentUserIdMap.set(conv.userId, mergedUsers[mergedUsers.length - 1]);
                     }
                 });
                 
@@ -143,16 +151,13 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
                 const currentConvIdSet = new Set(currentConvs.map(c => c.id));
                 const newConvsToAdd = importedConvs.filter(c => c.id && !currentConvIdSet.has(c.id));
 
-                if (newConvsToAdd.length > 0) {
-                    localStorage.setItem('careerConsultations', JSON.stringify({ 
-                        version: STORAGE_VERSION, 
-                        data: [...currentConvs, ...newConvsToAdd] 
-                    }));
-                }
+                localStorage.setItem('careerConsultations', JSON.stringify({ 
+                    version: STORAGE_VERSION, 
+                    data: [...currentConvs, ...newConvsToAdd] 
+                }));
 
-                // 3. React状態への反映（AdminViewの更新）
                 onDataRefresh();
-                showStatus(`統合完了: 新規履歴${newConvsToAdd.length}件を追加し、相談者リストを更新しました。`);
+                showStatus(`統合完了: ${newConvsToAdd.length}件の新規履歴を登録しました。`);
             } else {
                 setIsProcessing(false);
             }
@@ -238,7 +243,7 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
                 <div className="mt-0.5"><CheckIcon /></div>
                 <div className="flex-1">
                     <span className="text-xs font-bold leading-tight block">{statusMessage}</span>
-                    <span className="text-[10px] opacity-70 block mt-1">インボックスが最新の状態に更新されました。</span>
+                    <span className="text-[10px] opacity-70 block mt-1">システムが最新の状態に更新されました。</span>
                 </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v2.81 - Fact-Checked Response Edition
+// components/AIAvatar.tsx - v2.86 - Japanese Localization Guard Edition
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -205,7 +205,7 @@ export const MaleAvatar2 = () => (
         <path d="M30 200 C30 160, 60 140, 100 140 C140 140, 170 160, 170 200 Z" fill="url(#grad_male2_jacket)"/>
         <path d="M80 140 L120 140 L120 180 L80 180 Z" fill="url(#grad_male2_shirt)"/>
         <rect x="94" y="130" width="12" height="15" fill="url(#grad_male2_skin)"/>
-        <circle cx="100" cy="100" r="60" fill="url(#grad_male2_skin)"/>
+        <circle cx="100" cy="100" r="60" fill="url(#grad_male1_skin)"/>
         <path d="M 50 100 C 50 60, 70 40, 100 40 C 130 40, 150 60, 150 100" fill="url(#grad_male2_hair)"/>
         <path d="M 80 40 C 90 30, 110 30, 120 40" fill="url(#grad_male2_hair)"/>
         <g>
@@ -288,7 +288,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-400 select-none bg-slate-900/50 px-2 py-1 rounded border border-slate-700">
-        Ver 2.81
+        Ver 2.86
       </div>
     </div>
   );

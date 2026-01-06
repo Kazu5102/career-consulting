@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.49 - Balanced Flow Control
+// views/UserView.tsx - v2.86 - Data Persistence & Detailed History Update
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -51,6 +51,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);
   const [nickname, setNickname] = useState<string>('');
+  const [pin, setPin] = useState<string>(''); 
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -93,6 +94,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   useEffect(() => {
     const user = getUserById(userId);
     setNickname(user?.nickname || userId);
+    setPin(user?.pin || '0000'); 
     const allDataRaw = localStorage.getItem('careerConsultations');
     let convs: StoredConversation[] = [];
     if (allDataRaw) {
@@ -123,7 +125,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     if (isManualReset) setResetCount(prev => prev + 1);
-    // [修正] 「お子様の状態」等の誤記を排除し、キャリア相談に相応しい挨拶に統一
     const greetingText = `こんにちは。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて今の「心の状態」を丁寧に解きほぐし、あなたが次の一歩をスムーズに踏み出せるよう、心を込めて整理のお手伝いをさせていただきます。まずは、今のあなたに最も近い状況はどれですか？`;
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setOnboardingStep(1);
@@ -161,7 +162,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         else setAiMood('neutral');
       }
 
-      // 相談の準備が整った（要約可能）かを判定。4メッセージ（2往復）以上。
       if (currentMessages.length >= 4) {
           setIsConsultationReady(true);
       }
@@ -182,7 +182,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // 特定の完了キーワードが含まれる場合、要約処理へ誘導
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
         return;
@@ -435,7 +434,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       )}
 
       <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
-        {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} onSwitchUser={onSwitchUser} /> :
+        {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
          <div className="w-full max-w-7xl h-full flex flex-row gap-6 relative">
             

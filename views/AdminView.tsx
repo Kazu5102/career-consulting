@@ -1,9 +1,9 @@
 
-// views/AdminView.tsx - v2.81 - Expert Insight & Reactive Data Management
+// views/AdminView.tsx - v2.86 - Strategic Expert Dashboard with Advanced Sorting
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
 import * as userService from '../services/userService';
-import { analyzeTrajectory } from '../services/index';
+import { analyzeTrajectory, performSkillMatching } from '../services/index';
 
 import ShareReportModal from '../components/ShareReportModal';
 import DevLogModal from '../components/DevLogModal';
@@ -19,8 +19,10 @@ import LogIcon from '../components/icons/LogIcon';
 import TrajectoryIcon from '../components/icons/TrajectoryIcon';
 import CalendarIcon from '../components/icons/CalendarIcon';
 import DatabaseIcon from '../components/icons/DatabaseIcon';
+import TargetIcon from '../components/icons/TargetIcon';
 
 type AdminTab = 'user' | 'comprehensive';
+type SortOrder = 'desc' | 'asc';
 
 const initialAnalysesState: AnalysesState = {
   trajectory: { status: 'idle', data: null, error: null },
@@ -32,7 +34,11 @@ const ConsultationHistoryItem: React.FC<{
     conv: StoredConversation,
     onClick: () => void
 }> = ({ conv, onClick }) => {
-    const date = new Date(conv.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    // Ver 2.86: 秒単位まで表示し、正確な操作時間を可視化
+    const dateStr = new Date(conv.date).toLocaleDateString('ja-JP', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+    });
     return (
         <button 
             onClick={onClick}
@@ -43,12 +49,12 @@ const ConsultationHistoryItem: React.FC<{
                     <CalendarIcon className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                    <p className="text-sm font-bold text-slate-800">{date}</p>
+                    <p className="text-sm font-mono font-bold text-slate-800">{dateStr}</p>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Handled by {conv.aiName}</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${conv.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${conv.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-800'}`}>
                     {conv.status}
                 </span>
                 <span className="text-sky-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -108,6 +114,9 @@ const AdminView: React.FC = () => {
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [userToShare, setUserToShare] = useState<UserInfo | null>(null);
     
+    // Ver 2.86: 履歴のソート設定
+    const [historySortOrder, setHistorySortOrder] = useState<SortOrder>('desc');
+    
     const [isDevLogModalOpen, setIsDevLogModalOpen] = useState(false);
     const [isAddTextModalOpen, setIsAddTextModalOpen] = useState(false);
     const [isDataModalOpen, setIsDataModalOpen] = useState(false);
@@ -154,21 +163,26 @@ const AdminView: React.FC = () => {
     const handleRunAnalysis = async (type: AnalysisType, conversations: StoredConversation[], userId: string) => {
       const validConversations = conversations.filter(c => c.summary && c.summary !== '中断');
       if (validConversations.length === 0) {
-          alert("有効な相談履歴（サマリーあり）が見つからないため、分析を実行できません。");
+          alert("有効な相談履歴が見つからないため、分析を実行できません。");
           return;
       }
 
       setAnalysesState(prev => ({ ...prev, [type]: { status: 'loading', data: null, error: null } }));
       try {
-          const result = await analyzeTrajectory(validConversations, userId);
+          let result;
+          if (type === 'trajectory') {
+              result = await analyzeTrajectory(validConversations, userId);
+          } else if (type === 'skillMatching') {
+              result = await performSkillMatching(validConversations);
+          }
           setAnalysesState(prev => ({ ...prev, [type]: { status: 'success', data: result, error: null } }));
       } catch (err) {
           console.error("Analysis error:", err);
-          setAnalysesState(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "分析エンジンとの通信に失敗しました。再試行してください。" } }));
+          setAnalysesState(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "分析エンジンとの通信に失敗しました。" } }));
       }
     };
 
-    const handleAddTextSubmit = (newConversation: StoredConversation) => {
+    const handleAddTextSubmit = (newConversation: StoredConversation, nickname?: string) => {
         const allDataRaw = localStorage.getItem('careerConsultations');
         let currentAll = [];
         if (allDataRaw) {
@@ -182,7 +196,7 @@ const AdminView: React.FC = () => {
         if (!users.find(u => u.id === newConversation.userId)) {
             const newUser: UserInfo = {
                 id: newConversation.userId,
-                nickname: `インポート様_${newConversation.userId.slice(-4)}`,
+                nickname: nickname || `インポート様_${newConversation.userId.slice(-4)}`,
                 pin: '0000'
             };
             userService.saveUsers([...users, newUser]);
@@ -197,7 +211,16 @@ const AdminView: React.FC = () => {
         alert("履歴を正常にインポートしました。");
     };
 
-    const selectedUserConversations = selectedUserId ? (conversationsByUser[selectedUserId] || []) : [];
+    const sortedConversations = useMemo(() => {
+        const convs = selectedUserId ? (conversationsByUser[selectedUserId] || []) : [];
+        return [...convs].sort((a, b) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+            return historySortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        });
+    }, [selectedUserId, conversationsByUser, historySortOrder]);
+
+    const toggleSortOrder = () => setHistorySortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
 
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-8 bg-slate-50 min-h-[90vh]">
@@ -206,7 +229,7 @@ const AdminView: React.FC = () => {
                     <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg"><TrajectoryIcon className="w-7 h-7" /></div>
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">Professional Dashboard</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.81 Expert Insight Dashboard</p>
+                        <p className="text-slate-500 text-sm font-medium mt-1">Ver 2.86 Expert Strategy Dashboard</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">
@@ -228,30 +251,52 @@ const AdminView: React.FC = () => {
                     <main className="lg:col-span-9 space-y-10 pb-20">
                         {selectedUserId ? (
                            <>
-                                <div className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expert Strategy Engine</div>
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Expert Strategy Engine</div>
                                         <button 
-                                            onClick={() => handleRunAnalysis('trajectory', selectedUserConversations, selectedUserId)} 
-                                            disabled={analysesState.trajectory.status === 'loading' || selectedUserConversations.length === 0}
-                                            className="px-6 py-3 bg-sky-600 text-white font-bold rounded-2xl shadow-xl shadow-sky-100 hover:bg-sky-700 active:scale-95 disabled:bg-slate-200 disabled:shadow-none transition-all flex items-center gap-2.5"
+                                            onClick={() => handleRunAnalysis('trajectory', sortedConversations, selectedUserId)} 
+                                            disabled={analysesState.trajectory.status === 'loading' || sortedConversations.length === 0}
+                                            className="px-5 py-2.5 bg-sky-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-sky-700 active:scale-95 disabled:bg-slate-200 transition-all flex items-center gap-2"
                                         >
-                                            <TrajectoryIcon className="w-5 h-5" /> 
-                                            {analysesState.trajectory.status === 'success' ? 'インサイトを再生成' : '深層心理分析を開始'}
+                                            <TrajectoryIcon className="w-4 h-4" /> 
+                                            軌跡分析
+                                        </button>
+                                        <button 
+                                            onClick={() => handleRunAnalysis('skillMatching', sortedConversations, selectedUserId)} 
+                                            disabled={analysesState.skillMatching.status === 'loading' || sortedConversations.length === 0}
+                                            className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-emerald-700 active:scale-95 disabled:bg-slate-200 transition-all flex items-center gap-2"
+                                        >
+                                            <TargetIcon className="w-4 h-4 text-white" /> 
+                                            適職診断
                                         </button>
                                     </div>
                                     <button onClick={() => setUserToShare(allUsers.find(u => u.id === selectedUserId) || null)} className="p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"><ShareIcon /></button>
                                 </div>
 
-                                <AnalysisDisplay trajectoryState={analysesState.trajectory} />
+                                <AnalysisDisplay 
+                                    trajectoryState={analysesState.trajectory} 
+                                    skillMatchingState={analysesState.skillMatching}
+                                />
 
                                 <section>
-                                    <div className="flex items-center gap-3 mb-5 px-1">
-                                        <div className="bg-slate-200 text-slate-600 p-2 rounded-xl"><CalendarIcon className="w-5 h-5"/></div>
-                                        <h3 className="font-bold text-slate-800 text-xl tracking-tight">個別セッション履歴 (要約・引継ぎ)</h3>
+                                    <div className="flex justify-between items-center mb-5 px-1">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-slate-200 text-slate-600 p-2 rounded-xl"><CalendarIcon className="w-5 h-5"/></div>
+                                            <h3 className="font-bold text-slate-800 text-xl tracking-tight">個別セッション履歴 (要約・引継ぎ)</h3>
+                                        </div>
+                                        <button 
+                                            onClick={toggleSortOrder} 
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-black bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${historySortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                            </svg>
+                                            {historySortOrder === 'desc' ? '新しい順' : '古い順'}
+                                        </button>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {[...selectedUserConversations].reverse().map(conv => (
+                                        {sortedConversations.map(conv => (
                                             <ConsultationHistoryItem 
                                                 key={conv.id} 
                                                 conv={conv} 
@@ -259,7 +304,7 @@ const AdminView: React.FC = () => {
                                             />
                                         ))}
                                     </div>
-                                    {selectedUserConversations.length === 0 && (
+                                    {sortedConversations.length === 0 && (
                                         <p className="text-center py-10 text-slate-400 text-sm font-medium border-2 border-dashed rounded-3xl border-slate-200 bg-white/50">セッション履歴がありません。</p>
                                     )}
                                 </section>

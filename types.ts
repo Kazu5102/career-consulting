@@ -6,6 +6,9 @@ export const STORAGE_VERSION = 1;
 export interface StoredData {
   version: number;
   data: StoredConversation[];
+  // Ver 2.85: インポート時にニックネームを保持するためのオプション
+  users?: UserInfo[];
+  userInfo?: UserInfo;
 }
 
 export interface UserInfo {
