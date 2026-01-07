@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.12 - Refined Hairstyles and Layering
+// components/AIAvatar.tsx - v3.13 - Fixed Mood Type Casting and Refined Layering
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -194,10 +194,10 @@ export const ShibaAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
         <path d="M 100,160 C 60,160 50,110 50,90 C 50,60 70,40 100,40 C 130,40 150,60 150,90 C 150,110 140,160 100,160 Z" fill="#fef3c7" stroke="#b45309" strokeWidth="2.5"/>
         <path d="M 50,80 C 20,80 20,40 55,50 C 60,70 55,80 50,80" fill="#f59e0b" stroke="#b45309" strokeWidth="2.5"/>
         <path d="M 150,80 C 180,80 180,40 145,50 C 140,70 145,80 150,80" fill="#f59e0b" stroke="#b45309" strokeWidth="2.5"/>
-        <DynamicEyes cx1={80} cx2={120} cy={90} mood={mood as Mood} />
-        <DynamicBlush cx1={70} cx2={130} cy={105} mood={mood as Mood} />
+        <DynamicEyes cx1={80} cx2={120} cy={90} mood={mood} />
+        <DynamicBlush cx1={70} cx2={130} cy={105} mood={mood} />
         <path d="M 90,115 C 85,125 115,125 110,115 Q 100,110 90,115 Z" fill="#27272a"/>
-        <DynamicMouth cx={100} cy={135} mood={mood as Mood} />
+        <DynamicMouth cx={100} cy={135} mood={mood} />
     </svg>
 );
 
@@ -207,10 +207,10 @@ export const PoodleAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' 
         <circle cx="100" cy="65" r="40" fill="#fafaf9" stroke="#d6d3d1" strokeWidth="2.5"/>
         <circle cx="55" cy="75" r="25" fill="#fafaf9" stroke="#d6d3d1" strokeWidth="2.5"/>
         <circle cx="145" cy="75" r="25" fill="#fafaf9" stroke="#d6d3d1" strokeWidth="2.5"/>
-        <DynamicEyes cx1={85} cx2={115} cy={100} mood={mood as Mood} />
-        <DynamicBlush cx1={75} cx2={125} cy={115} mood={mood as Mood} />
+        <DynamicEyes cx1={85} cx2={115} cy={100} mood={mood} />
+        <DynamicBlush cx1={75} cx2={125} cy={115} mood={mood} />
         <circle cx="100" cy="118" r="6" fill="#27272a" />
-        <DynamicMouth cx={100} cy={132} mood={mood as Mood} />
+        <DynamicMouth cx={100} cy={132} mood={mood} />
      </svg>
 );
 
@@ -218,10 +218,10 @@ export const CorgiAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
     <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M 100,165 C 65,165 50,125 50,105 C 50,75 70,65 100,65 S 150,75 150,105 C 150,125 135,165 100,165 Z" fill="#fbbf24" stroke="#92400e" strokeWidth="2.5"/>
         <path d="M 60,45 L 45,25 C 40,35 50,55 60,45 Z M 140,45 L 155,25 C 160,35 150,55 140,45 Z" fill="#fbbf24" stroke="#92400e" strokeWidth="2.5" />
-        <DynamicEyes cx1={85} cx2={115} cy={95} mood={mood as Mood} />
-        <DynamicBlush cx1={70} cx2={130} cy={110} mood={mood as Mood} />
+        <DynamicEyes cx1={85} cx2={115} cy={95} mood={mood} />
+        <DynamicBlush cx1={70} cx2={130} cy={110} mood={mood} />
         <ellipse cx="100" cy="115" rx="7" ry="5" fill="#27272a"/>
-        <DynamicMouth cx={100} cy={128} mood={mood as Mood} />
+        <DynamicMouth cx={100} cy={128} mood={mood} />
     </svg>
 );
 
@@ -229,9 +229,9 @@ export const RetrieverAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutra
     <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <path d="M 100,160 C 70,160 55,130 55,110 C 55,80 75,60 100,60 S 145,80 145,110 C 145,130 130,160 100,160 Z" fill="#fde68a" stroke="#d97706" strokeWidth="2.5"/>
         <path d="M 55,80 C 40,75 35,40 50,35 C 60,40 65,70 55,80 Z M 145,80 C 160,75 165,40 150,35 C 140,40 135,70 145,80 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="2.5"/>
-        <DynamicEyes cx1={82} cx2={118} cy={90} mood={mood as Mood} />
-        <DynamicBlush cx1={70} cx2={130} cy={105} mood={mood as Mood} />
-        <DynamicMouth cx={100} cy={112} mood={mood as Mood} />
+        <DynamicEyes cx1={82} cx2={118} cy={90} mood={mood} />
+        <DynamicBlush cx1={70} cx2={130} cy={105} mood={mood} />
+        <DynamicMouth cx={100} cy={112} mood={mood} />
     </svg>
 );
 
@@ -240,8 +240,8 @@ export const HuskyAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
         <path d="M 100,165 C 60,165 45,135 45,105 C 45,70 70,50 100,50 S 155,70 155,105 C 155,135 140,165 100,165 Z" fill="#94a3b8" stroke="#334155" strokeWidth="2.5"/>
         <path d="M 100,165 C 75,165 65,150 65,120 S 75,85 100,85 S 135,95 135,120 S 125,165 100,165 Z" fill="#f8fafc"/>
         <path d="M 60,40 L 48,15 L 50,45 Z M 140,40 L 152,15 L 150,45 Z" fill="#475569" stroke="#1e293b" strokeWidth="2.5" />
-        <DynamicEyes cx1={82} cx2={118} cy={88} mood={mood as Mood} />
-        <DynamicMouth cx={100} cy={112} mood={mood as Mood} color="#1e293b" />
+        <DynamicEyes cx1={82} cx2={118} cy={88} mood={mood} />
+        <DynamicMouth cx={100} cy={112} mood={mood} color="#1e293b" />
     </svg>
 );
 
@@ -249,9 +249,9 @@ export const PugAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) 
     <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
         <circle cx="100" cy="110" r="58" fill="#e7d5c0" stroke="#78350f" strokeWidth="2.5"/>
         <path d="M 55,65 C 40,55 30,80 40,100 Z M 145,65 C 160,55 170,80 160,100 Z" fill="#451a03"/>
-        <DynamicEyes cx1={78} cx2={122} cy={95} mood={mood as Mood} />
-        <DynamicBlush cx1={70} cx2={130} cy={110} mood={mood as Mood} />
-        <DynamicMouth cx={100} cy={120} mood={mood as Mood} />
+        <DynamicEyes cx1={78} cx2={122} cy={95} mood={mood} />
+        <DynamicBlush cx1={70} cx2={130} cy={110} mood={mood} />
+        <DynamicMouth cx={100} cy={120} mood={mood} />
     </svg>
 );
 
@@ -325,7 +325,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Revival v3.12
+        Revival v3.13
       </div>
     </div>
   );

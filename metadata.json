@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.12",
-  "description": "アバターの描画品質を向上し、エージェント名を日本語化しました。より親しみやすくプロフェッショナルな対話体験を提供します。",
+  "name": "Career Consulting_3.13",
+  "description": "専門家向け分析レポートの精度を大幅に改善しました。内的変容（軌跡）と市場価値（適職）を異なる視点から鋭く解析します。",
   "prompt": ""
 }
