@@ -7,56 +7,56 @@ import {
 } from '../components/AIAvatar';
 
 export const ASSISTANTS: AIAssistant[] = [
-  // Human Avatars - Professional Agent Names
+  // Human Avatars - Japanese Professional Names
   { 
     id: 'human_female_1',
     type: 'human', 
-    title: "Senior Strategist",
-    nameOptions: ['ARIA', 'LYRA', 'VEGA'],
+    title: "シニア・ストラテジスト",
+    nameOptions: ['サクラ', 'ミズキ', 'アカリ'],
     description: "冷静沈着な分析力を持ち、キャリアの構造的課題を解き明かす戦略的パートナーです。",
     avatarComponent: React.createElement(FemaleAvatar1)
   },
   { 
     id: 'human_male_1',
     type: 'human', 
-    title: "Insight Architect",
-    nameOptions: ['NOVA', 'SOLAR', 'ORION'],
+    title: "インサイト・アーキテクト",
+    nameOptions: ['カイト', 'タイガ', 'ソウタ'],
     description: "あなたの内なる声と言語化されない強みを繋ぎ合わせ、新しいキャリアの設計図を描きます。",
     avatarComponent: React.createElement(MaleAvatar1)
   },
   { 
     id: 'human_female_2',
     type: 'human', 
-    title: "Growth Catalyst",
-    nameOptions: ['AURA', 'IRIS', 'SELENE'],
+    title: "グロース・カタリスト",
+    nameOptions: ['ハルカ', 'ナナミ', 'ユイ'],
     description: "ポジティブな視座の転換を促し、挑戦への不安を確信へと変える対話を得意とします。",
     avatarComponent: React.createElement(FemaleAvatar2)
   },
   { 
     id: 'human_male_2',
     type: 'human', 
-    title: "Market Analyst",
-    nameOptions: ['ETHOS', 'AXEL', 'LOGOS'],
+    title: "マーケット・アナリスト",
+    nameOptions: ['レン', 'ハルト', 'ユウキ'],
     description: "市場の動向と個人のポテンシャルを掛け合わせ、最も合理的なキャリアパスを提案します。",
     avatarComponent: React.createElement(MaleAvatar2)
   },
   { 
     id: 'human_female_3',
     type: 'human', 
-    title: "Lead Mentor",
-    nameOptions: ['SAGE', 'MAIA', 'THEMIS'],
+    title: "リード・メンター",
+    nameOptions: ['シオリ', 'マドカ', 'トモコ'],
     description: "数多くの事例を経験した叡智に基づき、長期的な視点からあなたの人生の航路を照らします。",
     avatarComponent: React.createElement(FemaleAvatar3)
   },
   { 
     id: 'human_male_3',
     type: 'human', 
-    title: "Tech Specialist",
-    nameOptions: ['CYBER', 'VECTOR', 'ZENITH'],
+    title: "テック・スペシャリスト",
+    nameOptions: ['ケンジ', 'タクミ', 'リョウ'],
     description: "専門職やIT業界の潮流に精通し、具体的で実用的なスキルセットの構築を支援します。",
     avatarComponent: React.createElement(MaleAvatar3)
   },
-  // Dog Avatars - (Keep existing for warmth)
+  // Dog Avatars
   {
     id: 'dog_shiba_1',
     type: 'dog',

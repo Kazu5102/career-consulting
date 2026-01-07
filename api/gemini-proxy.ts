@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.10 - Structured Role & Format Integrity
+// api/gemini-proxy.ts - v3.11 - Analysis Handlers Implementation
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -13,6 +13,14 @@ interface UserProfile {
   gender?: string;
   complaint?: string;
   lifeRoles?: string[];
+}
+
+interface StoredConversation {
+  id: number;
+  userId: string;
+  messages: ChatMessage[];
+  summary: string;
+  date: string;
 }
 
 let ai: GoogleGenAI | null = null;
@@ -53,6 +61,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             case 'generateSuggestions': 
                 res.status(200).json(await handleGenerateSuggestions(payload)); 
                 break;
+            case 'analyzeTrajectory':
+                res.status(200).json(await handleAnalyzeTrajectory(payload));
+                break;
+            case 'performSkillMatching':
+                res.status(200).json(await handlePerformSkillMatching(payload));
+                break;
             default: 
                 res.status(400).json({ error: `Invalid action received: '${action}'.` });
         }
@@ -60,6 +74,79 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         console.error(`[Proxy Error] ${error.message}`);
         res.status(500).json({ error: error.message });
     }
+}
+
+async function handleAnalyzeTrajectory(payload: { conversations: StoredConversation[], userId: string }) {
+    const { conversations } = payload;
+    const historyText = conversations.map(c => `[${c.date}] Summary: ${c.summary}`).join('\n---\n');
+    
+    const result = await getAIClient().models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: `あなたは熟練のスーパーバイザーです。以下の相談履歴（要約）から相談者の変容の軌跡を臨床的に分析してください。
+履歴:
+${historyText}`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    overallSummary: { type: Type.STRING },
+                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                    ageStageGap: { type: Type.NUMBER },
+                    theoryBasis: { type: Type.STRING },
+                    expertAdvice: { type: Type.STRING },
+                    sessionStarter: { type: Type.STRING }
+                },
+                required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter"]
+            }
+        }
+    });
+    return robustParseJSON(result.text || "{}");
+}
+
+async function handlePerformSkillMatching(payload: { conversations: StoredConversation[] }) {
+    const { conversations } = payload;
+    const historyText = conversations.map(c => c.summary).join('\n');
+    
+    const result = await getAIClient().models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: `相談者の強みを再定義し、市場価値と適職を診断してください。
+履歴:
+${historyText}`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    analysisSummary: { type: Type.STRING },
+                    recommendedRoles: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                role: { type: Type.STRING },
+                                reason: { type: Type.STRING },
+                                matchScore: { type: Type.NUMBER }
+                            }
+                        }
+                    },
+                    skillsToDevelop: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                skill: { type: Type.STRING },
+                                reason: { type: Type.STRING }
+                            }
+                        }
+                    }
+                },
+                required: ["analysisSummary", "recommendedRoles", "skillsToDevelop"]
+            }
+        }
+    });
+    return robustParseJSON(result.text || "{}");
 }
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
@@ -88,19 +175,16 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 
 ### 2. 相談者プロファイル
 - 年齢/性別: ${profile.age || '未設定'} / ${profile.gender || '未設定'}
-- キャリアステージ: ${profile.stage || '未設定'}（この段階に特有の心理的葛藤を考慮してください）
-- 注力中の役割: ${profile.lifeRoles?.join(', ') || '未設定'}
+- キャリアステージ: ${profile.stage || '未設定'}
 - 主要な主訴: ${profile.complaint || '未設定'}
 
 ### 3. コンサルティング・プロトコル
-1. 成人向けサービスです。育児・教育・子供中心の話題ではなく、常に「相談者本人のキャリアと実存」に焦点を当ててください。
-2. ナラティブ・アプローチを用い、相談者が自身の経験に意味を見出せるよう「開かれた質問」を効果的に挟んでください。
-3. 相談者のステージが「cultivate（自分を育む）」なら承認を、「seek（探求）」なら可能性の拡大を優先してください。
+1. 成人向けサービスです。相談者本人のキャリアと実存に焦点を当ててください。
+2. ナラティブ・アプローチを用い、「開かれた質問」を効果的に挟んでください。
 
 ### 4. 出力形式（厳守）
 回答の冒頭に、必ず現在の文脈に最適な感情タグを1つ付与してください。
 タグの種類: [HAPPY], [CURIOUS], [THINKING], [REASSURE]
-例: [HAPPY] お会いできて嬉しいです！...
 `.trim();
 
     const contents = messages.map(msg => ({
@@ -132,13 +216,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `
-以下の相談履歴からサマリーを生成してください。
-相談者背景: ステージ「${profile.stage}」、悩み「${profile.complaint}」
-
-育児等の話題を排除し、相談者本人のキャリア発達に焦点を当てた臨床的要約をJSON形式で出力してください。
-「user_summary」は相談者へのフィードバック、「pro_notes」は専門家向けの臨床記録です。
-
+        contents: `以下の相談履歴からサマリーを生成してください。
 履歴:
 ${historyText}`,
         config: {

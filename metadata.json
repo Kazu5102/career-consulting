@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.10",
-  "description": "AIとのキャリア相談を始める前に、マイクの使用許可をお願いしています。音声で簡単に行えるようになり、よりスムーズにご相談いただけます。ご協力ありがとうございます！",
+  "name": "Career Consulting_3.12",
+  "description": "アバターの描画品質を向上し、エージェント名を日本語化しました。より親しみやすくプロフェッショナルな対話体験を提供します。",
   "prompt": ""
 }
