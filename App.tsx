@@ -1,5 +1,5 @@
 
-// App.tsx - v2.93 - Strategic Inbox Upgrade
+// App.tsx - v3.10 - Strategic Logic Update
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -52,13 +52,13 @@ const App: React.FC = () => {
             <header className="bg-slate-800 text-white p-2 shadow-md z-10 sticky top-0">
                 <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <span className="bg-sky-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
-                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 2.93</span>
+                        <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
+                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 3.10</span>
                     </div>
 
                     <div className="flex items-center">
                         <span className="mr-4 font-bold text-sm sm:text-base">モード: {mode === 'user' ? 'ユーザー' : '管理者'}</span>
-                        <button onClick={handleSwitchMode} className="bg-sky-600 hover:bg-sky-700 px-3 py-1 rounded-md text-xs sm:text-sm transition-colors font-bold shadow-sm">切替</button>
+                        <button onClick={handleSwitchMode} className="bg-rose-600 hover:bg-rose-700 px-3 py-1 rounded-md text-xs sm:text-sm transition-colors font-bold shadow-sm">切替</button>
                     </div>
                 </div>
             </header>
@@ -70,7 +70,7 @@ const App: React.FC = () => {
                   <div className="h-full flex-1 flex items-center justify-center text-slate-500 p-4 text-center">
                     {serverStatus === 'checking' ? (
                         <div className="flex flex-col items-center gap-3">
-                            <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
                             <p className="font-bold">接続確認中...</p>
                         </div>
                     ) : (

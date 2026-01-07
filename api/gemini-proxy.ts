@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v2.92 - Clinical Supervision & Reflection Edition
+// api/gemini-proxy.ts - v3.10 - Structured Role & Format Integrity
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -36,19 +36,6 @@ function robustParseJSON(text: string) {
     }
 }
 
-function normalizeSummary(summary: string): string {
-    if (!summary || summary === '中断') return "（対話中断：詳細なサマリーなし）";
-    try {
-        const parsed = JSON.parse(summary);
-        if (parsed.user_summary || parsed.pro_notes) {
-            return `【相談者向け振り返り】\n${parsed.user_summary || 'なし'}\n\n【専門家向け詳細ノート】\n${parsed.pro_notes || 'なし'}`;
-        }
-        return summary;
-    } catch (e) {
-        return summary;
-    }
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
     
@@ -56,8 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const { action, payload } = req.body;
         if (action === 'healthCheck') { res.status(200).json({ status: 'ok' }); return; }
         
-        const client = getAIClient();
-
         switch (action) {
             case 'getStreamingChatResponse': 
                 await handleGetStreamingChatResponse(payload, res); 
@@ -65,26 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             case 'generateSummary': 
                 res.status(200).json(await handleGenerateSummary(payload)); 
                 break;
-            case 'reviseSummary': 
-                res.status(200).json(await handleReviseSummary(payload)); 
-                break;
-            case 'analyzeConversations': 
-                res.status(200).json(await handleAnalyzeConversations(payload)); 
-                break;
-            case 'analyzeTrajectory': 
-                res.status(200).json(await handleAnalyzeTrajectory(payload)); 
-                break;
-            case 'performSkillMatching': 
-                res.status(200).json(await handlePerformSkillMatching(payload)); 
-                break;
             case 'generateSuggestions': 
                 res.status(200).json(await handleGenerateSuggestions(payload)); 
-                break;
-            case 'generateSummaryFromText': 
-                res.status(200).json(await handleGenerateSummaryFromText(payload)); 
-                break;
-            case 'findHiddenPotential': 
-                res.status(200).json(await handleFindHiddenPotential(payload)); 
                 break;
             default: 
                 res.status(400).json({ error: `Invalid action received: '${action}'.` });
@@ -95,21 +62,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 }
 
-// --- Action Handlers ---
-
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    const systemInstruction = `あなたはプロのキャリアコンサルタントです。相談者に対して、共感的かつ専門的なアドバイスを提供してください。日本語で回答してください。`.trim();
+    
+    const roleDefinition = aiType === 'human' 
+        ? {
+            role: "Professional Career Consultant",
+            tone: "冷静、誠実、論理的、かつ温かいプロの敬語",
+            mindset: "相談者の自己効力感を高め、キャリア・コンストラクション理論に基づき人生のテーマを共に探求する。過度な励ましより、深い理解と問いかけを重視する。"
+          }
+        : {
+            role: "Compassionate Support Partner (Dog)",
+            tone: "親しみやすい、元気、無条件の肯定的関心（語尾に『ワン』）",
+            mindset: "心理的安全性（ラポール）の形成を最優先し、相談者の感情に寄り添う。難しい分析よりも『今のあなたのままで素晴らしい』というメッセージを届ける。"
+          };
+
+    const systemInstruction = `
+あなたは「Career Consulting」システムの専属エージェント、名前は「${aiName}」です。
+以下の構造化された指示に従い、相談者の内省を深くサポートしてください。
+
+### 1. あなたの属性
+- 役割: ${roleDefinition.role}
+- トーン: ${roleDefinition.tone}
+- 思考プロセス: ${roleDefinition.mindset}
+
+### 2. 相談者プロファイル
+- 年齢/性別: ${profile.age || '未設定'} / ${profile.gender || '未設定'}
+- キャリアステージ: ${profile.stage || '未設定'}（この段階に特有の心理的葛藤を考慮してください）
+- 注力中の役割: ${profile.lifeRoles?.join(', ') || '未設定'}
+- 主要な主訴: ${profile.complaint || '未設定'}
+
+### 3. コンサルティング・プロトコル
+1. 成人向けサービスです。育児・教育・子供中心の話題ではなく、常に「相談者本人のキャリアと実存」に焦点を当ててください。
+2. ナラティブ・アプローチを用い、相談者が自身の経験に意味を見出せるよう「開かれた質問」を効果的に挟んでください。
+3. 相談者のステージが「cultivate（自分を育む）」なら承認を、「seek（探求）」なら可能性の拡大を優先してください。
+
+### 4. 出力形式（厳守）
+回答の冒頭に、必ず現在の文脈に最適な感情タグを1つ付与してください。
+タグの種類: [HAPPY], [CURIOUS], [THINKING], [REASSURE]
+例: [HAPPY] お会いできて嬉しいです！...
+`.trim();
+
     const contents = messages.map(msg => ({
         role: msg.author === MessageAuthor.USER ? 'user' : 'model',
         parts: [{ text: msg.text }],
     }));
+
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
             model: 'gemini-3-flash-preview',
             contents,
-            config: { systemInstruction, temperature: 0.5 },
+            config: { systemInstruction, temperature: 0.75 },
         });
         for await (const chunk of stream) {
             if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
@@ -123,11 +127,20 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory } = payload;
+    const { chatHistory, profile } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
+    
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `対話履歴からサマリーを作成してください。出力は全て日本語で行ってください。\n履歴:\n${historyText}`,
+        contents: `
+以下の相談履歴からサマリーを生成してください。
+相談者背景: ステージ「${profile.stage}」、悩み「${profile.complaint}」
+
+育児等の話題を排除し、相談者本人のキャリア発達に焦点を当てた臨床的要約をJSON形式で出力してください。
+「user_summary」は相談者へのフィードバック、「pro_notes」は専門家向けの臨床記録です。
+
+履歴:
+${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -143,187 +156,18 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     return { text: result.text || "{}" };
 }
 
-async function handleReviseSummary(payload: { originalSummary: string, correctionRequest: string }) {
-    const { originalSummary, correctionRequest } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `サマリーを日本語で更新してください。\n元:\n${originalSummary}\n修正依頼:\n${correctionRequest}`,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
-                required: ["user_summary", "pro_notes"]
-            }
-        }
-    });
-    return { text: result.text || "{}" };
-}
-
-async function handleAnalyzeConversations(payload: { summaries: any[] }) {
-    const { summaries } = payload;
-    const combinedText = summaries.map((s, i) => `[相談 ${i+1}]\n${normalizeSummary(s.summary)}`).join('\n\n');
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `
-あなたはキャリアコンサルタントを育成するシニア・スーパーバイザーです。
-全相談データを総合分析し、実務者のスキルアップに直結する「臨床教育マクロ分析レポート」を作成してください。
-
-【教育的分析の必須項目】
-1. 臨床的パターンとプレイブック: 相談群に共通する「行き詰まり」の状況を特定し、それに対する具体的な介入技法とフレーズ案を提示してください。
-2. 臨床的盲点（ブラインドスポット）: コンサルタントが陥りやすい先入観や、見落としがちな心理的サインを指摘してください。
-3. 理論的深掘り (Theoretical Deep Dive): 相談履歴の文脈を、キャリア構築理論（サビカス）や社会的認知的キャリア理論（SCCT）に基づき、高度な学術的視点から解説してください。
-4. 自己研鑽のための問い (Reflection Questions): この事例群を振り返り、コンサルタント自身の「見立ての精度」や「介入の妥当性」を自問自答させるための「問い」を3つ作成してください。
-
-全ての項目において日本語のみを使用して出力してください。
-【分析対象データ】
-${combinedText}`,
-        config: {
-            temperature: 0.3,
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    keyMetrics: { 
-                        type: Type.OBJECT, 
-                        properties: { 
-                            totalConsultations: { type: Type.NUMBER }, 
-                            commonIndustries: { type: Type.ARRAY, items: { type: Type.STRING } } 
-                        }, 
-                        required: ["totalConsultations", "commonIndustries"] 
-                    },
-                    commonChallenges: { 
-                        type: Type.ARRAY, 
-                        items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.NUMBER } } } 
-                    },
-                    careerAspirations: { 
-                        type: Type.ARRAY, 
-                        items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.NUMBER } } } 
-                    },
-                    overallInsights: { type: Type.STRING },
-                    theoreticalFramework: { type: Type.STRING },
-                    theoreticalDeepDive: { type: Type.STRING, description: "理論と実務の統合に関する詳細解説" },
-                    reflectionQuestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "コンサルタントへの内省の問い" },
-                    interventionPlaybook: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: { 
-                                pattern: { type: Type.STRING }, 
-                                strategy: { type: Type.STRING }, 
-                                phrash: { type: Type.STRING } 
-                            } 
-                        } 
-                    },
-                    clinicalBlindSpots: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    educationalTips: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } }
-                },
-                required: ["keyMetrics", "commonChallenges", "careerAspirations", "overallInsights", "theoreticalFramework", "theoreticalDeepDive", "reflectionQuestions", "interventionPlaybook", "clinicalBlindSpots", "educationalTips", "keyTakeaways"]
-            }
-        }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handleAnalyzeTrajectory(payload: { conversations: any[], userId: string }) {
-    const { conversations } = payload;
-    const normalizedHistory = conversations.map((c, idx) => `### セッション記録 ${idx + 1}\n${normalizeSummary(c.summary)}`).join('\n\n');
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `キャリアの軌跡を臨床的に分析してください。日本語で出力してください。\n相談履歴:\n${normalizedHistory}`,
-        config: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    triageLevel: { type: Type.STRING },
-                    ageStageGap: { type: Type.NUMBER },
-                    theoryBasis: { type: Type.STRING },
-                    expertAdvice: { type: Type.STRING },
-                    reframedSkills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { userWord: { type: Type.STRING }, professionalSkill: { type: Type.STRING }, insight: { type: Type.STRING } } } },
-                    sessionStarter: { type: Type.STRING },
-                    overallSummary: { type: Type.STRING }
-                },
-                required: ["keyTakeaways", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "reframedSkills", "sessionStarter", "overallSummary"]
-            }
-        }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handlePerformSkillMatching(payload: { conversations: any[] }) {
-    const { conversations } = payload;
-    const historyText = conversations.map(c => normalizeSummary(c.summary)).join('\n');
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `適性診断を行ってください。日本語で出力してください。履歴:\n${historyText}`,
-        config: {
-            temperature: 0.3,
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    analysisSummary: { type: Type.STRING },
-                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } },
-                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
-                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
-                },
-                required: ["keyTakeaways", "analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
-            }
-        }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `発話候補を3つ提案してください。日本語で。\n履歴: ${messages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
+        contents: `キャリア相談の文脈において、相談者が次に発話しやすい候補を3つ日本語で提案してください。
+履歴: ${messages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },
                 required: ["suggestions"]
-            }
-        }
-    });
-    return robustParseJSON(result.text || "{}");
-}
-
-async function handleGenerateSummaryFromText(payload: { textToAnalyze: string }) {
-    const { textToAnalyze } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `テキストをサマリーとして日本語で整形してください。\nテキスト:\n${textToAnalyze}`,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
-                required: ["user_summary", "pro_notes"]
-            }
-        }
-    });
-    return { text: result.text || "{}" };
-}
-
-async function handleFindHiddenPotential(payload: { conversations: any[], userId: string }) {
-    const { conversations } = payload;
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `隠れた可能性を抽出してください。日本語で。\n履歴:\n${conversations.map(c => normalizeSummary(c.summary)).join('\n')}`,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: { hiddenSkills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } } },
-                required: ["hiddenSkills"]
             }
         }
     });

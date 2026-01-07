@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v2.89 - Floating Hub Architecture Upgrade
+// views/UserView.tsx - v3.10 - Advanced Emotion Sync Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -46,6 +46,11 @@ const CRISIS_KEYWORDS = [
     /死にたい/, /自殺/, /消えたい/, /死にたくなった/, /自死/, /終わりにしたい/, 
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
 ];
+
+const GREETINGS = {
+  human: (name: string) => `[HAPPY] こんにちは、${name}です。お越しいただきありがとうございます。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて現状を丁寧に整理し、あなたが自信を持って次の一歩を踏み出せるよう、誠心誠意サポートさせていただきます。まずは、今のあなたの状況に近いものを教えていただけますか？`,
+  dog: (name: string) => `[HAPPY] こんにちは、${name}だワン！会えて嬉しいワン！今のあなたの気持ちや、がんばっていること、なんでもお話ししてほしいワン。ボクがしっかり寄り添って、一緒にこれからのことを整理するワン。キミが元気に一歩踏み出せるように応援するからね！まずは、今のキミはどんな感じかな？`
+};
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [view, setView] = useState<UserViewMode>('loading');
@@ -114,52 +119,46 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const { type, avatarKey } = selection;
     const assistant = ASSISTANTS.find(a => a.id === avatarKey);
     if (!assistant) return;
+    
+    const selectedAiName = assistant.nameOptions[Math.floor(Math.random() * assistant.nameOptions.length)];
     setAiType(type);
     setAiAvatarKey(avatarKey);
-    setAiName(assistant.nameOptions[Math.floor(Math.random() * assistant.nameOptions.length)]);
+    setAiName(selectedAiName);
     
     startTimeRef.current = Date.now();
-    resetOnboarding(false);
-    setView('chatting');
-  }, []);
-
-  const resetOnboarding = (isManualReset: boolean = true) => {
-    if (isManualReset) setResetCount(prev => prev + 1);
-    const greetingText = `こんにちは。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて今の「心の状態」を丁寧に解きほぐし、あなたが次の一歩をスムーズに踏み出せるよう、心を込めて整理のお手伝いをさせていただきます。まずは、今のあなたに最も近い状況はどれですか？`;
+    
+    const greetingText = GREETINGS[type](selectedAiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
+    
+    // Greeting tag parsing
+    if (greetingText.startsWith('[HAPPY]')) setAiMood('happy');
+    
     setOnboardingStep(1);
     setUserProfile({ lifeRoles: [] });
     setOnboardingHistory([]);
     setSelectedRoles([]);
     setHasError(false);
     setSuggestionsVisible(false);
-    setAiMood('neutral');
-  };
-
-  const handleGoBack = () => {
-    if (onboardingStep <= 1) return;
-    setBackCount(prev => prev + 1);
-    const prevHistory = [...onboardingHistory];
-    const prevProfile = prevHistory.pop() || { lifeRoles: [] };
-    setMessages(prev => prev.slice(0, -2));
-    setOnboardingStep(prev => prev - 1);
-    setUserProfile(prevProfile);
-    setOnboardingHistory(prevHistory);
-    setHasError(false);
-    setSuggestionsVisible(false);
-  };
+    
+    setView('chatting');
+  }, []);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
       setIsLoading(false);
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
 
-      if (aiType === 'dog') {
-        if (aiText.includes('[HAPPY]')) setAiMood('happy');
-        else if (aiText.includes('[CURIOUS]') || aiText.includes('？')) setAiMood('curious');
-        else if (aiText.includes('[THINKING]') || aiText.includes('…')) setAiMood('thinking');
-        else if (aiText.includes('[REASSURE]') || aiText.includes('大丈夫')) setAiMood('reassure');
-        else setAiMood('neutral');
+      // Precise tag detection
+      if (aiText.includes('[HAPPY]')) setAiMood('happy');
+      else if (aiText.includes('[CURIOUS]')) setAiMood('curious');
+      else if (aiText.includes('[THINKING]')) setAiMood('thinking');
+      else if (aiText.includes('[REASSURE]')) setAiMood('reassure');
+      else {
+          // Fallback heuristic
+          if (aiText.includes('？')) setAiMood('curious');
+          else if (aiText.includes('！')) setAiMood('happy');
+          else if (aiText.includes('…')) setAiMood('thinking');
+          else setAiMood('neutral');
       }
 
       if (currentMessages.length >= 4) {
@@ -200,7 +199,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSuggestions([]);
     setSuggestionsVisible(false); 
     setIsLoading(true);
-    if (aiType === 'dog') setAiMood('thinking');
+    setAiMood('thinking');
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
         await processOnboarding(text, newMessages);
@@ -234,6 +233,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
+            
+            // Early mood detection from tag
+            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
+            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
+            else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
+            else if (aiResponseText.includes('[REASSURE]')) setAiMood('reassure');
           }
       }
       await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }], onboardingStep);
@@ -251,22 +256,32 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     let nextText = '';
     let nextStep = onboardingStep + 1;
 
+    const isDog = aiType === 'dog';
+
     if (onboardingStep === 1) {
         setUserProfile(prev => ({ ...prev, stage: choice }));
-        nextText = `ありがとうございます。次に、あなたの**年代**を教えてください。`;
+        nextText = isDog 
+            ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` 
+            : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
     } 
     else if (onboardingStep === 2) {
         setUserProfile(prev => ({ ...prev, age: choice }));
-        nextText = `差し替なければ、**性別**を教えていただけますか？`;
+        nextText = isDog 
+            ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！`
+            : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
     }
     else if (onboardingStep === 3) {
         setUserProfile(prev => ({ ...prev, gender: choice }));
-        nextText = `今、あなたの**エネルギーはどこに多く使われていますか？**（複数選択可）`;
+        nextText = isDog
+            ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）`
+            : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
     }
     else if (onboardingStep === 4) {
         const roles = choice.split('、');
         setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
-        nextText = `対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで大丈夫ですよ。`;
+        nextText = isDog
+            ? `[HAPPY] 準備OKだワン！今日はどんなことをお話ししてみたいかな？自由に話してほしいワン！`
+            : `[HAPPY] 対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで結構ですよ。`;
     }
     else if (onboardingStep === 5) {
         const totalTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -282,6 +297,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
 
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
+    
+    // Immediate mood update for onboarding steps
+    if (nextText.includes('[HAPPY]')) setAiMood('happy');
+    else if (nextText.includes('[REASSURE]')) setAiMood('reassure');
+    else if (nextText.includes('[CURIOUS]')) setAiMood('curious');
+    
     setOnboardingStep(nextStep);
     setIsLoading(false);
   };
@@ -303,6 +324,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
+            // Real-time mood update during actual session
+            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
+            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
           }
       }
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }], stepAtFinalize);
@@ -311,6 +335,71 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
       setIsLoading(false);
     }
+  };
+
+  const handleGoBack = () => {
+    if (onboardingStep <= 1) return;
+    setBackCount(prev => prev + 1);
+    const prevHistory = [...onboardingHistory];
+    const prevProfile = prevHistory.pop() || { lifeRoles: [] };
+    setMessages(prev => prev.slice(0, -2));
+    setOnboardingStep(prev => prev - 1);
+    setUserProfile(prevProfile);
+    setOnboardingHistory(prevHistory);
+    setHasError(false);
+    setSuggestionsVisible(false);
+    // Restore previous mood based on history or defaults
+    setAiMood('neutral');
+  };
+
+  const resetOnboarding = (isManualReset: boolean = true) => {
+    if (isManualReset) setResetCount(prev => prev + 1);
+    const greetingText = GREETINGS[aiType](aiName);
+    setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
+    if (greetingText.includes('[HAPPY]')) setAiMood('happy');
+    setOnboardingStep(1);
+    setUserProfile({ lifeRoles: [] });
+    setOnboardingHistory([]);
+    setSelectedRoles([]);
+    setHasError(false);
+    setSuggestionsVisible(false);
+  };
+
+  const handleGenerateSummary = () => {
+    setIsSummaryModalOpen(true);
+    setIsSummaryLoading(true);
+    generateSummary(messages, aiType, aiName, userProfile)
+      .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
+  };
+
+  const finalizeAndSave = async (conversation: StoredConversation) => {
+      setIsSummaryModalOpen(false);
+      setIsInterruptModalOpen(false); 
+      setIsFinalizing(true);
+      
+      await new Promise(r => setTimeout(r, 1000));
+      
+      const storedDataRaw = localStorage.getItem('careerConsultations');
+      let currentAllConversations = [];
+      if (storedDataRaw) {
+          try {
+              const parsed = JSON.parse(storedDataRaw);
+              currentAllConversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
+          } catch(e) {
+              console.error("Save error: failed to parse local storage", e);
+          }
+      }
+      
+      let updated = [...currentAllConversations, conversation];
+      localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
+      
+      setUserConversations(updated.filter((c:any) => c.userId === userId));
+      setIsFinalizing(false);
+      setView('dashboard'); 
+      setMessages([]); 
+      setOnboardingStep(0);
+      setIsConsultationReady(false);
+      setAiMood('neutral');
   };
 
   const renderOnboardingUI = () => {
@@ -384,48 +473,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     );
   };
 
-  const handleGenerateSummary = () => {
-    setIsSummaryModalOpen(true);
-    setIsSummaryLoading(true);
-    generateSummary(messages, aiType, aiName, userProfile)
-      .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
-  };
-
-  const finalizeAndSave = async (conversation: StoredConversation) => {
-      setIsSummaryModalOpen(false);
-      setIsInterruptModalOpen(false); 
-      setIsFinalizing(true);
-      
-      await new Promise(r => setTimeout(r, 1000));
-      
-      const storedDataRaw = localStorage.getItem('careerConsultations');
-      let currentAllConversations = [];
-      if (storedDataRaw) {
-          try {
-              const parsed = JSON.parse(storedDataRaw);
-              currentAllConversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
-          } catch(e) {
-              console.error("Save error: failed to parse local storage", e);
-          }
-      }
-      
-      let updated = [...currentAllConversations, conversation];
-      localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
-      
-      setUserConversations(updated.filter((c:any) => c.userId === userId));
-      setIsFinalizing(false);
-      setView('dashboard'); 
-      setMessages([]); 
-      setOnboardingStep(0);
-      setIsConsultationReady(false);
-      setAiMood('neutral');
-  };
-
   return (
     <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
       
-      {/* Ver 2.89: 追従型フローティング・ハブ (PC/Mobile共通) */}
       {view === 'chatting' && (
         <div className="fixed top-20 right-4 lg:right-[calc(50vw-480px)] z-[100] transition-all duration-500">
            <div className={`
@@ -435,7 +486,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
            `}>
              <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} isCompact={true} />
            </div>
-           {/* 名前タグをサークルの下に表示 */}
            <div className="mt-2 text-center">
               <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter shadow-md">
                 {aiName}
