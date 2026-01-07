@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.13 - Expert-Centric Analysis Reinforcement
+// api/gemini-proxy.ts - v3.14 - Specialized Expert Insight Logic
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -82,14 +82,14 @@ async function handleAnalyzeTrajectory(payload: { conversations: StoredConversat
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `あなたは臨床心理の知見を持つ熟練のキャリアコンサルタント・スーパーバイザーです。
-以下の相談履歴（時系列）を読み解き、相談者の「内的変容の軌跡」を分析してください。
+        contents: `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
+職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
-### 分析の視点:
-1. 相談者の語りのトーンやキーワードの変化（例：防衛から自己開示へ）。
-2. 発達段階（ライフステージ）における課題と、現在地との乖離。
-3. 理論的背景（サビカスのキャリア・コンストラクション理論など）に基づく現在の心理状態。
-4. キャリアコンサルタントとして次回面談で留意すべき臨床的盲点。
+### 分析指示:
+1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を時系列で追う。
+2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
+3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
+4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。
 
 履歴:
 ${historyText}`,
@@ -99,12 +99,12 @@ ${historyText}`,
                 type: Type.OBJECT,
                 properties: {
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "臨床的な重要指摘事項" },
-                    overallSummary: { type: Type.STRING, description: "初回から現在までのナラティブな変容プロセス" },
-                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"], description: "心理的緊急度・介入の必要性" },
-                    ageStageGap: { type: Type.NUMBER, description: "期待される発達段階と現状の心理的適応の乖離度(0-100)" },
-                    theoryBasis: { type: Type.STRING, description: "分析の根拠となったキャリア理論の解説" },
-                    expertAdvice: { type: Type.STRING, description: "コンサルタントへの具体的指導（スーパービジョン）" },
-                    sessionStarter: { type: Type.STRING, description: "次回、相談者の内省を深めるための問いかけ" }
+                    overallSummary: { type: Type.STRING, description: "初回から現在までのナラティブな変容プロセス（心理動態の専門的解説）" },
+                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"], description: "心理的緊急度（安定/不安定）" },
+                    ageStageGap: { type: Type.NUMBER, description: "実年齢と心理的成熟（発達課題）の乖離度(0-100)" },
+                    theoryBasis: { type: Type.STRING, description: "分析の根拠とした学術的キャリア理論" },
+                    expertAdvice: { type: Type.STRING, description: "担当コンサルタントへの臨床的指導アドバイス" },
+                    sessionStarter: { type: Type.STRING, description: "次回、相談者の内省の扉を叩くための問いかけ" }
                 },
                 required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter"]
             }
@@ -119,14 +119,14 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `あなたは戦略的なキャリア・アーキテクト（マーケット・アナリスト）です。
-以下の相談内容を分析し、相談者の「市場価値」をリフレーミングして適職を診断してください。
+        contents: `あなたは戦略的な「キャリア・アーキテクト（市場価値アナリスト）」です。
+相談者の心理状態の解説は最小限に留め、その人の経験を【市場価値の高い専門スキル】へと論理的に翻訳し、適職を診断してください。
 
-### 分析の視点:
-1. 相談者が当たり前だと思っている経験を、市場で通用する「専門スキル」に翻訳する（リフレーミング）。
-2. 履歴から読み取れる「ポータブルスキル」の特定。
-3. 具体的かつ意外性のある適職の提案と、その「なぜ（論理性）」。
-4. 理想のキャリアに到達するために不足している決定的スキルの特定。
+### 分析指示:
+1. 相談者が無自覚な「再現性のある強み」を専門用語でリフレーミング（再定義）する。
+2. 労働市場のトレンドと照らし合わせ、最もポテンシャルを発揮できる「具体的職種」を提示する。
+3. 提案職種への適合度を、履歴に基づいた論理的根拠と共に説明する。
+4. 理想のキャリアに到達するために「今すぐ学習すべき項目」を特定する。
 
 履歴:
 ${historyText}`,
@@ -135,14 +135,14 @@ ${historyText}`,
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    analysisSummary: { type: Type.STRING, description: "相談者の強みの再定義レポート（専門的見解）" },
+                    analysisSummary: { type: Type.STRING, description: "市場価値の再定義レポート（強みの言語化）" },
                     recommendedRoles: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                role: { type: Type.STRING, description: "職種名" },
-                                reason: { type: Type.STRING, description: "推奨する論理的根拠" },
+                                role: { type: Type.STRING, description: "推奨職種名" },
+                                reason: { type: Type.STRING, description: "市場的・論理的観点からの推奨根拠" },
                                 matchScore: { type: Type.NUMBER, description: "適合度(0-100)" }
                             }
                         }
@@ -152,8 +152,8 @@ ${historyText}`,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                skill: { type: Type.STRING, description: "習得すべきスキル" },
-                                reason: { type: Type.STRING, description: "なぜそのスキルが必要か（市場的観点）" }
+                                skill: { type: Type.STRING, description: "習得すべき専門スキル" },
+                                reason: { type: Type.STRING, description: "なぜそのスキルが市場で必要か" }
                             }
                         }
                     }
@@ -167,40 +167,18 @@ ${historyText}`,
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    
     const roleDefinition = aiType === 'human' 
-        ? {
-            role: "Professional Career Consultant",
-            tone: "冷静、誠実、論理的、かつ温かいプロの敬語",
-            mindset: "相談者の自己効力感を高め、キャリア・コンストラクション理論に基づき人生のテーマを共に探求する。過度な励ましより、深い理解と問いかけを重視する。"
-          }
-        : {
-            role: "Compassionate Support Partner (Dog)",
-            tone: "親しみやすい、元気、無条件の肯定的関心（語尾に『ワン』）",
-            mindset: "心理的安全性（ラポール）の形成を最優先し、相談者の感情に寄り添う。難しい分析よりも『今のあなたのままで素晴らしい』というメッセージを届ける。"
-          };
+        ? { role: "Professional Career Consultant", tone: "冷静、誠実、論理的なプロの敬語", mindset: "自己効力感を高め、対話を通じて内省を促す。" }
+        : { role: "Compassionate Partner (Dog)", tone: "親しみやすい、癒やし、肯定的（語尾ワン）", mindset: "心理的安全性と共感を最優先する。" };
 
     const systemInstruction = `
-あなたは「Career Consulting」システムの専属エージェント、名前は「${aiName}」です。
-以下の構造化された指示に従い、相談者の内省を深くサポートしてください。
+名前: ${aiName}
+役割: ${roleDefinition.role}
+トーン: ${roleDefinition.tone}
+思考: ${roleDefinition.mindset}
+相談者プロファイル: ${JSON.stringify(profile)}
 
-### 1. あなたの属性
-- 役割: ${roleDefinition.role}
-- トーン: ${roleDefinition.tone}
-- 思考プロセス: ${roleDefinition.mindset}
-
-### 2. 相談者プロファイル
-- 年齢/性別: ${profile.age || '未設定'} / ${profile.gender || '未設定'}
-- キャリアステージ: ${profile.stage || '未設定'}
-- 主要な主訴: ${profile.complaint || '未設定'}
-
-### 3. コンサルティング・プロトコル
-1. 成人向けサービスです。相談者本人のキャリアと実存に焦点を当ててください。
-2. ナラティブ・アプローチを用い、「開かれた質問」を効果的に挟んでください。
-
-### 4. 出力形式（厳守）
-回答の冒頭に、必ず現在の文脈に最適な感情タグを1つ付与してください。
-タグの種類: [HAPPY], [CURIOUS], [THINKING], [REASSURE]
+回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
 `.trim();
 
     const contents = messages.map(msg => ({
@@ -213,7 +191,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         const stream = await getAIClient().models.generateContentStream({
             model: 'gemini-3-flash-preview',
             contents,
-            config: { systemInstruction, temperature: 0.75 },
+            config: { systemInstruction, temperature: 0.7 },
         });
         for await (const chunk of stream) {
             if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
@@ -227,21 +205,19 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory, profile } = payload;
+    const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
-    
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `以下の相談履歴から、専門家への引き継ぎを目的とした構造化サマリーを生成してください。
-履歴:
-${historyText}`,
+        contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
+履歴: ${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { 
-                    user_summary: { type: Type.STRING, description: "相談者が振り返りに使う、温かく前向きなサマリー" }, 
-                    pro_notes: { type: Type.STRING, description: "キャリアコンサルタントが分析に使う、事実に基づいた臨床的なメモ" } 
+                    user_summary: { type: Type.STRING }, 
+                    pro_notes: { type: Type.STRING } 
                 },
                 required: ["user_summary", "pro_notes"]
             }
@@ -254,8 +230,8 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `キャリア相談の文脈において、相談者が次に発話しやすい候補を3つ日本語で提案してください。
-履歴: ${messages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
+        contents: `候補を3つ提案してください。JSONで返してください。
+履歴: ${messages.map(m => m.text).join('\n')}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

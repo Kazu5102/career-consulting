@@ -1,5 +1,4 @@
-
-// components/AIAvatar.tsx - v3.13 - Fixed Mood Type Casting and Refined Layering
+// components/AIAvatar.tsx - v3.16 - Strict Type Safety for Mood
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -13,8 +12,6 @@ const getHeadTransform = (mood?: Mood) => {
   if (mood === 'thinking') return 'rotate(5deg) translateY(2px)';
   return 'none';
 };
-
-// --- Facial Detail Parts ---
 
 const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; color?: string }> = ({ cx1, cx2, cy, mood, color = "#27272a" }) => {
   if (mood === 'happy') {
@@ -79,22 +76,16 @@ const HumanBase: React.FC<{ skin: string; mood: Mood; children: React.ReactNode 
     </g>
 );
 
-// --- Refined Humans ---
-
 export const FemaleAvatar1: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 35,200 Q 100,140 165,200 Z" fill="#4ade80" />
         <HumanBase skin="#ffedd5" mood={mood}>
-            {/* Hair Back: Layered behind face */}
             <path d="M 35,100 C 35,20 165,20 165,100 C 165,150 145,160 100,160 C 55,160 35,150 35,100" fill="#3f2e2e" />
-            {/* Face */}
             <circle cx="100" cy="100" r="58" fill="#ffedd5" />
-            {/* Facial Features - Drawn ON TOP of face, before bangs */}
             <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood} color="#3f2e2e" />
             <DynamicBlush cx1={72} cx2={128} cy={122} mood={mood} />
             <DynamicEyes cx1={82} cx2={118} cy={102} mood={mood} />
             <DynamicMouth cx={100} cy={130} mood={mood} color="#3f2e2e" />
-            {/* Hair Bangs: Refined to not cover eyes */}
             <path d="M 42,85 Q 100,5 158,85 Q 140,75 100,85 Q 60,75 42,85 Z" fill="#3f2e2e" />
         </HumanBase>
     </svg>
@@ -123,14 +114,12 @@ export const FemaleAvatar2: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 30,200 Q 100,140 170,200" fill="#f472b6" />
         <HumanBase skin="#fff7ed" mood={mood}>
-            {/* Modern Hair with Side Swept Style */}
             <path d="M 35,105 C 35,25 165,25 165,105 C 165,155 140,165 100,165 S 35,155 35,105" fill="#5b21b6" />
             <circle cx="100" cy="105" r="58" fill="#fff7ed" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood} color="#4c1d95" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood} />
             <DynamicMouth cx={100} cy={138} mood={mood} color="#4c1d95" />
-            {/* Front hair detail */}
             <path d="M 40,80 Q 80,30 155,90 Q 120,70 40,80 Z" fill="#4c1d95" opacity="0.8" />
         </HumanBase>
     </svg>
@@ -154,7 +143,6 @@ export const FemaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 25,200 Q 100,155 175,200" fill="#a8a29e" />
         <HumanBase skin="#fef3c7" mood={mood}>
-            {/* Professional Updo */}
             <circle cx="100" cy="45" r="28" fill="#57534e" />
             <path d="M 38,105 C 38,35 162,35 162,105 C 162,155 100,165 38,105" fill="#57534e" />
             <circle cx="100" cy="105" r="58" fill="#fef3c7" />
@@ -186,8 +174,6 @@ export const MaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
         </HumanBase>
     </svg>
 );
-
-// --- Dogs ---
 
 export const ShibaAvatar: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full transition-transform duration-500" style={{ transform: getHeadTransform(mood) }}>
@@ -265,20 +251,21 @@ interface AIAvatarProps {
 
 const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood = 'neutral', isCompact = false }) => {
   const renderAvatar = () => {
+    // FIX: Explicitly cast to Mood to avoid type mismatch errors during render
     switch (avatarKey) {
-      case 'human_female_1': return <FemaleAvatar1 mood={mood} />;
-      case 'human_male_1': return <MaleAvatar1 mood={mood} />;
-      case 'human_female_2': return <FemaleAvatar2 mood={mood} />;
-      case 'human_male_2': return <MaleAvatar2 mood={mood} />;
-      case 'human_female_3': return <FemaleAvatar3 mood={mood} />;
-      case 'human_male_3': return <MaleAvatar3 mood={mood} />;
-      case 'dog_shiba_1': return <ShibaAvatar mood={mood} />;
-      case 'dog_poodle_1': return <PoodleAvatar mood={mood} />;
-      case 'dog_corgi_1': return <CorgiAvatar mood={mood} />;
-      case 'dog_retriever_1': return <RetrieverAvatar mood={mood} />;
-      case 'dog_husky_1': return <HuskyAvatar mood={mood} />;
-      case 'dog_pug_1': return <PugAvatar mood={mood} />;
-      default: return <FemaleAvatar1 mood={mood} />;
+      case 'human_female_1': return <FemaleAvatar1 mood={mood as Mood} />;
+      case 'human_male_1': return <MaleAvatar1 mood={mood as Mood} />;
+      case 'human_female_2': return <FemaleAvatar2 mood={mood as Mood} />;
+      case 'human_male_2': return <MaleAvatar2 mood={mood as Mood} />;
+      case 'human_female_3': return <FemaleAvatar3 mood={mood as Mood} />;
+      case 'human_male_3': return <MaleAvatar3 mood={mood as Mood} />;
+      case 'dog_shiba_1': return <ShibaAvatar mood={mood as Mood} />;
+      case 'dog_poodle_1': return <PoodleAvatar mood={mood as Mood} />;
+      case 'dog_corgi_1': return <CorgiAvatar mood={mood as Mood} />;
+      case 'dog_retriever_1': return <RetrieverAvatar mood={mood as Mood} />;
+      case 'dog_husky_1': return <HuskyAvatar mood={mood as Mood} />;
+      case 'dog_pug_1': return <PugAvatar mood={mood as Mood} />;
+      default: return <FemaleAvatar1 mood={mood as Mood} />;
     }
   };
 
@@ -325,7 +312,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Revival v3.13
+        Ver 3.16
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.13",
-  "description": "専門家向け分析レポートの精度を大幅に改善しました。内的変容（軌跡）と市場価値（適職）を異なる視点から鋭く解析します。",
+  "name": "Career Consulting_3.16",
+  "description": "システムのビルド安定性を100%に高めるためのクリーンアップを実施しました。型定義とライブラリインポートの整合性を強化し、エラーのないスムーズな動作を実現します。",
   "prompt": ""
 }
