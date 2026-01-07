@@ -1,5 +1,5 @@
 
-// App.tsx - v3.16 - Optimized Build and Type Safety
+// App.tsx - v3.18 - Enhanced Data Recovery Logic
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -53,7 +53,7 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">System</span>
-                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 3.16</span>
+                        <span className="text-sm font-mono font-bold text-white tracking-wide">Ver 3.18</span>
                     </div>
 
                     <div className="flex items-center">
