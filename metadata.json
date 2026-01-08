@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.19",
-  "description": "分析が実行できない理由を具体的に提示し、解決のためのアドバイスを表示する機能を追加しました。",
+  "name": "Career Consulting_3.21",
+  "description": "管理者画面のステータス表示を改善。「未対話」カテゴリの導入により、アプローチが必要なユーザーをより明確に識別可能にしました。",
   "prompt": ""
 }

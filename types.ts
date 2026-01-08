@@ -1,4 +1,5 @@
 
+// types.ts - v3.20
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -6,9 +7,9 @@ export const STORAGE_VERSION = 1;
 export interface StoredData {
   version: number;
   data: StoredConversation[];
-  // Ver 2.85: インポート時にニックネームを保持するためのオプション
   users?: UserInfo[];
   userInfo?: UserInfo;
+  exportedAt?: string; // Ver 3.20: Traceability for exports
 }
 
 export interface UserInfo {

@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.19 - Descriptive Validation Logic
+// views/AdminView.tsx - v3.21 - Terminology Alignment
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -21,7 +21,7 @@ import ShareIcon from '../components/icons/ShareIcon';
 import InterruptIcon from '../components/icons/InterruptIcon';
 import CheckIcon from '../components/icons/CheckIcon';
 
-type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk';
+type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
 
 const AdminView: React.FC = () => {
@@ -56,8 +56,8 @@ const AdminView: React.FC = () => {
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    const userMetadata = useMemo<Record<string, { lastDate: string, status: string, isHighRisk: boolean }>>(() => {
-        const meta: Record<string, { lastDate: string, status: string, isHighRisk: boolean }> = {};
+    const userMetadata = useMemo<Record<string, { lastDate: string, status: string, isHighRisk: boolean, count: number }>>(() => {
+        const meta: Record<string, { lastDate: string, status: string, isHighRisk: boolean, count: number }> = {};
         users.forEach(u => {
             const userConvs = conversations.filter(c => c.userId === u.id)
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -73,20 +73,22 @@ const AdminView: React.FC = () => {
             meta[u.id] = {
                 lastDate: latest?.date || '',
                 status: latest?.status || 'none',
-                isHighRisk
+                isHighRisk,
+                count: userConvs.length
             };
         });
         return meta;
     }, [users, conversations]);
 
     const stats = useMemo(() => {
-        const counts = { total: users.length, interrupted: 0, highRisk: 0 };
-        (Object.values(userMetadata) as Array<{ status: string; isHighRisk: boolean }>).forEach(m => {
+        const counts = { total: users.length, interrupted: 0, highRisk: 0, noHistory: 0 };
+        (Object.values(userMetadata) as Array<{ status: string; isHighRisk: boolean; count: number }>).forEach(m => {
             if (m.status === 'interrupted') counts.interrupted++;
             if (m.isHighRisk) counts.highRisk++;
+            if (m.count === 0) counts.noHistory++;
         });
         return counts;
-    }, [users, userMetadata]);
+    }, [userMetadata, users.length]);
 
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => 
@@ -101,13 +103,14 @@ const AdminView: React.FC = () => {
                 if (filterStatus === 'interrupted') return m.status === 'interrupted';
                 if (filterStatus === 'completed') return m.status === 'completed';
                 if (filterStatus === 'high_risk') return m.isHighRisk;
+                if (filterStatus === 'no_history') return m.count === 0;
                 return true;
             });
         }
 
         return list.sort((a, b) => {
-            const dateA = new Date(userMetadata[a.id].lastDate).getTime();
-            const dateB = new Date(userMetadata[b.id].lastDate).getTime();
+            const dateA = new Date(userMetadata[a.id].lastDate).getTime() || 0;
+            const dateB = new Date(userMetadata[b.id].lastDate).getTime() || 0;
             return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
         });
     }, [users, searchQuery, filterStatus, sortOrder, userMetadata]);
@@ -120,42 +123,19 @@ const AdminView: React.FC = () => {
     const runAnalysis = async (type: AnalysisType) => {
         if (!selectedUserId) return;
 
-        // --- Precise Pre-Validation Check ---
         if (selectedUserConversations.length === 0) {
-            setAnalyses(prev => ({
-                ...prev,
-                [type]: { 
-                    status: 'error', 
-                    data: null, 
-                    error: "履歴が1件もありません。まず相談者と対話を行い、セッションを完了させてください。" 
-                }
-            }));
+            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "履歴が1件もありません。まず相談者と対話を行い、セッションを完了させてください。" } }));
             return;
         }
 
         if (type === 'trajectory' && selectedUserConversations.length < 2) {
-            setAnalyses(prev => ({
-                ...prev,
-                trajectory: { 
-                    status: 'error', 
-                    data: null, 
-                    error: "軌跡分析（時系列分析）には、少なくとも2回以上のセッション履歴が必要です。1件のみでは内的変容を捉えることができません。" 
-                }
-            }));
+            setAnalyses(prev => ({ ...prev, trajectory: { status: 'error', data: null, error: "軌跡分析には、少なくとも2回以上のセッション履歴が必要です。" } }));
             return;
         }
 
-        // Check if information is too sparse
         const totalCharCount = selectedUserConversations.reduce((acc, c) => acc + (c.summary?.length || 0), 0);
         if (totalCharCount < 100) {
-            setAnalyses(prev => ({
-                ...prev,
-                [type]: { 
-                    status: 'error', 
-                    data: null, 
-                    error: "対話の要約内容が極端に少ないため、AIが臨床的な判断を下せません。もう少し詳細な状況を要約に追記してください。" 
-                }
-            }));
+            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "対話の要約内容が極端に少ないため、AIが臨床的な判断を下せません。" } }));
             return;
         }
 
@@ -168,28 +148,15 @@ const AdminView: React.FC = () => {
         try {
             if (type === 'trajectory') {
                 const data = await analyzeTrajectory(selectedUserConversations, selectedUserId);
-                setAnalyses(prev => ({ 
-                    ...prev, 
-                    trajectory: { status: 'success', data, error: null },
-                    skillMatching: { status: 'idle', data: null, error: null }
-                }));
+                setAnalyses(prev => ({ ...prev, trajectory: { status: 'success', data, error: null }, skillMatching: { status: 'idle', data: null, error: null } }));
             } else if (type === 'skillMatching') {
                 const data = await performSkillMatching(selectedUserConversations);
-                setAnalyses(prev => ({ 
-                    ...prev, 
-                    skillMatching: { status: 'success', data, error: null },
-                    trajectory: { status: 'idle', data: null, error: null }
-                }));
+                setAnalyses(prev => ({ ...prev, skillMatching: { status: 'success', data, error: null }, trajectory: { status: 'idle', data: null, error: null } }));
             }
         } catch (err: any) {
             let userError = err.message || "予期せぬエラーが発生しました。";
-            if (userError.includes('SAFETY')) {
-                userError = "AIのセーフティフィルタにより分析が中断されました。内容に不適切な表現が含まれている可能性があります。";
-            }
-            setAnalyses(prev => ({ 
-                ...prev, 
-                [type]: { status: 'error', data: null, error: userError } 
-            }));
+            if (userError.includes('SAFETY')) userError = "AIのセーフティフィルタにより分析が中断されました。";
+            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: userError } }));
         }
     };
 
@@ -204,28 +171,31 @@ const AdminView: React.FC = () => {
 
     return (
         <div className="flex h-full w-full bg-slate-50 overflow-hidden">
-            {/* SIDEBAR */}
             <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-lg font-black text-slate-800 tracking-tight">インボックス</h2>
-                    <div className="grid grid-cols-3 gap-2 mt-4">
-                        <button onClick={() => setFilterStatus('all')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'all' ? 'bg-white border-sky-200 ring-2 ring-sky-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
-                            <p className="text-[10px] font-black text-slate-400 uppercase">Total</p>
-                            <p className="text-lg font-black text-slate-800">{stats.total}</p>
+                    <div className="grid grid-cols-4 gap-1.5 mt-4">
+                        <button onClick={() => setFilterStatus('all')} className={`p-1.5 rounded-lg border transition-all text-center ${filterStatus === 'all' ? 'bg-white border-sky-200 ring-1 ring-sky-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase">Total</p>
+                            <p className="text-sm font-black text-slate-800">{stats.total}</p>
                         </button>
-                        <button onClick={() => setFilterStatus('interrupted')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'interrupted' ? 'bg-amber-50 border-amber-200 ring-2 ring-amber-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
-                            <p className="text-[10px] font-black text-amber-500 uppercase">Paused</p>
-                            <p className="text-lg font-black text-amber-600">{stats.interrupted}</p>
+                        <button onClick={() => setFilterStatus('high_risk')} className={`p-1.5 rounded-lg border transition-all text-center ${filterStatus === 'high_risk' ? 'bg-rose-50 border-rose-200 ring-1 ring-rose-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
+                            <p className="text-[8px] font-black text-rose-500 uppercase">Risk</p>
+                            <p className="text-sm font-black text-rose-600">{stats.highRisk}</p>
                         </button>
-                        <button onClick={() => setFilterStatus('high_risk')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'high_risk' ? 'bg-rose-50 border-rose-200 ring-2 ring-rose-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
-                            <p className="text-[10px] font-black text-rose-500 uppercase">Risk</p>
-                            <p className="text-lg font-black text-rose-600">{stats.highRisk}</p>
+                        <button onClick={() => setFilterStatus('interrupted')} className={`p-1.5 rounded-lg border transition-all text-center ${filterStatus === 'interrupted' ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-500/20' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
+                            <p className="text-[8px] font-black text-amber-500 uppercase">Paused</p>
+                            <p className="text-sm font-black text-amber-600">{stats.interrupted}</p>
+                        </button>
+                        <button onClick={() => setFilterStatus('no_history')} className={`p-1.5 rounded-lg border transition-all text-center ${filterStatus === 'no_history' ? 'bg-slate-100 border-slate-300 ring-1 ring-slate-400/30' : 'bg-white/50 border-slate-100 hover:border-slate-200'}`}>
+                            <p className="text-[8px] font-black text-slate-500 uppercase">未対話</p>
+                            <p className="text-sm font-black text-slate-600">{stats.noHistory}</p>
                         </button>
                     </div>
                     <div className="flex gap-2 mt-4">
-                        <input type="text" placeholder="検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
+                        <input type="text" placeholder="検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none" />
                         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
                         </button>
                     </div>
                 </div>
@@ -238,13 +208,14 @@ const AdminView: React.FC = () => {
                                 <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0 ${selectedUserId === user.id ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}><UserIcon /></div>
                                 <div className="text-left overflow-hidden flex-1">
                                     <div className="flex items-center gap-1.5">
-                                        <p className="font-bold text-slate-800 truncate">{user.nickname}</p>
-                                        {meta.status === 'interrupted' && <span className="shrink-0 text-amber-500" title="中断中"><InterruptIcon className="w-3.5 h-3.5" /></span>}
-                                        {meta.status === 'completed' && <span className="shrink-0 text-emerald-500" title="完了"><CheckIcon className="w-3.5 h-3.5" /></span>}
+                                        <p className="font-bold text-slate-800 truncate text-sm">{user.nickname}</p>
+                                        {meta.status === 'interrupted' && <span className="shrink-0 text-amber-500" title="中断中"><InterruptIcon className="w-3 h-3" /></span>}
+                                        {meta.status === 'completed' && <span className="shrink-0 text-emerald-500" title="完了"><CheckIcon className="w-3 h-3" /></span>}
+                                        {meta.count === 0 && <span className="shrink-0 px-1 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black rounded tracking-tighter">未対話</span>}
                                     </div>
                                     <div className="flex justify-between items-center mt-0.5">
-                                        <p className="text-[10px] text-slate-400 font-mono truncate">{user.id}</p>
-                                        <p className="text-[9px] font-black text-slate-300 uppercase">{meta.lastDate ? new Date(meta.lastDate).toLocaleDateString() : 'No Data'}</p>
+                                        <p className="text-[9px] text-slate-400 font-mono truncate">{user.id}</p>
+                                        <p className="text-[8px] font-black text-slate-300 uppercase">{meta.lastDate ? new Date(meta.lastDate).toLocaleDateString() : '対話履歴なし'}</p>
                                     </div>
                                 </div>
                             </button>
@@ -261,7 +232,6 @@ const AdminView: React.FC = () => {
                 </div>
             </aside>
 
-            {/* MAIN AREA */}
             <main className="flex-1 overflow-y-auto p-8 lg:p-12 relative bg-white">
                 {selectedUserId ? (
                     <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
@@ -270,13 +240,9 @@ const AdminView: React.FC = () => {
                             <div className="relative">
                                 <div className="flex items-center gap-3 mb-1">
                                     <div className="px-2 py-0.5 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest rounded-md">Strategy Mode</div>
-                                    {userMetadata[selectedUserId].isHighRisk && (
-                                        <div className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-md animate-pulse">Critical Priority</div>
-                                    )}
+                                    {userMetadata[selectedUserId].isHighRisk && <div className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-md animate-pulse">Critical Priority</div>}
                                 </div>
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-                                    {users.find(u => u.id === selectedUserId)?.nickname} さんの分析
-                                </h1>
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">{users.find(u => u.id === selectedUserId)?.nickname} さんの分析</h1>
                                 <p className="text-slate-400 text-xs mt-1 font-mono">{selectedUserId}</p>
                             </div>
                             <div className="flex flex-wrap gap-3 relative">
@@ -286,10 +252,8 @@ const AdminView: React.FC = () => {
                             </div>
                         </header>
 
-                        {/* Analysis Section */}
                         <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} />
 
-                        {/* History Section */}
                         <section className="space-y-6">
                             <div className="flex items-center justify-between px-2">
                                 <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
@@ -306,7 +270,6 @@ const AdminView: React.FC = () => {
                                         </div>
                                         <p className="text-[10px] text-sky-600 font-black mb-4 uppercase tracking-tighter">Consulted by {conv.aiName}</p>
                                         <div className="prose prose-slate prose-sm line-clamp-4 text-slate-600 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(conv.summary) }} />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-0 group-hover:opacity-20 transition-opacity rounded-3xl pointer-events-none"></div>
                                     </div>
                                 ))}
                             </div>
@@ -323,7 +286,22 @@ const AdminView: React.FC = () => {
                     </div>
                 )}
             </main>
-            <AddTextModal isOpen={isAddTextModalOpen} onClose={() => setIsAddTextModalOpen(false)} onSubmit={(newConv) => { const stored = localStorage.getItem('careerConsultations'); let convs = []; if (stored) convs = JSON.parse(stored).data || []; localStorage.setItem('careerConsultations', JSON.stringify({ version: 1, data: [...convs, newConv] })); loadData(); }} existingUserIds={users.map(u => u.id)} />
+            <AddTextModal isOpen={isAddTextModalOpen} onClose={() => setIsAddTextModalOpen(false)} onSubmit={(newConv, nick) => {
+                if (nick) {
+                    const currentUsers = userService.getUsers();
+                    if (!currentUsers.find(u => u.id === newConv.userId)) {
+                        userService.saveUsers([...currentUsers, { id: newConv.userId, nickname: nick, pin: '0000' }]);
+                    }
+                }
+                const stored = localStorage.getItem('careerConsultations');
+                let convs = [];
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    convs = parsed.data || (Array.isArray(parsed) ? parsed : []);
+                }
+                localStorage.setItem('careerConsultations', JSON.stringify({ version: 1, data: [...convs, newConv] }));
+                loadData();
+            }} existingUserIds={users.map(u => u.id)} />
             <DevLogModal isOpen={isDevLogModalOpen} onClose={() => setIsDevLogModalOpen(false)} />
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}

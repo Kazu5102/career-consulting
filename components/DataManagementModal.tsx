@@ -1,7 +1,9 @@
-// components/DataManagementModal.tsx - v3.19 - Robust Data Recovery & Normalization
+
+// components/DataManagementModal.tsx - v3.20 - Intelligent Merge & Audit Logging
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
+import * as devLogService from '../services/devLogService';
 import DatabaseIcon from './icons/DatabaseIcon';
 import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
@@ -48,7 +50,8 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
       const backupData: StoredData = {
         version: STORAGE_VERSION,
         users,
-        data: conversations
+        data: conversations,
+        exportedAt: new Date().toISOString() // Traceability
       };
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -83,17 +86,16 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
             const text = e.target?.result;
             if (typeof text !== 'string') throw new Error("不正なファイル形式です。");
             
-            const imported = JSON.parse(text);
+            const imported = JSON.parse(text) as StoredData;
             let importedUsers: UserInfo[] = [];
             let importedConvs: StoredConversation[] = [];
 
-            // 1. データ構造の正規化
+            // 1. Data Normalization
             if (Array.isArray(imported)) {
                 importedConvs = imported;
             } else if (typeof imported === 'object' && imported !== null) {
-                // システムバックアップ形式
                 if (Array.isArray(imported.data)) importedConvs = imported.data;
-                else if (Array.isArray(imported.conversations)) importedConvs = imported.conversations;
+                else if (Array.isArray((imported as any).conversations)) importedConvs = (imported as any).conversations;
                 
                 if (Array.isArray(imported.users)) importedUsers = imported.users;
                 if (imported.userInfo) importedUsers.push(imported.userInfo);
@@ -103,15 +105,26 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
                 throw new Error("インポート可能なデータが見つかりませんでした。");
             }
 
-            // 2. ユーザーのマージ
+            // 2. Intelligent User Merge (Conflict Resolution)
             const currentUsers = userService.getUsers();
             const userIdMap = new Map(currentUsers.map(u => [u.id, u]));
+            let userUpdateCount = 0;
             
             importedUsers.forEach(u => {
-                if (u.id) userIdMap.set(u.id, u);
+                if (u.id) {
+                    if (userIdMap.has(u.id)) {
+                        const existing = userIdMap.get(u.id)!;
+                        if (existing.nickname !== u.nickname || existing.pin !== u.pin) {
+                            userIdMap.set(u.id, { ...existing, nickname: u.nickname, pin: u.pin });
+                            userUpdateCount++;
+                        }
+                    } else {
+                        userIdMap.set(u.id, u);
+                    }
+                }
             });
 
-            // 履歴からユーザーIDを補完
+            // Auto-fill Missing Users from Conversations
             importedConvs.forEach(c => {
                 if (c.userId && !userIdMap.has(c.userId)) {
                     userIdMap.set(c.userId, {
@@ -123,7 +136,7 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
             });
             userService.saveUsers(Array.from(userIdMap.values()));
 
-            // 3. 相談履歴のマージ (重複排除)
+            // 3. Intelligent Conversation Merge (Deduplication)
             const rawCurrent = localStorage.getItem('careerConsultations');
             let currentConvs: StoredConversation[] = [];
             if (rawCurrent) {
@@ -141,7 +154,16 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
 
             localStorage.setItem('careerConsultations', JSON.stringify(finalData));
 
-            // 4. 完了
+            // 4. Audit Logging
+            devLogService.addLogEntry({
+                userPrompt: `System Data Restore/Merge (Source: ${file.name})`,
+                aiSummary: `データ復元・統合を実行しました。
+- インポート元の出力時期: ${imported.exportedAt || '不明'}
+- 新規追加された対話履歴: ${uniqueNewConvs.length}件
+- スキップされた重複履歴: ${importedConvs.length - uniqueNewConvs.length}件
+- 更新されたユーザー情報: ${userUpdateCount}件`
+            });
+
             onDataRefresh();
             showStatus(`${uniqueNewConvs.length}件の新規履歴を統合しました。`);
         } catch (error: any) {
