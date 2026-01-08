@@ -1,5 +1,5 @@
 
-// views/AvatarSelectionView.tsx - v2.96 - 1-vs-1 Comparison Selection UI
+// views/AvatarSelectionView.tsx - v3.22 - Typography Alignment Refinement
 import React, { useMemo } from 'react';
 import { AIType } from '../types';
 import { ASSISTANTS } from '../config/aiAssistants';
@@ -31,7 +31,7 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect }) =
            Consultation Partner
         </div>
         <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight">対話のパートナーを1名選んでください</h1>
-        <p className="mt-4 text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
+        <p className="mt-4 text-slate-500 font-medium max-w-xl mx-auto leading-relaxed text-left">
           今日の気分に合わせて、プロフェッショナルな「人間」か、癒やしの「わんこ」かをお選びいただけます。
         </p>
       </div>

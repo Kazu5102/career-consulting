@@ -1,5 +1,4 @@
-
-// components/DataManagementModal.tsx - v3.18 - Robust Portability & Self-Healing Logic
+// components/DataManagementModal.tsx - v3.19 - Robust Data Recovery & Normalization
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
@@ -69,10 +68,7 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
 
   const handleImportSystem = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      setIsProcessing(false);
-      return;
-    }
+    if (!file) return;
 
     setIsProcessing(true);
     const reader = new FileReader();
@@ -82,109 +78,72 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
       setIsProcessing(false);
     };
 
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
         try {
             const text = e.target?.result;
-            if (typeof text !== 'string') throw new Error("ファイルの読み込み内容が不正です。");
+            if (typeof text !== 'string') throw new Error("不正なファイル形式です。");
             
-            let imported: any;
-            try {
-              imported = JSON.parse(text);
-            } catch (pErr) {
-              throw new Error("JSON形式が正しくありません。ファイルの内容を確認してください。");
-            }
-            
+            const imported = JSON.parse(text);
             let importedUsers: UserInfo[] = [];
             let importedConvs: StoredConversation[] = [];
 
-            // --- 1. データ構造の自動判別と抽出 ---
-            if (imported && typeof imported === 'object') {
-                // システムバックアップ形式 (users属性)
-                if (imported.users && Array.isArray(imported.users)) {
-                    importedUsers = [...importedUsers, ...imported.users];
-                }
-                // 個別エクスポート形式 (userInfo属性)
-                if (imported.userInfo && typeof imported.userInfo === 'object') {
-                    importedUsers.push(imported.userInfo);
-                }
+            // 1. データ構造の正規化
+            if (Array.isArray(imported)) {
+                importedConvs = imported;
+            } else if (typeof imported === 'object' && imported !== null) {
+                // システムバックアップ形式
+                if (Array.isArray(imported.data)) importedConvs = imported.data;
+                else if (Array.isArray(imported.conversations)) importedConvs = imported.conversations;
                 
-                // 相談履歴データの抽出
-                if (imported.data && Array.isArray(imported.data)) {
-                    importedConvs = imported.data;
-                } else if (imported.conversations && Array.isArray(imported.conversations)) {
-                    importedConvs = imported.conversations;
-                } else if (Array.isArray(imported)) {
-                    importedConvs = imported;
-                }
+                if (Array.isArray(imported.users)) importedUsers = imported.users;
+                if (imported.userInfo) importedUsers.push(imported.userInfo);
             }
 
             if (importedConvs.length === 0 && importedUsers.length === 0) {
-                throw new Error("インポート可能なデータ（ユーザー情報または相談履歴）が見つかりませんでした。");
+                throw new Error("インポート可能なデータが見つかりませんでした。");
             }
 
-            // 確認ダイアログ
-            if (window.confirm(`解析完了:\n・相談履歴: ${importedConvs.length}件\n・関連ユーザー: ${importedUsers.length}名\n\nこれらのデータを現在のシステムに統合（マージ）しますか？`)) {
-                
-                // --- 2. ユーザー情報の統合 (重複排除) ---
-                const currentUsers = userService.getUsers();
-                const currentUserIdMap = new Map(currentUsers.map(u => [u.id, u]));
-                const mergedUsers = [...currentUsers];
+            // 2. ユーザーのマージ
+            const currentUsers = userService.getUsers();
+            const userIdMap = new Map(currentUsers.map(u => [u.id, u]));
+            
+            importedUsers.forEach(u => {
+                if (u.id) userIdMap.set(u.id, u);
+            });
 
-                importedUsers.forEach(iu => {
-                    if (iu.id) {
-                        if (!currentUserIdMap.has(iu.id)) {
-                            mergedUsers.push(iu);
-                            currentUserIdMap.set(iu.id, iu);
-                        } else {
-                            // 既存ユーザーがいる場合は、バックアップ側の情報で更新（最新とみなす）
-                            const idx = mergedUsers.findIndex(u => u.id === iu.id);
-                            if (idx !== -1) mergedUsers[idx] = iu;
-                        }
-                    }
-                });
-
-                // 履歴には存在するがユーザー情報がないIDを自動補完
-                importedConvs.forEach(conv => {
-                    if (conv.userId && !currentUserIdMap.has(conv.userId)) {
-                        const newMockUser: UserInfo = {
-                            id: conv.userId,
-                            nickname: `復元相談者_${conv.userId.slice(-4)}`,
-                            pin: '0000'
-                        };
-                        mergedUsers.push(newMockUser);
-                        currentUserIdMap.set(conv.userId, newMockUser);
-                    }
-                });
-                
-                userService.saveUsers(mergedUsers);
-
-                // --- 3. 相談履歴の統合 (ID重複排除) ---
-                const allDataRaw = localStorage.getItem('careerConsultations');
-                let currentConvs: StoredConversation[] = [];
-                
-                if (allDataRaw) {
-                    try {
-                        const parsed = JSON.parse(allDataRaw);
-                        // 古い配列形式からオブジェクト形式への変換も考慮
-                        currentConvs = parsed.data || (Array.isArray(parsed) ? parsed : []);
-                    } catch (e) { currentConvs = []; }
+            // 履歴からユーザーIDを補完
+            importedConvs.forEach(c => {
+                if (c.userId && !userIdMap.has(c.userId)) {
+                    userIdMap.set(c.userId, {
+                        id: c.userId,
+                        nickname: `復元_${c.userId.slice(-4)}`,
+                        pin: '0000'
+                    });
                 }
-                
-                const currentConvIdSet = new Set(currentConvs.map(c => c.id));
-                const newConvsToAdd = importedConvs.filter(c => c.id && !currentConvIdSet.has(c.id));
+            });
+            userService.saveUsers(Array.from(userIdMap.values()));
 
-                const finalConvs = [...currentConvs, ...newConvsToAdd];
-                localStorage.setItem('careerConsultations', JSON.stringify({ 
-                    version: STORAGE_VERSION, 
-                    data: finalConvs
-                }));
-
-                // 完了通知
-                onDataRefresh();
-                showStatus(`統合に成功しました。新規履歴: ${newConvsToAdd.length}件、新規/更新ユーザー: ${importedUsers.length}名。`);
-            } else {
-                setIsProcessing(false);
+            // 3. 相談履歴のマージ (重複排除)
+            const rawCurrent = localStorage.getItem('careerConsultations');
+            let currentConvs: StoredConversation[] = [];
+            if (rawCurrent) {
+                const parsed = JSON.parse(rawCurrent);
+                currentConvs = parsed.data || (Array.isArray(parsed) ? parsed : []);
             }
+
+            const convIdSet = new Set(currentConvs.map(c => c.id));
+            const uniqueNewConvs = importedConvs.filter(c => c.id && !convIdSet.has(c.id));
+            
+            const finalData: StoredData = {
+                version: STORAGE_VERSION,
+                data: [...currentConvs, ...uniqueNewConvs]
+            };
+
+            localStorage.setItem('careerConsultations', JSON.stringify(finalData));
+
+            // 4. 完了
+            onDataRefresh();
+            showStatus(`${uniqueNewConvs.length}件の新規履歴を統合しました。`);
         } catch (error: any) {
             alert(`インポート失敗: ${error.message}`);
             setIsProcessing(false);
