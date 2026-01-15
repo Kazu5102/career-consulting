@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.23",
-  "description": "要約生成前にアンケート回答ステップを導入。ユーザー体験を損なわずにフィードバックを収集するフローを追加しました。",
+  "name": "Career Consulting_3.24",
+  "description": "入力停止検知による能動的ヒント提示機能を実装。ユーザーの思考の停滞をAIが優しくサポートします。",
   "prompt": ""
 }

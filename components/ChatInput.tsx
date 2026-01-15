@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.23 - Interaction Precision
+// components/ChatInput.tsx - v2.30 - Active Silence Detection
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -57,30 +57,52 @@ interface ChatInputProps {
   isEditing: boolean;
   initialText: string;
   onCancelEdit: () => void;
-  onStateChange?: (state: { isFocused: boolean; isTyping: boolean }) => void;
+  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
+const SILENCE_TIMEOUT = 10000; // 10秒
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isSilent, setIsSilent] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setText(isEditing ? initialText : '');
   }, [isEditing, initialText]);
   
+  // 入力停止（沈黙）検知ロジック
+  useEffect(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    
+    // 入力があり、かつフォーカスがあり、テキストが空の場合のみタイマーを開始
+    if (isFocused && text.length === 0 && !isLoading && !isEditing) {
+      silenceTimerRef.current = setTimeout(() => {
+        setIsSilent(true);
+      }, SILENCE_TIMEOUT);
+    } else {
+      setIsSilent(false);
+    }
+
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, [isFocused, text, isLoading, isEditing]);
+
   // 入力状態の変化を親に詳細に通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
-      isTyping: text.length > 0 || isListening
+      isTyping: text.length > 0 || isListening,
+      isSilent
     });
-  }, [isFocused, text, isListening, onStateChange]);
+  }, [isFocused, text, isListening, isSilent, onStateChange]);
 
   useEffect(() => {
     if (textareaRef.current) {

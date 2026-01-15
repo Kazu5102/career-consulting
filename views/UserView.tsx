@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.10 - Advanced Emotion Sync Logic
+// views/UserView.tsx - v3.11 - Active Silence Interaction Sync
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -143,6 +143,19 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
+  const triggerSuggestions = async (currentMessages: ChatMessage[]) => {
+      if (currentMessages.length < 4) return;
+      try {
+        const response = await generateSuggestions(currentMessages);
+        if (response?.suggestions?.length) {
+            setSuggestions(response.suggestions);
+            setTimeout(() => setSuggestionsVisible(true), 0);
+        }
+      } catch (e) {
+        console.warn("Suggestions failed", e);
+      }
+  };
+
   const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
       setIsLoading(false);
       const lastAiMessage = currentMessages[currentMessages.length - 1];
@@ -166,15 +179,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
 
       if (currentStep >= 6) {
-          try {
-            const response = await generateSuggestions(currentMessages);
-            if (response?.suggestions?.length) {
-                setSuggestions(response.suggestions);
-                setTimeout(() => setSuggestionsVisible(true), 0);
-            }
-          } catch (e) {
-            console.warn("Suggestions failed", e);
-          }
+          await triggerSuggestions(currentMessages);
       }
   };
 
@@ -509,7 +514,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     isEditing={false} 
                     initialText={''} 
                     onCancelEdit={() => {}} 
-                    onStateChange={(state) => setIsTyping(state.isTyping)}
+                    onStateChange={(state) => {
+                        setIsTyping(state.isTyping);
+                        // 沈黙検知かつテキストが空の場合にヒントを生成
+                        if (state.isSilent && !state.isTyping && !isLoading && onboardingStep >= 6) {
+                            triggerSuggestions(messages);
+                        }
+                    }}
                   />
                   {onboardingStep >= 6 && (
                     <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
