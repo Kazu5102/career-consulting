@@ -1,5 +1,5 @@
 
-// types.ts - v3.20
+// types.ts - v3.22
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -9,7 +9,7 @@ export interface StoredData {
   data: StoredConversation[];
   users?: UserInfo[];
   userInfo?: UserInfo;
-  exportedAt?: string; // Ver 3.20: Traceability for exports
+  exportedAt?: string;
 }
 
 export interface UserInfo {
@@ -147,8 +147,8 @@ export interface TrajectoryAnalysisData {
     overallSummary: string;
     triageLevel: 'high' | 'medium' | 'low';
     ageStageGap: number; // 0-100
-    theoryBasis?: string; // Ver 2.72 追加
-    expertAdvice?: string; // Ver 2.72 追加
+    theoryBasis?: string;
+    expertAdvice?: string;
     reframedSkills: ReframedSkill[];
     sessionStarter: string;
     narrativeTimeline?: { topic: string; emotionalTone: number }[];
@@ -177,4 +177,11 @@ export interface UserAnalysisCache {
     trajectory?: (TrajectoryAnalysisData | { error: string });
     skillMatching?: (SkillMatchingResult | { error: string });
     hiddenPotential?: (HiddenPotentialData | { error: string });
+}
+
+export interface SurveyConfig {
+  isEnabled: boolean;
+  url: string;
+  title: string;
+  description: string;
 }

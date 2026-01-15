@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.21",
-  "description": "管理者画面のステータス表示を改善。「未対話」カテゴリの導入により、アプローチが必要なユーザーをより明確に識別可能にしました。",
+  "name": "Career Consulting_3.23",
+  "description": "要約生成前にアンケート回答ステップを導入。ユーザー体験を損なわずにフィードバックを収集するフローを追加しました。",
   "prompt": ""
 }

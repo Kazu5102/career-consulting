@@ -1,12 +1,13 @@
 
-// components/SummaryModal.tsx - v2.40 - Professional Handover Sync
+// components/SummaryModal.tsx - v2.41 - Survey Onboarding Logic
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
 import CheckIcon from './icons/CheckIcon';
 import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
-import { StructuredSummary } from '../types';
+import LinkIcon from './icons/LinkIcon';
+import { StructuredSummary, SurveyConfig } from '../types';
 
 interface SummaryModalProps {
   isOpen: boolean;
@@ -26,12 +27,23 @@ const REASSURANCE_MESSAGES = [
   "まもなく、対話の振り返りシートが完成します..."
 ];
 
+// 汎用的なアンケート設定（必要に応じて外部から注入可能）
+const SURVEY_CONFIG: SurveyConfig = {
+  isEnabled: true,
+  url: "https://www.google.com/search?q=career+consulting+survey", // ダミーリンク
+  title: "より良いサービス向上のためのアンケート",
+  description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
+};
+
+type ModalStep = 'survey' | 'loading' | 'result';
+
 const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, isLoading, onRevise, onFinalize }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [correctionRequest, setCorrectionRequest] = useState('');
   const [activeTab, setActiveTab] = useState<'user' | 'pro'>('user');
   const [messageIndex, setMessageIndex] = useState(0);
+  const [currentStep, setCurrentStep] = useState<ModalStep>('survey');
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -50,8 +62,17 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       setIsEditing(false);
       setCorrectionRequest('');
       setActiveTab('user');
+      // アンケートが有効な場合はsurveyステップから開始
+      setCurrentStep(SURVEY_CONFIG.isEnabled ? 'survey' : 'loading');
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // 外部からのisLoadingが終了し、かつ現在のステップがloadingであればresultへ移行
+    if (!isLoading && currentStep === 'loading' && summary) {
+      setCurrentStep('result');
+    }
+  }, [isLoading, currentStep, summary]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setTimeout> | null = null;
@@ -76,8 +97,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
     }
   };
 
+  const handleSurveyComplete = () => {
+    // 解析中のステップへ移行（親コンポーネントで既に解析が始まっていない場合はここでトリガーする設計も可能）
+    setCurrentStep('loading');
+  };
+
   const handleRevisionSubmit = async () => {
     if (!correctionRequest.trim() || isLoading) return;
+    setCurrentStep('loading');
     await onRevise(correctionRequest);
     setIsEditing(false);
     setCorrectionRequest('');
@@ -95,7 +122,9 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
     <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-md" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
-          <h2 className="text-xl font-bold text-slate-800">{isEditing ? '整理内容の修正依頼' : '対話の振り返り'}</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : '対話の振り返り'}
+          </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -103,7 +132,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
           </button>
         </header>
         
-        {!isEditing && !isLoading && (
+        {currentStep === 'result' && !isEditing && (
           <div className="flex bg-slate-100 p-1 mx-6 mt-4 rounded-xl border border-slate-200">
             <button 
               onClick={() => setActiveTab('user')}
@@ -121,7 +150,39 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
         )}
 
         <div className="p-6 flex-1 overflow-y-auto">
-          {isLoading ? (
+          {currentStep === 'survey' ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-8 py-10 animate-in fade-in duration-500">
+                <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2">
+                    <ClipboardIcon />
+                </div>
+                <div className="text-center space-y-4 max-w-md">
+                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">{SURVEY_CONFIG.title}</h3>
+                    <p className="text-slate-600 leading-relaxed font-medium">
+                        {SURVEY_CONFIG.description}
+                    </p>
+                </div>
+                <div className="w-full max-w-sm space-y-4">
+                    <a 
+                      href={SURVEY_CONFIG.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-white border-2 border-emerald-500 text-emerald-600 font-bold rounded-2xl hover:bg-emerald-50 transition-all shadow-sm"
+                    >
+                        <LinkIcon className="w-5 h-5" />
+                        アンケート回答フォームを開く
+                    </a>
+                    <button 
+                      onClick={handleSurveyComplete}
+                      className="w-full py-4 bg-emerald-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-emerald-100 hover:bg-emerald-600 active:scale-95 transition-all"
+                    >
+                        回答しました（要約結果を表示）
+                    </button>
+                    <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
+                        Your privacy is our priority
+                    </p>
+                </div>
+            </div>
+          ) : currentStep === 'loading' || isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-600 py-16">
                <div className="relative mb-10">
                  <div className="w-20 h-20 border-4 border-sky-100 rounded-full"></div>
@@ -167,12 +228,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
         </div>
 
         <footer className="p-6 bg-slate-50 border-t border-slate-200 z-10">
-           {isEditing ? (
+           {currentStep === 'survey' ? (
+             <button onClick={onClose} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセルして戻る</button>
+           ) : isEditing ? (
              <div className="flex gap-4">
                <button onClick={() => setIsEditing(false)} className="flex-1 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセル</button>
                <button onClick={handleRevisionSubmit} className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-sky-600 text-white hover:bg-sky-700 transition-all shadow-md">修正を反映する</button>
              </div>
-           ) : (
+           ) : currentStep === 'result' ? (
             <div className="flex flex-col gap-5">
               <div className="flex gap-4">
                 <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all"><EditIcon />修正・追記</button>
@@ -182,7 +245,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                 <SaveIcon />整理を完了し、専門家に相談する
               </button>
             </div>
-           )}
+           ) : null}
         </footer>
       </div>
     </div>
