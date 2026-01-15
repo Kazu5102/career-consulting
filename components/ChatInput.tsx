@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.30 - Active Silence Detection
+// components/ChatInput.tsx - v2.35 - Content-Aware Silence Detection
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -57,11 +57,12 @@ interface ChatInputProps {
   isEditing: boolean;
   initialText: string;
   onCancelEdit: () => void;
-  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean }) => void;
+  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
 const SILENCE_TIMEOUT = 10000; // 10秒
+const DRAFT_STABILITY_THRESHOLD = 15; // 15文字以内の書きかけならヒントを出しやすくする
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -77,30 +78,34 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText(isEditing ? initialText : '');
   }, [isEditing, initialText]);
   
-  // 入力停止（沈黙）検知ロジック
+  // 入力停止（沈黙）検知ロジック：空文字だけでなく「更新停止」を監視
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // 入力があり、かつフォーカスがあり、テキストが空の場合のみタイマーを開始
-    if (isFocused && text.length === 0 && !isLoading && !isEditing) {
-      silenceTimerRef.current = setTimeout(() => {
-        setIsSilent(true);
-      }, SILENCE_TIMEOUT);
-    } else {
+    // AI応答中や編集モード、非フォーカス時はタイマーを回さない
+    if (!isFocused || isLoading || isEditing || isListening) {
       setIsSilent(false);
+      return;
     }
+
+    // ユーザーが入力を止めてから10秒経過したか監視
+    silenceTimerRef.current = setTimeout(() => {
+      // 入力があってもなくても、手が止まればSilentとみなす
+      setIsSilent(true);
+    }, SILENCE_TIMEOUT);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [isFocused, text, isLoading, isEditing]);
+  }, [isFocused, text, isLoading, isEditing, isListening]);
 
   // 入力状態の変化を親に詳細に通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
       isTyping: text.length > 0 || isListening,
-      isSilent
+      isSilent,
+      currentDraft: text
     });
   }, [isFocused, text, isListening, isSilent, onStateChange]);
 
@@ -190,9 +195,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (isSilent) setIsSilent(false); // 入力があれば即座にSilent解除
+          }}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            setIsSilent(false);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={isLoading ? "AIが応答中です..." : isListening ? "お話しください..." : isEditing ? "メッセージを編集..." : "メッセージを入力してください..."}
           disabled={isLoading || isListening}

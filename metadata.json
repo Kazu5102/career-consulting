@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.24",
-  "description": "入力停止検知による能動的ヒント提示機能を実装。ユーザーの思考の停滞をAIが優しくサポートします。",
+  "name": "Career Consulting_3.25",
+  "description": "入力内容がある状態でも停止を検知し、適切なNEXT STEP HINTを提示する高度な支援機能を搭載。",
   "prompt": ""
 }

@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.11 - Active Silence Interaction Sync
+// views/UserView.tsx - v3.12 - Contextual Silence Interaction
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -143,10 +143,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
-  const triggerSuggestions = async (currentMessages: ChatMessage[]) => {
+  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
       if (currentMessages.length < 4) return;
       try {
-        const response = await generateSuggestions(currentMessages);
+        // 書きかけのテキストがある場合は、それをコンテキストに含めてヒントを生成
+        const contextualMessages = draftText.trim() 
+            ? [...currentMessages, { author: MessageAuthor.USER, text: `(書きかけの思考: ${draftText})` }] 
+            : currentMessages;
+            
+        const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
             setTimeout(() => setSuggestionsVisible(true), 0);
@@ -516,9 +521,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onCancelEdit={() => {}} 
                     onStateChange={(state) => {
                         setIsTyping(state.isTyping);
-                        // 沈黙検知かつテキストが空の場合にヒントを生成
-                        if (state.isSilent && !state.isTyping && !isLoading && onboardingStep >= 6) {
-                            triggerSuggestions(messages);
+                        // 沈黙検知: 手が止まっている場合にヒントを生成
+                        // 書きかけの内容(currentDraft)がある場合は、それを含めてAPIを呼ぶ
+                        if (state.isSilent && !isLoading && onboardingStep >= 6) {
+                            triggerSuggestions(messages, state.currentDraft);
                         }
                     }}
                   />
