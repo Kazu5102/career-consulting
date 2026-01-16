@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.25",
-  "description": "入力内容がある状態でも停止を検知し、適切なNEXT STEP HINTを提示する高度な支援機能を搭載。",
+  "name": "Career Consulting_3.26",
+  "description": "管理画面のモバイル完全対応。ドロワーUIの導入により、スマートフォンからの分析・管理操作が劇的に快適になりました。",
   "prompt": ""
 }
