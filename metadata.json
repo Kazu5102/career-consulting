@@ -3,7 +3,7 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.26",
-  "description": "管理画面のモバイル完全対応。ドロワーUIの導入により、スマートフォンからの分析・管理操作が劇的に快適になりました。",
+  "name": "Career Consulting_3.27",
+  "description": "スマホ完全最適化UI。インボックスと分析画面を分離し、小さな画面でも最大限の視認性を確保しました。",
   "prompt": ""
 }

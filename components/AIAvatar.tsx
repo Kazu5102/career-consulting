@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.26 - Human Avatar Visual Overhaul
+// components/AIAvatar.tsx - v3.27 - Human Avatar Visual Overhaul
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -177,7 +177,7 @@ export const MaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e293b" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={140} mood={mood as Mood} color="#1e293b" />
+            <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#1e293b" />
             {/* Forehead hair detail */}
             <path d="M 60,75 Q 100,50 140,75" fill="none" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
         </HumanBase>
@@ -322,7 +322,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.26
+        Ver 3.27
       </div>
     </div>
   );
