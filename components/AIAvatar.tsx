@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.27 - Human Avatar Visual Overhaul
+// components/AIAvatar.tsx - v3.31 - Human Avatar Visual Overhaul
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -281,7 +281,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
 
   if (isCompact) {
     return (
-      <div className="w-full h-full bg-rose-50 flex items-center justify-center relative overflow-hidden rounded-full shadow-inner border border-rose-200/50">
+      <div className="w-full h-full bg-slate-100 flex items-center justify-center relative overflow-hidden rounded-full shadow-inner border border-white/50">
         <div className="absolute inset-0 bg-grid-slate-200/20 opacity-20"></div>
         <div className="relative w-full h-full p-1 flex items-center justify-center">
           <div className="w-full h-full flex items-center justify-center transform scale-[1.3] lg:scale-[1.5]">
@@ -289,8 +289,8 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
           </div>
         </div>
         {isLoading && (
-          <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center backdrop-blur-[1px]">
-             <div className="w-full h-full border-4 border-rose-400 border-t-transparent rounded-full animate-spin opacity-60"></div>
+          <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center backdrop-blur-[1px]">
+             <div className="w-full h-full border-4 border-sky-400 border-t-transparent rounded-full animate-spin opacity-60"></div>
           </div>
         )}
       </div>
@@ -301,10 +301,10 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
     <div className="w-full h-full min-h-[400px] bg-white rounded-3xl flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-2xl border border-slate-200">
       <div className="absolute inset-0 bg-grid-slate-100 opacity-50"></div>
       
-      <div className="relative w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-full border-8 border-rose-50 shadow-2xl mb-8 bg-rose-50/30 overflow-visible z-10">
+      <div className="relative w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-full border-8 border-slate-50 shadow-2xl mb-8 bg-slate-50/30 overflow-visible z-10">
         {isLoading && (
-          <div className="absolute inset-0 bg-rose-500/10 z-10 flex items-center justify-center backdrop-blur-sm rounded-full">
-             <div className="w-24 h-24 border-8 border-rose-400 border-t-transparent rounded-full animate-spin"></div>
+          <div className="absolute inset-0 bg-sky-500/10 z-10 flex items-center justify-center backdrop-blur-sm rounded-full">
+             <div className="w-24 h-24 border-8 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
         <div className="w-full h-full transform scale-105">
@@ -314,15 +314,15 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       
       <div className="z-10 text-center">
           <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">{aiName}</h2>
-          <div className="px-4 py-1.5 bg-rose-500/5 border border-rose-500/20 rounded-full">
-            <p className="text-rose-700 text-sm font-bold transition-all duration-300">
+          <div className="px-4 py-1.5 bg-sky-500/5 border border-sky-500/20 rounded-full">
+            <p className="text-sky-700 text-sm font-bold transition-all duration-300">
                 {isLoading ? '解析中...' : activeMood === 'happy' ? '心を込めてサポートします' : activeMood === 'curious' ? 'あなたのことを知りたいです' : activeMood === 'thinking' ? '丁寧に向き合っています' : 'あなたのペースで大丈夫です'}
             </p>
           </div>
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.27
+        Ver 3.31
       </div>
     </div>
   );

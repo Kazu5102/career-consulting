@@ -3,7 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.27",
-  "description": "スマホ完全最適化UI。インボックスと分析画面を分離し、小さな画面でも最大限の視認性を確保しました。",
+  "name": "Career Consulting_3.31",
+  "description": "Protocol 2.0準拠。厚生労働省「キャリアコンサルティング倫理綱領」および「AI利活用ガイドライン」に完全適合したプロフェッショナル仕様。",
+  "version": "3.31",
   "prompt": ""
 }
