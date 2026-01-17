@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.31",
-  "description": "Protocol 2.0準拠。厚生労働省「キャリアコンサルティング倫理綱領」および「AI利活用ガイドライン」に完全適合したプロフェッショナル仕様。",
-  "version": "3.31",
+  "name": "Career Consulting_3.68",
+  "description": "Realistic Career Support. 現実的なステップアップを重視した診断ロジックと、コンサルタント向け活用ガイドを搭載。",
+  "version": "3.68",
   "prompt": ""
 }

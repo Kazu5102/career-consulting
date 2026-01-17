@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v2.41 - Survey Onboarding Logic
+// components/SummaryModal.tsx - v3.63 - Governance-Aware Onboarding
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -27,10 +27,9 @@ const REASSURANCE_MESSAGES = [
   "まもなく、対話の振り返りシートが完成します..."
 ];
 
-// 汎用的なアンケート設定（必要に応じて外部から注入可能）
 const SURVEY_CONFIG: SurveyConfig = {
-  isEnabled: true,
-  url: "https://www.google.com/search?q=career+consulting+survey", // ダミーリンク
+  isEnabled: true, // このデフォルト値はlocalStorageで上書きされる
+  url: "https://www.google.com/search?q=career+consulting+survey",
   title: "より良いサービス向上のためのアンケート",
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
 };
@@ -43,7 +42,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
   const [correctionRequest, setCorrectionRequest] = useState('');
   const [activeTab, setActiveTab] = useState<'user' | 'pro'>('user');
   const [messageIndex, setMessageIndex] = useState(0);
-  const [currentStep, setCurrentStep] = useState<ModalStep>('survey');
+  const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -62,13 +61,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       setIsEditing(false);
       setCorrectionRequest('');
       setActiveTab('user');
-      // アンケートが有効な場合はsurveyステップから開始
-      setCurrentStep(SURVEY_CONFIG.isEnabled ? 'survey' : 'loading');
+      
+      // 管理者の設定を確認
+      const surveyEnabled = localStorage.getItem('survey_enabled_v1') !== 'false';
+      setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
   }, [isOpen]);
 
   useEffect(() => {
-    // 外部からのisLoadingが終了し、かつ現在のステップがloadingであればresultへ移行
     if (!isLoading && currentStep === 'loading' && summary) {
       setCurrentStep('result');
     }
@@ -98,7 +98,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
   };
 
   const handleSurveyComplete = () => {
-    // 解析中のステップへ移行（親コンポーネントで既に解析が始まっていない場合はここでトリガーする設計も可能）
     setCurrentStep('loading');
   };
 

@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.27 - Full Mobile Optimization
+// views/AdminView.tsx - v3.66 - Full Log Access Implementation
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -10,7 +10,9 @@ import ShareReportModal from '../components/ShareReportModal';
 import DevLogModal from '../components/DevLogModal';
 import AddTextModal from '../components/AddTextModal';
 import DataManagementModal from '../components/DataManagementModal';
+import SecuritySettingsModal from '../components/SecuritySettingsModal';
 import AnalysisDisplay from '../components/AnalysisDisplay';
+import ConversationDetailModal from '../components/ConversationDetailModal';
 
 import UserIcon from '../components/icons/UserIcon';
 import TrajectoryIcon from '../components/icons/TrajectoryIcon';
@@ -18,8 +20,8 @@ import TargetIcon from '../components/icons/TargetIcon';
 import DatabaseIcon from '../components/icons/DatabaseIcon';
 import LogIcon from '../components/icons/LogIcon';
 import ShareIcon from '../components/icons/ShareIcon';
-import InterruptIcon from '../components/icons/InterruptIcon';
-import CheckIcon from '../components/icons/CheckIcon';
+import LockIcon from '../components/icons/LockIcon';
+import ChatIcon from '../components/icons/ChatIcon';
 
 type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
@@ -28,6 +30,7 @@ const AdminView: React.FC = () => {
     const [users, setUsers] = useState<UserInfo[]>([]);
     const [conversations, setConversations] = useState<StoredConversation[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedConvForDetail, setSelectedConvForDetail] = useState<StoredConversation | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -42,6 +45,7 @@ const AdminView: React.FC = () => {
     const [isDevLogModalOpen, setIsDevLogModalOpen] = useState(false);
     const [isDataModalOpen, setIsDataModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
 
     const loadData = useCallback(() => {
         setUsers(userService.getUsers());
@@ -223,6 +227,7 @@ const AdminView: React.FC = () => {
                 <div className="p-4 bg-white border-t space-y-2">
                     <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
                     <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><LogIcon className="w-4 h-4" /> System Logs</button>
+                    <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all uppercase tracking-widest border border-rose-100"><LockIcon className="w-4 h-4" /> Security Settings</button>
                 </div>
             </aside>
 
@@ -262,17 +267,35 @@ const AdminView: React.FC = () => {
                                     <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1">
                                         <div className="w-2 h-6 bg-slate-200 rounded-full"></div>
                                         個別セッション履歴 ({selectedUserConversations.length}件)
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase ml-2 bg-slate-100 px-2 py-1 rounded">Click for Full Transcript</span>
                                     </h3>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         {selectedUserConversations.map(conv => (
-                                            <div key={conv.id} className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-100 transition-all group">
+                                            <button 
+                                                key={conv.id} 
+                                                onClick={() => setSelectedConvForDetail(conv)}
+                                                className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-300 transition-all group text-left relative overflow-hidden"
+                                            >
+                                                {/* Background Access Label */}
+                                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="bg-sky-600 text-white p-2 rounded-full shadow-lg">
+                                                        <ChatIcon className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+
                                                 <div className="flex justify-between items-center mb-4">
                                                     <div className="text-[10px] font-black text-slate-400 font-mono">{new Date(conv.date).toLocaleString()}</div>
                                                     <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{conv.status}</span>
                                                 </div>
-                                                <p className="text-[10px] text-sky-600 font-black mb-4 uppercase tracking-tighter">Consulted by {conv.aiName}</p>
+                                                <p className="text-[10px] text-sky-600 font-black mb-4 uppercase tracking-tighter flex items-center gap-1.5">
+                                                    <ChatIcon className="w-3 h-3" /> Consulted by {conv.aiName}
+                                                </p>
                                                 <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(conv.summary) }} />
-                                            </div>
+                                                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest group-hover:text-sky-600 transition-colors">
+                                                    <span>View full dialog</span>
+                                                    <span>→</span>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
                                 </section>
@@ -313,7 +336,14 @@ const AdminView: React.FC = () => {
             }} existingUserIds={users.map(u => u.id)} />
             <DevLogModal isOpen={isDevLogModalOpen} onClose={() => setIsDevLogModalOpen(false)} />
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
+            <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
+            {selectedConvForDetail && (
+                <ConversationDetailModal 
+                    conversation={selectedConvForDetail} 
+                    onClose={() => setSelectedConvForDetail(null)} 
+                />
+            )}
         </div>
     );
 };

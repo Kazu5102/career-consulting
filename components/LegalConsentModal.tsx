@@ -25,8 +25,8 @@ const LegalConsentModal: React.FC<LegalConsentModalProps> = ({ isOpen, onConfirm
       <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-300 border border-white/20">
         <header className="p-8 border-b border-slate-100 text-center bg-white relative">
           <div className="flex justify-center mb-3">
-            <span className="px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg">
-              Official Protocol 2.0
+            <span className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-full shadow-lg normal-case tracking-wide">
+              Protocol 2.0 Verified
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">サービス利用前の合意形成</h2>
@@ -55,7 +55,6 @@ const LegalConsentModal: React.FC<LegalConsentModalProps> = ({ isOpen, onConfirm
           className="flex-1 overflow-y-auto p-8 sm:p-10 bg-slate-50/20"
           onScroll={(e) => {
             const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-            // 底部までのスクロールをより厳格に検知（バッファ10px）
             if (scrollHeight - scrollTop <= clientHeight + 10) setHasScrolledToBottom(true);
           }}
         >

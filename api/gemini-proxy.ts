@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.14 - Specialized Expert Insight Logic
+// api/gemini-proxy.ts - v3.68 - Realistic Career Path Logic
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -119,14 +119,14 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `あなたは戦略的な「キャリア・アーキテクト（市場価値アナリスト）」です。
-相談者の心理状態の解説は最小限に留め、その人の経験を【市場価値の高い専門スキル】へと論理的に翻訳し、適職を診断してください。
+        contents: `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
+相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
 
-### 分析指示:
-1. 相談者が無自覚な「再現性のある強み」を専門用語でリフレーミング（再定義）する。
-2. 労働市場のトレンドと照らし合わせ、最もポテンシャルを発揮できる「具体的職種」を提示する。
-3. 提案職種への適合度を、履歴に基づいた論理的根拠と共に説明する。
-4. 理想のキャリアに到達するために「今すぐ学習すべき項目」を特定する。
+### 診断のガイドライン:
+1. **地続きの提案**: 相談者が明日からでも目指せる、または現在の職種の延長線上にある「現実的な一歩（ネクストステップ）」を優先すること。
+2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
+3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
+4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
 
 履歴:
 ${historyText}`,
@@ -135,15 +135,15 @@ ${historyText}`,
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    analysisSummary: { type: Type.STRING, description: "市場価値の再定義レポート（強みの言語化）" },
+                    analysisSummary: { type: Type.STRING, description: "現在の経験をベースとした、現実的な強みの再定義レポート" },
                     recommendedRoles: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                role: { type: Type.STRING, description: "推奨職種名" },
-                                reason: { type: Type.STRING, description: "市場的・論理的観点からの推奨根拠" },
-                                matchScore: { type: Type.NUMBER, description: "適合度(0-100)" }
+                                role: { type: Type.STRING, description: "推奨職種名（現状に即したもの）" },
+                                reason: { type: Type.STRING, description: "現在のどの経験がどのように活かせるかという具体的な接続根拠" },
+                                matchScore: { type: Type.NUMBER, description: "現在のスキルセットでの即戦力適合度(0-100)" }
                             }
                         }
                     },
@@ -152,8 +152,8 @@ ${historyText}`,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                skill: { type: Type.STRING, description: "習得すべき専門スキル" },
-                                reason: { type: Type.STRING, description: "なぜそのスキルが市場で必要か" }
+                                skill: { type: Type.STRING, description: "次に習得すべき具体的スキル" },
+                                reason: { type: Type.STRING, description: "なぜそのスキルが今のキャリアを広げるために必要か" }
                             }
                         }
                     }

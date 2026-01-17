@@ -1,5 +1,5 @@
 
-// App.tsx - v3.31 - Protocol 2.0: Trusted Legal & Ethics Integration
+// App.tsx - v3.68 - Realistic Logic & Consultant Guidance
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -30,15 +30,15 @@ const App: React.FC = () => {
         };
         verifyServer();
 
-        // Check for legal consent (Version specific check)
-        const hasConsented = localStorage.getItem('legal_consent_v3.31');
+        // Updated consent flag to 3.68
+        const hasConsented = localStorage.getItem('legal_consent_v3.68');
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
     }, []);
 
     const handleLegalConfirm = () => {
-        localStorage.setItem('legal_consent_v3.31', 'true');
+        localStorage.setItem('legal_consent_v3.68', 'true');
         setIsLegalModalOpen(false);
     };
 
@@ -60,6 +60,10 @@ const App: React.FC = () => {
         return <UserView userId={currentUserId} onSwitchUser={handleSwitchUser} />;
     };
 
+    const showProtocolDetail = () => {
+        alert("【Protocol 2.0 Verified】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済");
+    };
+
     return (
         <div className="flex flex-col min-h-[100dvh] font-sans bg-slate-100 relative overflow-x-hidden">
             <header className="bg-slate-900 text-white p-2 shadow-lg z-10 sticky top-0 border-b border-white/10">
@@ -67,8 +71,14 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                                <span className="bg-sky-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter shadow-sm">Protocol 2.0 Verified</span>
-                                <span className="text-[10px] font-mono font-bold text-slate-400 tracking-widest">VER 3.31</span>
+                                <button 
+                                    onClick={showProtocolDetail}
+                                    className="bg-sky-500 hover:bg-sky-400 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm transition-colors flex items-center gap-1 normal-case"
+                                >
+                                    <span>Protocol 2.0 Verified</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </button>
+                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver 3.68</span>
                             </div>
                         </div>
                     </div>
@@ -77,7 +87,7 @@ const App: React.FC = () => {
                         <span className="hidden sm:inline font-bold text-xs text-slate-300">Mode: {mode === 'user' ? 'Client' : 'Administrator'}</span>
                         <button 
                             onClick={handleSwitchMode} 
-                            className={`px-4 py-1.5 rounded-full text-xs transition-all font-black uppercase tracking-widest shadow-lg ${
+                            className={`px-4 py-1.5 rounded-full text-xs transition-all font-bold tracking-wide shadow-lg normal-case ${
                                 mode === 'user' ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'
                             }`}
                         >
