@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.69 - Crisis Intervention Logic Update
+// views/UserView.tsx - v3.72 - Message Box Clear Logic Fix
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -49,7 +49,7 @@ const CRISIS_KEYWORDS = [
 
 const GREETINGS = {
   human: (name: string) => `[HAPPY] こんにちは、${name}です。お越しいただきありがとうございます。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて現状を丁寧に整理し、あなたが自信を持って次の一歩を踏み出せるよう、誠心誠意サポートさせていただきます。まずは、今のあなたの状況に近いものを教えていただけますか？`,
-  dog: (name: string) => `[HAPPY] こんにちは、${name}だワン！会えて嬉しいワン！今のあなたの気持ちや、がんばっていること、なんでもお話ししてほしいワン。ボクがしっかり寄り添って、一緒にこれからのことを整理するワン。キミが元気に一歩踏み出せるように応援するからね！まずは、今のキミはどんな感じかな？`
+  dog: (name: string) => `[HAPPY] こんにちは、${name}だワン！会えて嬉しいワン！今のあなたの気持ちや、がんばっていること、なんでもお話ししてほしいワン。ボクがしっかり寄りさとって、一緒にこれからのことを整理するワン。キミが元気に一歩踏み出せるように応援するからね！まずは、今のキミはどんな感じかな？`
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
@@ -70,10 +70,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
+  // メッセージボックスを外部からリセットするためのフラグ
+  const [inputText, setInputText] = useState<string>('');
+
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
-  const [crisisCount, setCrisisCount] = useState(0); // 危機的キーワードの連発カウント
+  const [crisisCount, setCrisisCount] = useState(0);
 
   const [onboardingStep, setOnboardingStep] = useState<number>(0); 
   const [userProfile, setUserProfile] = useState<UserProfile>({ 
@@ -131,7 +134,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const greetingText = GREETINGS[type](selectedAiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     
-    // Greeting tag parsing
     if (greetingText.startsWith('[HAPPY]')) setAiMood('happy');
     
     setOnboardingStep(1);
@@ -190,6 +192,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
+    // ヒント選択時・直接入力時どちらも、送信開始時に入力欄をクリアする
+    setInputText('');
+
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
         return;
@@ -199,7 +204,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     if (hasCrisisWord) {
         setCrisisCount(prev => prev + 1);
         setIsCrisisModalOpen(true);
-        // メッセージ送信は中止せず、裏で文脈に追加だけしておく（ただしAIの通常応答はスキップ）
         setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
         return;
     }
@@ -517,10 +521,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onSubmit={handleSendMessage} 
                     isLoading={isLoading} 
                     isEditing={false} 
-                    initialText={''} 
+                    initialText={inputText} 
                     onCancelEdit={() => {}} 
                     onStateChange={(state) => {
                         setIsTyping(state.isTyping);
+                        // 入力中の内容をUserView側でも同期（送信時にリセットできるようにするため）
+                        setInputText(state.currentDraft);
                         if (state.isSilent && !isLoading && onboardingStep >= 6) {
                             triggerSuggestions(messages, state.currentDraft);
                         }

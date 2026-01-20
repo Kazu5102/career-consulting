@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.35 - Content-Aware Silence Detection
+// components/ChatInput.tsx - v2.36 - Controlled Input Reset Logic
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -55,14 +55,14 @@ interface ChatInputProps {
   onSubmit: (text: string) => void;
   isLoading: boolean;
   isEditing: boolean;
-  initialText: string;
+  initialText: string; // 親（UserView）からリセットや初期化のために渡される
   onCancelEdit: () => void;
   onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 10000; // 10秒
-const DRAFT_STABILITY_THRESHOLD = 15; // 15文字以内の書きかけならヒントを出しやすくする
+const SILENCE_TIMEOUT = 10000; 
+const DRAFT_STABILITY_THRESHOLD = 15;
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -74,23 +74,20 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 重要: initialTextが空文字になった場合（送信後など）にテキストボックスをクリアする
   useEffect(() => {
-    setText(isEditing ? initialText : '');
-  }, [isEditing, initialText]);
+    setText(initialText);
+  }, [initialText]);
   
-  // 入力停止（沈黙）検知ロジック：空文字だけでなく「更新停止」を監視
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // AI応答中や編集モード、非フォーカス時はタイマーを回さない
     if (!isFocused || isLoading || isEditing || isListening) {
       setIsSilent(false);
       return;
     }
 
-    // ユーザーが入力を止めてから10秒経過したか監視
     silenceTimerRef.current = setTimeout(() => {
-      // 入力があってもなくても、手が止まればSilentとみなす
       setIsSilent(true);
     }, SILENCE_TIMEOUT);
 
@@ -99,7 +96,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     };
   }, [isFocused, text, isLoading, isEditing, isListening]);
 
-  // 入力状態の変化を親に詳細に通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
@@ -171,6 +167,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const handleTextSubmit = () => {
     if (!text.trim() || isLoading) return;
     onSubmit(text);
+    // 送信直後に自身でもクリア（即時反映用）
     if (!isEditing) setText('');
   };
 
@@ -197,7 +194,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
           value={text}
           onChange={(e) => {
             setText(e.target.value);
-            if (isSilent) setIsSilent(false); // 入力があれば即座にSilent解除
+            if (isSilent) setIsSilent(false);
           }}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {

@@ -1,5 +1,4 @@
-
-// App.tsx - v3.71 - Version Sync & Protocol Update
+// App.tsx - v3.72 - Version Sync & Protocol Update
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -30,15 +29,15 @@ const App: React.FC = () => {
         };
         verifyServer();
 
-        // バージョン更新に伴い、同意フラグもv3.71へ更新
-        const hasConsented = localStorage.getItem('legal_consent_v3.71');
+        // バージョン更新に伴い、同意フラグもv3.72へ更新
+        const hasConsented = localStorage.getItem('legal_consent_v3.72');
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
     }, []);
 
     const handleLegalConfirm = () => {
-        localStorage.setItem('legal_consent_v3.71', 'true');
+        localStorage.setItem('legal_consent_v3.72', 'true');
         setIsLegalModalOpen(false);
     };
 
@@ -78,7 +77,7 @@ const App: React.FC = () => {
                                     <span>Protocol 2.0 Verified</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </button>
-                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver 3.71</span>
+                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver 3.72</span>
                             </div>
                         </div>
                     </div>
