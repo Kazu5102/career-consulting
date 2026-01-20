@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.65 - Visual Perfection & Natural Hairline
+// components/AIAvatar.tsx - v3.71 - Visual Perfection & Natural Hairline
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -33,6 +33,7 @@ const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; 
   );
 };
 
+// Fixed semicolon to comma in destructuring
 const FaceDetails: React.FC<{ mood: Mood; color?: string }> = ({ mood, color = "#d19a8e" }) => {
   return (
     <g>
@@ -51,13 +52,10 @@ const HumanBase: React.FC<{ skin: string; mood: Mood; children: React.ReactNode;
         <path d="M 45,200 C 45,170 65,155 100,155 S 155,170 155,200 Z" fill={bodyColor} />
         <g style={{ transform: getHeadTransform(mood), transformOrigin: 'center 110px', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
             {backHair}
-            {/* 首から顔への接続 */}
             <path d="M 92,130 L 88,165 L 112,165 L 108,130 Z" fill={skin} />
             <circle cx="53" cy="115" r="9" fill={skin} />
             <circle cx="147" cy="115" r="9" fill={skin} />
-            {/* 顔のベース: おでこを詰め、パーツ全体を上に寄せる */}
             <rect x="52" y="65" width="96" height="85" rx="42" fill={skin} />
-            {/* 髪の影: 髪と額の境界を馴染ませる */}
             <g opacity="0.15">
                 <path d="M 52,85 Q 100,75 148,85 L 148,65 Q 100,55 52,65 Z" fill="#000" />
             </g>
@@ -295,7 +293,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-sans font-bold text-slate-200 select-none bg-white/80 px-2 py-1 rounded">
-        Ver 3.65
+        Ver 3.71
       </div>
     </div>
   );

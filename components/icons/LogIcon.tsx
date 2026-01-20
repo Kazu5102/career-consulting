@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // FIX: Define props interface to support className and other SVG attributes

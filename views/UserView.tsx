@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.12 - Contextual Silence Interaction
+// views/UserView.tsx - v3.69 - Crisis Intervention Logic Update
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -73,6 +73,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
+  const [crisisCount, setCrisisCount] = useState(0); // 危機的キーワードの連発カウント
 
   const [onboardingStep, setOnboardingStep] = useState<number>(0); 
   const [userProfile, setUserProfile] = useState<UserProfile>({ 
@@ -139,6 +140,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSelectedRoles([]);
     setHasError(false);
     setSuggestionsVisible(false);
+    setCrisisCount(0);
     
     setView('chatting');
   }, []);
@@ -146,7 +148,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
       if (currentMessages.length < 4) return;
       try {
-        // 書きかけのテキストがある場合は、それをコンテキストに含めてヒントを生成
         const contextualMessages = draftText.trim() 
             ? [...currentMessages, { author: MessageAuthor.USER, text: `(書きかけの思考: ${draftText})` }] 
             : currentMessages;
@@ -166,13 +167,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
 
-      // Precise tag detection
       if (aiText.includes('[HAPPY]')) setAiMood('happy');
       else if (aiText.includes('[CURIOUS]')) setAiMood('curious');
       else if (aiText.includes('[THINKING]')) setAiMood('thinking');
       else if (aiText.includes('[REASSURE]')) setAiMood('reassure');
       else {
-          // Fallback heuristic
           if (aiText.includes('？')) setAiMood('curious');
           else if (aiText.includes('！')) setAiMood('happy');
           else if (aiText.includes('…')) setAiMood('thinking');
@@ -198,7 +197,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
     const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
     if (hasCrisisWord) {
+        setCrisisCount(prev => prev + 1);
         setIsCrisisModalOpen(true);
+        // メッセージ送信は中止せず、裏で文脈に追加だけしておく（ただしAIの通常応答はスキップ）
+        setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
         return;
     }
 
@@ -228,6 +230,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           
           if (value.error) {
               if (value.error.code === 'SAFETY_BLOCK') {
+                  setCrisisCount(prev => prev + 1);
                   setIsCrisisModalOpen(true);
                   setMessages(prev => prev.slice(0, -1));
                   setIsLoading(false);
@@ -244,7 +247,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 return updated;
             });
             
-            // Early mood detection from tag
             if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
             else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
             else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
@@ -308,7 +310,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
     
-    // Immediate mood update for onboarding steps
     if (nextText.includes('[HAPPY]')) setAiMood('happy');
     else if (nextText.includes('[REASSURE]')) setAiMood('reassure');
     else if (nextText.includes('[CURIOUS]')) setAiMood('curious');
@@ -334,7 +335,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
-            // Real-time mood update during actual session
             if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
             else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
           }
@@ -358,7 +358,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setOnboardingHistory(prevHistory);
     setHasError(false);
     setSuggestionsVisible(false);
-    // Restore previous mood based on history or defaults
     setAiMood('neutral');
   };
 
@@ -373,6 +372,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSelectedRoles([]);
     setHasError(false);
     setSuggestionsVisible(false);
+    setCrisisCount(0);
   };
 
   const handleGenerateSummary = () => {
@@ -521,8 +521,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onCancelEdit={() => {}} 
                     onStateChange={(state) => {
                         setIsTyping(state.isTyping);
-                        // 沈黙検知: 手が止まっている場合にヒントを生成
-                        // 書きかけの内容(currentDraft)がある場合は、それを含めてAPIを呼ぶ
                         if (state.isSilent && !isLoading && onboardingStep >= 6) {
                             triggerSuggestions(messages, state.currentDraft);
                         }
@@ -559,7 +557,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         onContinue={() => setIsInterruptModalOpen(false)} 
       />
 
-      <CrisisNoticeModal isOpen={isCrisisModalOpen} onClose={() => { setIsCrisisModalOpen(false); setView('dashboard'); setMessages([]); setOnboardingStep(0); }} />
+      <CrisisNoticeModal 
+        isOpen={isCrisisModalOpen} 
+        onClose={() => setIsCrisisModalOpen(false)} 
+        intensity={crisisCount >= 2 ? 'high' : 'normal'}
+      />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes progress { from { width: 0%; } to { width: 100%; } }

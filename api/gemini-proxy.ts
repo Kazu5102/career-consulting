@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.68 - Realistic Career Path Logic
+// api/gemini-proxy.ts - v3.69 - Empathetic Crisis Protocol
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -177,6 +177,12 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 トーン: ${roleDefinition.tone}
 思考: ${roleDefinition.mindset}
 相談者プロファイル: ${JSON.stringify(profile)}
+
+### 重要指示（危機介入プロトコル）:
+1. 相談者が「死にたい」「消えたい」といった自傷・自殺をほのめかすネガティブワードを発した場合、キャリア相談を一時中断し、深い共感と受容を示してください。
+2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
+3. その上で、専門の相談機関があることを「一緒に考えましょう」というトーンで伝えてください。
+4. 否定したり、無理に元気づけようとするアドバイスは避けてください。
 
 回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
 `.trim();

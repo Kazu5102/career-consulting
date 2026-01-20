@@ -1,4 +1,5 @@
-// components/SecuritySettingsModal.tsx - v3.63 - Survey Governance Toggle
+
+// components/SecuritySettingsModal.tsx - v3.71 - Survey Governance Default OFF Strict
 import React, { useState, useEffect } from 'react';
 import { setPassword } from '../services/authService';
 import LockIcon from './icons/LockIcon';
@@ -17,13 +18,17 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   
-  // アンケート設定の状態管理
-  const [isSurveyEnabled, setIsSurveyEnabled] = useState(true);
+  // 初期状態をfalseに固定
+  const [isSurveyEnabled, setIsSurveyEnabled] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('survey_enabled_v1');
     if (saved !== null) {
       setIsSurveyEnabled(saved === 'true');
+    } else {
+      // 初回訪問時は明示的にfalseを保存し、表示を抑制する
+      localStorage.setItem('survey_enabled_v1', 'false');
+      setIsSurveyEnabled(false);
     }
   }, [isOpen]);
 
@@ -75,11 +80,9 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
         </header>
 
         <div className="p-8 space-y-8">
-          {/* アンケートガバナンス設定 */}
           <section className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
             <div className="flex items-center gap-2 text-[10px] font-black text-sky-600 uppercase tracking-widest mb-4">
-               {/* FIX: Ensure icon components handle optional className correctly */}
-               <ClipboardIcon /> Governance Setting
+               <ClipboardIcon className="w-3.5 h-3.5" /> Governance Setting
             </div>
             <div className="flex items-center justify-between">
               <div>
@@ -98,7 +101,6 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
             </div>
           </section>
 
-          {/* パスワード変更フォーム */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex items-center gap-2 text-[10px] font-black text-rose-600 uppercase tracking-widest mb-2">
                <LockIcon className="w-3.5 h-3.5" /> Identity Management

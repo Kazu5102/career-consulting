@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v3.63 - Governance-Aware Onboarding
+// components/SummaryModal.tsx - v3.71 - Default Step Adjustment
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -28,7 +28,7 @@ const REASSURANCE_MESSAGES = [
 ];
 
 const SURVEY_CONFIG: SurveyConfig = {
-  isEnabled: true, // このデフォルト値はlocalStorageで上書きされる
+  isEnabled: false, // デフォルトは無効
   url: "https://www.google.com/search?q=career+consulting+survey",
   title: "より良いサービス向上のためのアンケート",
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
@@ -56,14 +56,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
   }, [summary]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
       setIsCopied(false);
       setIsEditing(false);
       setCorrectionRequest('');
       setActiveTab('user');
       
-      // 管理者の設定を確認
-      const surveyEnabled = localStorage.getItem('survey_enabled_v1') !== 'false';
+      // 指示に基づき、デフォルト値をfalse(非表示)として扱う
+      const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
   }, [isOpen]);

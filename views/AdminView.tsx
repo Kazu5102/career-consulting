@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.66 - Full Log Access Implementation
+// views/AdminView.tsx - v3.69 - Enhanced Triage & Crisis Indicators
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -71,7 +71,8 @@ const AdminView: React.FC = () => {
                 c.summary.includes('要介入') || 
                 c.summary.includes('危険') || 
                 c.summary.includes('死') || 
-                c.summary.includes('退職代行')
+                c.summary.includes('退職代行') ||
+                c.messages.some(m => /死にたい|自殺|消えたい|終わりにしたい/.test(m.text))
             );
 
             meta[u.id] = {
@@ -171,7 +172,6 @@ const AdminView: React.FC = () => {
 
     return (
         <div className="flex h-full w-full bg-slate-50 overflow-hidden relative">
-            {/* 1. Navigation Sidebar (Inbox) */}
             <aside className={`
                 ${selectedUserId ? 'hidden md:flex' : 'flex'}
                 flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10
@@ -184,7 +184,7 @@ const AdminView: React.FC = () => {
                             <p className="text-xs font-black">{stats.total}</p>
                         </button>
                         <button onClick={() => setFilterStatus('high_risk')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'high_risk' ? 'bg-rose-600 border-rose-600 text-white shadow-md ring-4 ring-rose-100' : 'bg-white border-slate-100'}`}>
-                            <p className="text-[7px] font-black uppercase opacity-70">Risk</p>
+                            <p className="text-[7px] font-black uppercase opacity-70">Critical</p>
                             <p className="text-xs font-black">{stats.highRisk}</p>
                         </button>
                         <button onClick={() => setFilterStatus('interrupted')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'interrupted' ? 'bg-amber-600 border-amber-600 text-white shadow-md ring-4 ring-amber-100' : 'bg-white border-slate-100'}`}>
@@ -206,7 +206,12 @@ const AdminView: React.FC = () => {
                         const meta = userMetadata[user.id];
                         return (
                             <button key={user.id} onClick={() => handleUserSelect(user.id)} className={`w-full group relative flex items-center gap-4 p-4 rounded-2xl transition-all border ${selectedUserId === user.id ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'}`}>
-                                {meta.isHighRisk && <div className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse ring-4 ring-rose-500/20"></div>}
+                                {meta.isHighRisk && (
+                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full animate-in fade-in duration-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                    <span className="text-[8px] font-black text-white uppercase tracking-tighter">Critical</span>
+                                  </div>
+                                )}
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${selectedUserId === user.id ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}><UserIcon className="w-6 h-6" /></div>
                                 <div className="text-left overflow-hidden flex-1">
                                     <p className="font-bold text-slate-800 truncate text-base">{user.nickname}</p>
@@ -231,14 +236,12 @@ const AdminView: React.FC = () => {
                 </div>
             </aside>
 
-            {/* 2. Main Content Area (Detail) */}
             <main className={`
                 ${selectedUserId ? 'flex' : 'hidden md:flex'}
                 flex-1 flex-col h-full bg-white relative overflow-hidden
             `}>
                 {selectedUserId ? (
                     <div className="flex-1 flex flex-col h-full">
-                        {/* Mobile Optimized Sticky Header */}
                         <header className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 backdrop-blur-md px-4 md:px-8 py-4 border-b border-slate-100 shadow-sm">
                             <div className="flex items-center gap-4 w-full md:w-auto">
                                 <button 
@@ -276,7 +279,6 @@ const AdminView: React.FC = () => {
                                                 onClick={() => setSelectedConvForDetail(conv)}
                                                 className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-300 transition-all group text-left relative overflow-hidden"
                                             >
-                                                {/* Background Access Label */}
                                                 <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <div className="bg-sky-600 text-white p-2 rounded-full shadow-lg">
                                                         <ChatIcon className="w-4 h-4" />
@@ -317,7 +319,6 @@ const AdminView: React.FC = () => {
                 )}
             </main>
 
-            {/* Modals */}
             <AddTextModal isOpen={isAddTextModalOpen} onClose={() => setIsAddTextModalOpen(false)} onSubmit={(newConv, nick) => {
                 if (nick) {
                     const currentUsers = userService.getUsers();

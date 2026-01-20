@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.68",
-  "description": "Realistic Career Support. 現実的なステップアップを重視した診断ロジックと、コンサルタント向け活用ガイドを搭載。",
-  "version": "3.68",
+  "name": "Career Consulting_3.71",
+  "description": "Empathetic Crisis Support. 危機介入プロトコルを強化し、深い共感と専門機関へのスムーズな接続を実現。",
+  "version": "3.71",
   "prompt": ""
 }
