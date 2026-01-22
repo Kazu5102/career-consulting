@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.74 - Enhanced Report Export & User Analysis
+// views/AdminView.tsx - v3.88 - Robust Delete UX
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -13,16 +13,17 @@ import DataManagementModal from '../components/DataManagementModal';
 import SecuritySettingsModal from '../components/SecuritySettingsModal';
 import AnalysisDisplay from '../components/AnalysisDisplay';
 import ConversationDetailModal from '../components/ConversationDetailModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 import UserIcon from '../components/icons/UserIcon';
 import TrajectoryIcon from '../components/icons/TrajectoryIcon';
 import TargetIcon from '../components/icons/TargetIcon';
 import DatabaseIcon from '../components/icons/DatabaseIcon';
 import LogIcon from '../components/icons/LogIcon';
-import ShareIcon from '../components/icons/ShareIcon';
-import LockIcon from '../components/icons/LockIcon';
+import TrashIcon from '../components/icons/TrashIcon';
 import ChatIcon from '../components/icons/ChatIcon';
 import FileTextIcon from '../components/icons/FileTextIcon';
+import LockIcon from '../components/icons/LockIcon';
 
 type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
@@ -36,6 +37,11 @@ const AdminView: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     
+    // 削除モード用ステート
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
+    const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set());
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
     const [analyses, setAnalyses] = useState<AnalysesState>({
         trajectory: { status: 'idle', data: null, error: null },
         skillMatching: { status: 'idle', data: null, error: null },
@@ -126,6 +132,43 @@ const AdminView: React.FC = () => {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [conversations, selectedUserId]);
 
+    const toggleDeleteMode = () => {
+        setIsDeleteMode(!isDeleteMode);
+        setSelectedForDeletion(new Set());
+    };
+
+    const handleToggleUserSelection = (userId: string, e?: React.MouseEvent | React.ChangeEvent) => {
+        if (e && 'stopPropagation' in e) e.stopPropagation();
+        setSelectedForDeletion(prev => {
+            const next = new Set(prev);
+            if (next.has(userId)) next.delete(userId);
+            else next.add(userId);
+            return next;
+        });
+    };
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (selectedForDeletion.size === filteredUsers.length) {
+            setSelectedForDeletion(new Set());
+        } else {
+            setSelectedForDeletion(new Set(filteredUsers.map(u => u.id)));
+        }
+    };
+
+    const executeBulkDelete = () => {
+        if (selectedForDeletion.size === 0) return;
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleFinalDelete = () => {
+        userService.deleteUsers(Array.from(selectedForDeletion));
+        setIsDeleteMode(false);
+        setSelectedForDeletion(new Set());
+        setSelectedUserId(null);
+        setIsDeleteModalOpen(false);
+        loadData();
+    };
+
     const runAnalysis = async (type: AnalysisType) => {
         if (!selectedUserId) return;
 
@@ -159,6 +202,10 @@ const AdminView: React.FC = () => {
     };
 
     const handleUserSelect = (userId: string) => {
+        if (isDeleteMode) {
+            handleToggleUserSelection(userId);
+            return;
+        }
         setSelectedUserId(userId);
         setAnalyses({
             trajectory: { status: 'idle', data: null, error: null },
@@ -184,28 +231,56 @@ const AdminView: React.FC = () => {
         <div className="flex h-full w-full bg-slate-50 overflow-hidden relative">
             <aside className={`
                 ${selectedUserId ? 'hidden md:flex' : 'flex'}
-                flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10
+                flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10 relative
             `}>
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                    <h2 className="text-xl font-black text-slate-800 tracking-tight mb-4 px-1">相談者リスト</h2>
-                    <div className="grid grid-cols-4 gap-1 mb-4">
-                        <button onClick={() => setFilterStatus('all')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'all' ? 'bg-sky-600 border-sky-600 text-white shadow-md ring-4 ring-sky-100' : 'bg-white border-slate-100'}`}>
-                            <p className="text-[7px] font-black uppercase opacity-70">Total</p>
-                            <p className="text-xs font-black">{stats.total}</p>
-                        </button>
-                        <button onClick={() => setFilterStatus('high_risk')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'high_risk' ? 'bg-rose-600 border-rose-600 text-white shadow-md ring-4 ring-rose-100' : 'bg-white border-slate-100'}`}>
-                            <p className="text-[7px] font-black uppercase opacity-70">Critical</p>
-                            <p className="text-xs font-black">{stats.highRisk}</p>
-                        </button>
-                        <button onClick={() => setFilterStatus('interrupted')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'interrupted' ? 'bg-amber-600 border-amber-600 text-white shadow-md ring-4 ring-amber-100' : 'bg-white border-slate-100'}`}>
-                            <p className="text-[7px] font-black uppercase opacity-70">Pause</p>
-                            <p className="text-xs font-black">{stats.interrupted}</p>
-                        </button>
-                        <button onClick={() => setFilterStatus('no_history')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'no_history' ? 'bg-slate-600 border-slate-600 text-white shadow-md ring-4 ring-slate-100' : 'bg-white border-slate-100'}`}>
-                            <p className="text-[7px] font-black uppercase opacity-70">New</p>
-                            <p className="text-xs font-black">{stats.noHistory}</p>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-black text-slate-800 tracking-tight px-1">相談者リスト</h2>
+                        <button 
+                            onClick={toggleDeleteMode}
+                            className={`p-2 rounded-xl transition-all ${isDeleteMode ? 'bg-rose-600 text-white shadow-lg shadow-rose-100 ring-2 ring-rose-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            title={isDeleteMode ? '削除モードを終了' : '一括削除モードを開始'}
+                        >
+                            <TrashIcon className="w-5 h-5" />
                         </button>
                     </div>
+
+                    {isDeleteMode ? (
+                        <div className="flex items-center justify-between px-2 py-2 mb-2 bg-rose-50 border border-rose-100 rounded-xl animate-in slide-in-from-top-2 duration-300">
+                             <div className="flex items-center gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedForDeletion.size === filteredUsers.length && filteredUsers.length > 0} 
+                                    onChange={handleSelectAll}
+                                    className="w-5 h-5 rounded border-rose-300 text-rose-600 focus:ring-rose-500 transition-all cursor-pointer"
+                                />
+                                <span className="text-xs font-black text-rose-700 uppercase tracking-widest">Select All</span>
+                             </div>
+                             <span className="text-[10px] font-black text-rose-400 bg-white px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-tighter shadow-sm">
+                                {selectedForDeletion.size} Selected
+                             </span>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-1 mb-4">
+                            <button onClick={() => setFilterStatus('all')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'all' ? 'bg-sky-600 border-sky-600 text-white shadow-md ring-4 ring-sky-100' : 'bg-white border-slate-100'}`}>
+                                <p className="text-[7px] font-black uppercase opacity-70">Total</p>
+                                <p className="text-xs font-black">{stats.total}</p>
+                            </button>
+                            <button onClick={() => setFilterStatus('high_risk')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'high_risk' ? 'bg-rose-600 border-rose-600 text-white shadow-md ring-4 ring-rose-100' : 'bg-white border-slate-100'}`}>
+                                <p className="text-[7px] font-black uppercase opacity-70">Critical</p>
+                                <p className="text-xs font-black">{stats.highRisk}</p>
+                            </button>
+                            <button onClick={() => setFilterStatus('interrupted')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'interrupted' ? 'bg-amber-600 border-amber-600 text-white shadow-md ring-4 ring-amber-100' : 'bg-white border-slate-100'}`}>
+                                <p className="text-[7px] font-black uppercase opacity-70">Pause</p>
+                                <p className="text-xs font-black">{stats.interrupted}</p>
+                            </button>
+                            <button onClick={() => setFilterStatus('no_history')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'no_history' ? 'bg-slate-600 border-slate-600 text-white shadow-md ring-4 ring-slate-100' : 'bg-white border-slate-100'}`}>
+                                <p className="text-[7px] font-black uppercase opacity-70">New</p>
+                                <p className="text-xs font-black">{stats.noHistory}</p>
+                            </button>
+                        </div>
+                    )}
+                    
                     <div className="flex gap-2">
                         <input type="text" placeholder="名前で検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
                     </div>
@@ -214,17 +289,46 @@ const AdminView: React.FC = () => {
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/30">
                     {filteredUsers.length > 0 ? filteredUsers.map(user => {
                         const meta = userMetadata[user.id];
+                        const isSelected = isDeleteMode && selectedForDeletion.has(user.id);
+                        const isCurrent = selectedUserId === user.id;
+
                         return (
-                            <button key={user.id} onClick={() => handleUserSelect(user.id)} className={`w-full group relative flex items-center gap-4 p-4 rounded-2xl transition-all border ${selectedUserId === user.id ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'}`}>
-                                {meta.isHighRisk && (
+                            <button 
+                                key={user.id} 
+                                onClick={() => handleUserSelect(user.id)} 
+                                className={`w-full group relative flex items-center gap-4 p-4 rounded-2xl transition-all border ${
+                                    isSelected ? 'bg-rose-50 border-rose-300 shadow-md ring-2 ring-rose-100' : 
+                                    isCurrent ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' : 
+                                    'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'
+                                }`}
+                            >
+                                {isDeleteMode && (
+                                    <div className="flex-shrink-0 animate-in zoom-in duration-200">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isSelected}
+                                            onChange={(e) => handleToggleUserSelection(user.id, e)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="w-6 h-6 rounded-lg border-rose-300 text-rose-600 focus:ring-rose-500 transition-all cursor-pointer shadow-sm pointer-events-none"
+                                        />
+                                    </div>
+                                )}
+                                
+                                {meta.isHighRisk && !isDeleteMode && (
                                   <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full animate-in fade-in duration-300">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                     <span className="text-[8px] font-black text-white uppercase tracking-tighter">Critical</span>
                                   </div>
                                 )}
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${selectedUserId === user.id ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}><UserIcon className="w-6 h-6" /></div>
+
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${
+                                    isSelected ? 'bg-rose-500' : isCurrent ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'
+                                }`}>
+                                    <UserIcon className="w-6 h-6" />
+                                </div>
+
                                 <div className="text-left overflow-hidden flex-1">
-                                    <p className="font-bold text-slate-800 truncate text-base">{user.nickname}</p>
+                                    <p className={`font-bold truncate text-base ${isSelected ? 'text-rose-900' : 'text-slate-800'}`}>{user.nickname}</p>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <p className="text-[10px] text-slate-400 font-mono truncate">{user.id}</p>
                                         <p className="text-[9px] font-black text-slate-300 uppercase shrink-0">{meta.lastDate ? new Date(meta.lastDate).toLocaleDateString() : 'NO HISTORY'}</p>
@@ -239,11 +343,30 @@ const AdminView: React.FC = () => {
                     )}
                 </div>
 
-                <div className="p-4 bg-white border-t space-y-2">
-                    <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
-                    <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><LogIcon className="w-4 h-4" /> System Logs</button>
-                    <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all uppercase tracking-widest border border-rose-100"><LockIcon className="w-4 h-4" /> Security Settings</button>
-                </div>
+                {isDeleteMode ? (
+                    <div className="p-4 bg-white border-t space-y-3 animate-in slide-in-from-bottom-2 duration-300">
+                         <button 
+                            onClick={executeBulkDelete}
+                            disabled={selectedForDeletion.size === 0}
+                            className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all active:scale-[0.98] disabled:bg-slate-200 disabled:shadow-none"
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                            <span className="uppercase tracking-widest text-sm">Delete Selected ({selectedForDeletion.size})</span>
+                        </button>
+                        <button 
+                            onClick={toggleDeleteMode}
+                            className="w-full py-3 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                ) : (
+                    <div className="p-4 bg-white border-t space-y-2">
+                        <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
+                        <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><LogIcon className="w-4 h-4" /> System Logs</button>
+                        <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all uppercase tracking-widest border border-rose-100"><LockIcon className="w-4 h-4" /> Security Settings</button>
+                    </div>
+                )}
             </aside>
 
             <main className={`
@@ -362,6 +485,12 @@ const AdminView: React.FC = () => {
                     onClose={() => setSelectedConvForDetail(null)} 
                 />
             )}
+            <DeleteConfirmModal 
+                isOpen={isDeleteModalOpen} 
+                count={selectedForDeletion.size} 
+                onCancel={() => setIsDeleteModalOpen(false)} 
+                onConfirm={handleFinalDelete} 
+            />
         </div>
     );
 };

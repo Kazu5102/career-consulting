@@ -1,13 +1,12 @@
 
-import { UserInfo } from '../types';
+import { UserInfo, StoredConversation, StoredData } from '../types';
 import { ADJECTIVES, ANIMALS } from '../data/nicknames';
 
 const USERS_STORAGE_KEY = 'careerConsultingUsers_v1';
+const CONVERSATIONS_STORAGE_KEY = 'careerConsultations';
 
 /**
  * Generates a unique, memorable nickname from predefined lists.
- * @param existingNicknames - An array of nicknames already in use.
- * @returns A new, unique nickname.
  */
 export const generateNickname = (existingNicknames: string[]): string => {
   let nickname;
@@ -17,13 +16,12 @@ export const generateNickname = (existingNicknames: string[]): string => {
     const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
     nickname = `${adj}${animal}`;
     attempts++;
-  } while (existingNicknames.includes(nickname) && attempts < 50); // Avoid infinite loops
+  } while (existingNicknames.includes(nickname) && attempts < 50);
   return nickname;
 };
 
 /**
  * Generates a random 4-digit PIN as a string.
- * @returns A 4-digit PIN string.
  */
 export const generatePin = (): string => {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -31,7 +29,6 @@ export const generatePin = (): string => {
 
 /**
  * Retrieves all user info from localStorage.
- * @returns An array of UserInfo objects.
  */
 export const getUsers = (): UserInfo[] => {
   try {
@@ -45,7 +42,6 @@ export const getUsers = (): UserInfo[] => {
 
 /**
  * Saves an array of user info to localStorage.
- * @param users - The array of UserInfo objects to save.
  */
 export const saveUsers = (users: UserInfo[]): void => {
   try {
@@ -56,9 +52,41 @@ export const saveUsers = (users: UserInfo[]): void => {
 };
 
 /**
+ * Deletes multiple users and their associated conversation data.
+ */
+export const deleteUsers = (userIds: string[]): void => {
+    // 1. Delete user profiles
+    const users = getUsers();
+    const remainingUsers = users.filter(u => !userIds.includes(u.id));
+    saveUsers(remainingUsers);
+
+    // 2. Delete associated conversations
+    const allDataRaw = localStorage.getItem(CONVERSATIONS_STORAGE_KEY);
+    if (allDataRaw) {
+        try {
+            const parsed = JSON.parse(allDataRaw);
+            let conversations: StoredConversation[] = [];
+            
+            if (parsed && Array.isArray(parsed.data)) {
+                conversations = parsed.data;
+            } else if (Array.isArray(parsed)) {
+                conversations = parsed;
+            }
+
+            const filteredConvs = conversations.filter(c => !userIds.includes(c.userId));
+            
+            localStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify({
+                version: (parsed && parsed.version) || 1,
+                data: filteredConvs
+            }));
+        } catch (e) {
+            console.error("Failed to cleanup conversations during user deletion", e);
+        }
+    }
+};
+
+/**
  * Finds a user by their unique ID.
- * @param userId - The ID of the user to find.
- * @returns The UserInfo object if found, otherwise undefined.
  */
 export const getUserById = (userId: string): UserInfo | undefined => {
   return getUsers().find(u => u.id === userId);
@@ -66,7 +94,6 @@ export const getUserById = (userId: string): UserInfo | undefined => {
 
 /**
  * Creates a new user with a unique ID, nickname, and PIN, and saves them.
- * @returns The newly created UserInfo object.
  */
 export const addNewUser = (): UserInfo => {
     const users = getUsers();
