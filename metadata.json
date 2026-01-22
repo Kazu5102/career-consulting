@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.79",
-  "description": "Protocol 2.0 Compliant. Ver 3.21のオリジナル・プログラムに基づきアバターシステムを完全復元。構造的整合性を修正した最終安定版デザイン。",
-  "version": "3.79",
+  "name": "Career Consulting_3.81",
+  "description": "Protocol 2.0 Compliant. 入力欄のチラつき問題を解消した安定版。単方向ステート同期によるIME入力の完全保護を実装。",
+  "version": "3.81",
   "prompt": ""
 }

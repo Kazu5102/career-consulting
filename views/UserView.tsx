@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.72 - Message Box Clear Logic Fix
+// views/UserView.tsx - v3.81 - Input Stability Fix (Loop Break)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -70,7 +70,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
-  // メッセージボックスを外部からリセットするためのフラグ
+  // inputTextは、送信後のリセットや強制上書きのために使用し、タイピング中の動的な同期には使用しない
   const [inputText, setInputText] = useState<string>('');
 
   const startTimeRef = useRef<number>(0);
@@ -192,7 +192,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // ヒント選択時・直接入力時どちらも、送信開始時に入力欄をクリアする
+    // 送信開始時に親のステートも空にし、ChatInputへリセット指示を出す
     setInputText('');
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
@@ -525,8 +525,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onCancelEdit={() => {}} 
                     onStateChange={(state) => {
                         setIsTyping(state.isTyping);
-                        // 入力中の内容をUserView側でも同期（送信時にリセットできるようにするため）
-                        setInputText(state.currentDraft);
+                        // 重要: ここで setInputText(state.currentDraft) を行わない。
+                        // これにより、入力中の文字列が親コンポーネント経由で子(ChatInput)に戻るループを断ち切る。
                         if (state.isSilent && !isLoading && onboardingStep >= 6) {
                             triggerSuggestions(messages, state.currentDraft);
                         }

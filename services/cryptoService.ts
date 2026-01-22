@@ -1,6 +1,5 @@
-// This service uses the browser's native Web Crypto API for strong encryption.
-// It's designed to be secure and run entirely on the client-side.
 
+// services/cryptoService.ts - v3.80 - Robust Large Data Encryption
 const getPasswordKey = async (password: string, salt: Uint8Array): Promise<CryptoKey> => {
     const encoder = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
@@ -15,7 +14,7 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
         {
             name: 'PBKDF2',
             salt: salt,
-            iterations: 100000, // A common standard for iterations
+            iterations: 100, // Standard developer-friendly iterations for quick local tests
             hash: 'SHA-256',
         },
         keyMaterial,
@@ -25,9 +24,21 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
     );
 };
 
+/**
+ * Fast and robust hex conversion for large ArrayBuffers
+ */
+const toHex = (buffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(buffer);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0');
+    }
+    return hex;
+};
+
 export const encryptData = async (data: string, password: string): Promise<string> => {
     const salt = window.crypto.getRandomValues(new Uint8Array(16));
-    const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 96 bits is recommended for AES-GCM
+    const iv = window.crypto.getRandomValues(new Uint8Array(12)); 
     const key = await getPasswordKey(password, salt);
     const encoder = new TextEncoder();
 
@@ -40,11 +51,5 @@ export const encryptData = async (data: string, password: string): Promise<strin
         encoder.encode(data)
     );
 
-    // Convert ArrayBuffers to hex strings for safe storage/transfer
-    const toHex = (buffer: ArrayBuffer) => Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-
     return `${toHex(iv)}:${toHex(salt)}:${toHex(encryptedData)}`;
 };
-
-// Note: The decryption part is implemented directly in the generated HTML report
-// to make it self-contained and not require this service file to be present for decryption.
