@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.83 - Version Label Update
+// components/AIAvatar.tsx - v3.85 - Version Label Update
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -38,7 +38,7 @@ const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; 
       <circle cx={cx1-3} cy={cy-3} r="3.5" fill="#fff"/>
       <circle cx={cx2-3} cy={cy-3} r="3.5" fill="#fff"/>
       <circle cx={cx1+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
-      <circle cx={cx2+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
+      <circle cx={2+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
     </g>
   );
 };
@@ -322,7 +322,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.83
+        Ver 3.85
       </div>
     </div>
   );

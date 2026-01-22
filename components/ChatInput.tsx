@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.37 - Precise Silence Detection
+// components/ChatInput.tsx - v2.38 - Enforced Sync & Clear
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -61,14 +61,14 @@ interface ChatInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 3000; // 10秒から3秒へ大幅短縮
-const TYPING_ACTIVE_TIMEOUT = 800; // キー入力からこの時間内は「入力中」とみなす
+const SILENCE_TIMEOUT = 3000; 
+const TYPING_ACTIVE_TIMEOUT = 800; 
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSilent, setIsSilent] = useState(false);
-  const [isActiveTyping, setIsActiveTyping] = useState(false); // 物理的な入力動作を追跡
+  const [isActiveTyping, setIsActiveTyping] = useState(false); 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
@@ -76,6 +76,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 重要: 親コンポーネントからの強制リセット命令(空文字)を確実に反映
   useEffect(() => {
     setText(initialText);
   }, [initialText]);
@@ -102,7 +103,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   useEffect(() => {
     onStateChange?.({
       isFocused,
-      isTyping: isActiveTyping || isListening, // 文字の有無ではなく、動作の有無で判定
+      isTyping: isActiveTyping || isListening, 
       isSilent,
       currentDraft: text
     });
@@ -129,7 +130,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText(val);
     setIsSilent(false);
     
-    // アクティブなタイピング状態の管理
     setIsActiveTyping(true);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
@@ -181,10 +181,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   };
 
   const handleTextSubmit = () => {
-    if (!text.trim() || isLoading) return;
-    onSubmit(text);
-    if (!isEditing) setText('');
+    const trimmedText = text.trim();
+    if (!trimmedText || isLoading) return;
+    
+    onSubmit(trimmedText);
+    
+    // 送信直後に内部ステートを確実にクリア
+    setText('');
     setIsActiveTyping(false);
+    setIsSilent(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
