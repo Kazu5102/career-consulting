@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.72",
-  "description": "Empathetic Crisis Support. 危機介入プロトコルを強化し、深い共感と専門機関へのスムーズな接続を実現。",
-  "version": "3.72",
+  "name": "Career Consulting_3.79",
+  "description": "Protocol 2.0 Compliant. Ver 3.21のオリジナル・プログラムに基づきアバターシステムを完全復元。構造的整合性を修正した最終安定版デザイン。",
+  "version": "3.79",
   "prompt": ""
 }

@@ -1,4 +1,5 @@
-// App.tsx - v3.72 - Version Sync & Protocol Update
+
+// App.tsx - v3.79 - Design Integrity Restoration (Ver 3.21 Core)
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -10,6 +11,9 @@ import UserSelectionView from './views/UserSelectionView';
 
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
+
+const VERSION = "3.79";
+const CONSENT_KEY = `legal_consent_v${VERSION}`;
 
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>('user');
@@ -29,15 +33,15 @@ const App: React.FC = () => {
         };
         verifyServer();
 
-        // バージョン更新に伴い、同意フラグもv3.72へ更新
-        const hasConsented = localStorage.getItem('legal_consent_v3.72');
+        // Protocol 2.0: Strict version-based consent check
+        const hasConsented = localStorage.getItem(CONSENT_KEY);
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
     }, []);
 
     const handleLegalConfirm = () => {
-        localStorage.setItem('legal_consent_v3.72', 'true');
+        localStorage.setItem(CONSENT_KEY, 'true');
         setIsLegalModalOpen(false);
     };
 
@@ -60,7 +64,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        alert("【Protocol 2.0 Verified】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済");
+        alert(`【Protocol 2.0 Verified (v${VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`);
     };
 
     return (
@@ -77,7 +81,7 @@ const App: React.FC = () => {
                                     <span>Protocol 2.0 Verified</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </button>
-                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver 3.72</span>
+                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {VERSION}</span>
                             </div>
                         </div>
                     </div>
@@ -109,7 +113,7 @@ const App: React.FC = () => {
                     ) : (
                         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-rose-100 max-w-sm">
                             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             </div>
                             <p className="font-black text-xl text-slate-900 mb-2">Connection Error</p>
                             <p className="text-sm text-slate-500 leading-relaxed mb-6">サーバーとの通信に失敗しました。ネットワーク設定を確認してください。</p>

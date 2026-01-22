@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.69 - Enhanced Triage & Crisis Indicators
+// views/AdminView.tsx - v3.74 - Enhanced Report Export & User Analysis
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -22,6 +22,7 @@ import LogIcon from '../components/icons/LogIcon';
 import ShareIcon from '../components/icons/ShareIcon';
 import LockIcon from '../components/icons/LockIcon';
 import ChatIcon from '../components/icons/ChatIcon';
+import FileTextIcon from '../components/icons/FileTextIcon';
 
 type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
@@ -170,6 +171,15 @@ const AdminView: React.FC = () => {
         setSelectedUserId(null);
     };
 
+    const parseUserSummary = (rawSummary: string): string => {
+        try {
+            const parsed = JSON.parse(rawSummary);
+            return parsed.user_summary || rawSummary;
+        } catch (e) {
+            return rawSummary;
+        }
+    };
+
     return (
         <div className="flex h-full w-full bg-slate-50 overflow-hidden relative">
             <aside className={`
@@ -177,7 +187,7 @@ const AdminView: React.FC = () => {
                 flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10
             `}>
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                    <h2 className="text-xl font-black text-slate-800 tracking-tight mb-4 px-1">インボックス</h2>
+                    <h2 className="text-xl font-black text-slate-800 tracking-tight mb-4 px-1">相談者リスト</h2>
                     <div className="grid grid-cols-4 gap-1 mb-4">
                         <button onClick={() => setFilterStatus('all')} className={`p-2 rounded-xl border transition-all text-center ${filterStatus === 'all' ? 'bg-sky-600 border-sky-600 text-white shadow-md ring-4 ring-sky-100' : 'bg-white border-slate-100'}`}>
                             <p className="text-[7px] font-black uppercase opacity-70">Total</p>
@@ -258,7 +268,14 @@ const AdminView: React.FC = () => {
                             <div className="flex gap-2 w-full md:w-auto">
                                 <button onClick={() => runAnalysis('trajectory')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-xs sm:text-sm active:scale-95 transition-all"><TrajectoryIcon className="w-4 h-4" />軌跡分析</button>
                                 <button onClick={() => runAnalysis('skillMatching')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 text-xs sm:text-sm active:scale-95 transition-all"><TargetIcon className="w-4 h-4" />適職診断</button>
-                                <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all"><ShareIcon className="w-5 h-5"/></button>
+                                <button 
+                                    onClick={() => setIsShareModalOpen(true)} 
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95 text-xs sm:text-sm"
+                                    title="暗号化レポートを出力"
+                                >
+                                    <FileTextIcon className="w-4 h-4"/>
+                                    レポート出力
+                                </button>
                             </div>
                         </header>
 
@@ -270,7 +287,7 @@ const AdminView: React.FC = () => {
                                     <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1">
                                         <div className="w-2 h-6 bg-slate-200 rounded-full"></div>
                                         個別セッション履歴 ({selectedUserConversations.length}件)
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase ml-2 bg-slate-100 px-2 py-1 rounded">Click for Full Transcript</span>
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase ml-2 bg-slate-100 px-2 py-1 rounded">クリックで全ログを表示</span>
                                     </h3>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         {selectedUserConversations.map(conv => (
@@ -292,7 +309,7 @@ const AdminView: React.FC = () => {
                                                 <p className="text-[10px] text-sky-600 font-black mb-4 uppercase tracking-tighter flex items-center gap-1.5">
                                                     <ChatIcon className="w-3 h-3" /> Consulted by {conv.aiName}
                                                 </p>
-                                                <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(conv.summary) }} />
+                                                <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(parseUserSummary(conv.summary)) }} />
                                                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest group-hover:text-sky-600 transition-colors">
                                                     <span>View full dialog</span>
                                                     <span>→</span>
@@ -310,10 +327,10 @@ const AdminView: React.FC = () => {
                             <div className="absolute inset-0 bg-sky-100 rounded-full scale-150 opacity-10 animate-pulse"></div>
                             <div className="relative p-12 bg-white rounded-full shadow-2xl border border-slate-50"><UserIcon className="w-20 h-20 text-slate-200" /></div>
                         </div>
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">インボックスから相談者を選択</h2>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">相談者を選択して分析を開始</h2>
                         <p className="mt-4 font-bold text-slate-400 max-w-sm mx-auto leading-relaxed text-base">
                             左側のリストから相談者を選ぶと、<br/>
-                            AIが対話履歴に基づいた専門的な分析を開始します。
+                            AIが対話履歴に基づいた専門的な分析、レポート出力が可能です。
                         </p>
                     </div>
                 )}
@@ -338,7 +355,7 @@ const AdminView: React.FC = () => {
             <DevLogModal isOpen={isDevLogModalOpen} onClose={() => setIsDevLogModalOpen(false)} />
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
-            {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
+            {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={analyses.trajectory.data ? { trajectory: analyses.trajectory.data, skillMatching: analyses.skillMatching.data } : null} />}
             {selectedConvForDetail && (
                 <ConversationDetailModal 
                     conversation={selectedConvForDetail} 
