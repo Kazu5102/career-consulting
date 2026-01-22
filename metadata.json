@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.85",
-  "description": "Protocol 2.0 Compliant. HINT（提案チップ）の挙動を安定化。二重リクエストの防止と、ヒント採用時の入力欄自動クリア機能を実装。",
-  "version": "3.85",
+  "name": "Career Consulting_3.86",
+  "description": "Protocol 2.0 Compliant. clearSignal命令による入力欄の確実な初期化と、入力テキストに基づくヒント生成の安定化を実現。",
+  "version": "3.86",
   "prompt": ""
 }

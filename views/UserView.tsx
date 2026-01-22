@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.85 - Suggestion Lock & Input Reset
+// views/UserView.tsx - v3.86 - Suggestion Lock & clearSignal Implementation
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -70,7 +70,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
-  const [inputText, setInputText] = useState<string>('');
+  const [inputClearSignal, setInputClearSignal] = useState<number>(0);
 
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
@@ -154,19 +154,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   }, []);
 
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
-      // 排他制御
+      // 排他制御とタイミングの検証
       if (isFetchingSuggestionsRef.current || isLoading) return;
-      if (currentMessages.length < 4 || onboardingStep < 6) return;
+      if (onboardingStep < 6) return;
 
-      const suggestionKey = `${currentMessages.length}-${draftText.trim()}`;
+      const trimmedDraft = draftText.trim();
+      const suggestionKey = `${currentMessages.length}-${trimmedDraft}`;
       if (lastSuggestionKeyRef.current === suggestionKey) return;
       
       isFetchingSuggestionsRef.current = true;
       lastSuggestionKeyRef.current = suggestionKey;
 
       try {
-        const contextualMessages = draftText.trim() 
-            ? [...currentMessages, { author: MessageAuthor.USER, text: `(書きかけの思考: ${draftText})` }] 
+        const contextualMessages = trimmedDraft
+            ? [...currentMessages, { author: MessageAuthor.USER, text: `(相談者が伝えようとしていること: ${trimmedDraft})` }] 
             : currentMessages;
             
         const response = await generateSuggestions(contextualMessages);
@@ -177,7 +178,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             }
         }
       } catch (e) {
-        console.warn("Suggestions failed", e);
+        console.warn("Suggestions fetch failed", e);
         lastSuggestionKeyRef.current = '';
       } finally {
         isFetchingSuggestionsRef.current = false;
@@ -186,6 +187,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
+    // 静止した瞬間に、入力内容があればそれを反映してヒントをリクエスト
     if (state.isSilent && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
@@ -212,6 +214,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
 
       if (currentStep >= 6) {
+          // AI発言直後は文脈が変わるのでヒントを再生成
           await triggerSuggestions(currentMessages);
       }
   };
@@ -219,10 +222,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // 入力欄をクリア（ChatInputのuseEffectがこれを受けてクリアする）
-    setInputText('');
-    // Reactのステート更新は非同期なため、一時的にinputTextを強制的に空として扱うためのケア
-    await new Promise(resolve => setTimeout(resolve, 0));
+    // 信号を送って入力をクリア
+    setInputClearSignal(prev => prev + 1);
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
@@ -554,7 +555,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onSubmit={handleSendMessage} 
                     isLoading={isLoading} 
                     isEditing={false} 
-                    initialText={inputText} 
+                    initialText="" 
+                    clearSignal={inputClearSignal}
                     onCancelEdit={() => {}} 
                     onStateChange={handleInputStateChange}
                   />
