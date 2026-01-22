@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.81 - Input Stability Fix (Loop Break)
+// views/UserView.tsx - v3.83 - Precise Hint Synchronization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -70,7 +70,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
-  // inputTextは、送信後のリセットや強制上書きのために使用し、タイピング中の動的な同期には使用しない
   const [inputText, setInputText] = useState<string>('');
 
   const startTimeRef = useRef<number>(0);
@@ -94,6 +93,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
+  // タイピング中はヒントを非表示にする
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
@@ -148,7 +148,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   }, []);
 
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
-      if (currentMessages.length < 4) return;
+      // 2往復以上かつ、相談フェーズ（step 6）以上で実行
+      if (currentMessages.length < 4 || onboardingStep < 6) return;
       try {
         const contextualMessages = draftText.trim() 
             ? [...currentMessages, { author: MessageAuthor.USER, text: `(書きかけの思考: ${draftText})` }] 
@@ -157,7 +158,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-            setTimeout(() => setSuggestionsVisible(true), 0);
+            // ローディングが終わっていれば表示
+            if (!isLoading) {
+                setSuggestionsVisible(true);
+            }
         }
       } catch (e) {
         console.warn("Suggestions failed", e);
@@ -184,6 +188,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
 
+      // 応答直後に最初のヒントを生成
       if (currentStep >= 6) {
           await triggerSuggestions(currentMessages);
       }
@@ -192,7 +197,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // 送信開始時に親のステートも空にし、ChatInputへリセット指示を出す
     setInputText('');
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
@@ -212,8 +216,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setSuggestions([]);
-    setSuggestionsVisible(false); 
+    setSuggestionsVisible(false); // 送信した瞬間にヒントを消す
     setIsLoading(true);
     setAiMood('thinking');
 
@@ -525,8 +528,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onCancelEdit={() => {}} 
                     onStateChange={(state) => {
                         setIsTyping(state.isTyping);
-                        // 重要: ここで setInputText(state.currentDraft) を行わない。
-                        // これにより、入力中の文字列が親コンポーネント経由で子(ChatInput)に戻るループを断ち切る。
+                        // 静止状態を検知したら即座にヒントを表示/更新
                         if (state.isSilent && !isLoading && onboardingStep >= 6) {
                             triggerSuggestions(messages, state.currentDraft);
                         }

@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.26 (Restored in v3.79) - Original Design System
+// components/AIAvatar.tsx - v3.83 - Version Label Update
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -322,7 +322,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.26
+        Ver 3.83
       </div>
     </div>
   );

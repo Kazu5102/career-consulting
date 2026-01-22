@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.36 - Controlled Input Reset Logic
+// components/ChatInput.tsx - v2.37 - Precise Silence Detection
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -55,34 +55,36 @@ interface ChatInputProps {
   onSubmit: (text: string) => void;
   isLoading: boolean;
   isEditing: boolean;
-  initialText: string; // 親（UserView）からリセットや初期化のために渡される
+  initialText: string; 
   onCancelEdit: () => void;
   onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 10000; 
-const DRAFT_STABILITY_THRESHOLD = 15;
+const SILENCE_TIMEOUT = 3000; // 10秒から3秒へ大幅短縮
+const TYPING_ACTIVE_TIMEOUT = 800; // キー入力からこの時間内は「入力中」とみなす
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSilent, setIsSilent] = useState(false);
+  const [isActiveTyping, setIsActiveTyping] = useState(false); // 物理的な入力動作を追跡
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 重要: initialTextが空文字になった場合（送信後など）にテキストボックスをクリアする
   useEffect(() => {
     setText(initialText);
   }, [initialText]);
   
+  // 静止判定ロジック
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    if (!isFocused || isLoading || isEditing || isListening) {
+    if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
       return;
     }
@@ -94,16 +96,17 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [isFocused, text, isLoading, isEditing, isListening]);
+  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
 
+  // 親コンポーネントへの状態通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
-      isTyping: text.length > 0 || isListening,
+      isTyping: isActiveTyping || isListening, // 文字の有無ではなく、動作の有無で判定
       isSilent,
       currentDraft: text
     });
-  }, [isFocused, text, isListening, isSilent, onStateChange]);
+  }, [isFocused, isActiveTyping, isListening, isSilent, text, onStateChange]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -120,6 +123,19 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       }
     }
   }, [text]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setText(val);
+    setIsSilent(false);
+    
+    // アクティブなタイピング状態の管理
+    setIsActiveTyping(true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+        setIsActiveTyping(false);
+    }, TYPING_ACTIVE_TIMEOUT);
+  };
 
   const handleMicClick = () => {
     if (isListening) {
@@ -167,8 +183,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const handleTextSubmit = () => {
     if (!text.trim() || isLoading) return;
     onSubmit(text);
-    // 送信直後に自身でもクリア（即時反映用）
     if (!isEditing) setText('');
+    setIsActiveTyping(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -192,10 +208,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (isSilent) setIsSilent(false);
-          }}
+          onChange={handleTextChange}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);

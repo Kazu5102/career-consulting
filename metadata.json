@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.81",
-  "description": "Protocol 2.0 Compliant. 入力欄のチラつき問題を解消した安定版。単方向ステート同期によるIME入力の完全保護を実装。",
-  "version": "3.81",
+  "name": "Career Consulting_3.83",
+  "description": "Protocol 2.0 Compliant. ヒント表示ロジックの再構築。3秒間の入力停止や文字消去を検知して、最適なタイミングでHINTを表示する機能を復元・強化。",
+  "version": "3.83",
   "prompt": ""
 }
