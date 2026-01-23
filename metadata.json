@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.03",
-  "description": "Stability Protocol 4.03: 503/429エラー自動再試行（指数関数的バックオフ）を実装。通信の回復性を極限まで強化。",
-  "version": "4.03",
+  "name": "Career Consulting_4.04",
+  "description": "Stability Protocol 4.04: 二重返信防止プロトコルを実装。同期ロック(Ref Lock)によりレースコンディションを完全に排除。",
+  "version": "4.04",
   "prompt": ""
 }

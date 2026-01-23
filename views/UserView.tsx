@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.01 - Active Suggestion Protocol
+// views/UserView.tsx - v4.04 - Race Condition Prevention Update
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -80,6 +80,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const slowResponseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startTimeRef = useRef<number>(0);
+  // v4.04: Synchronous lock to prevent race conditions during state updates
+  const isProcessingRef = useRef<boolean>(false);
+  
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
   const [crisisCount, setCrisisCount] = useState(0);
@@ -161,6 +164,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setCrisisCount(0);
     lastSuggestionKeyRef.current = ''; 
     isFetchingSuggestionsRef.current = false;
+    isProcessingRef.current = false;
     
     setView('chatting');
   }, []);
@@ -170,7 +174,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (onboardingStep < 6) return;
 
       const trimmedDraft = draftText.trim();
-      // Version 4.01: 直近のAIの発話も含めてキーを生成し、文脈が変わるたびに確実にトリガーされるように改善
       const lastAiMsg = [...currentMessages].reverse().find(m => m.author === MessageAuthor.AI)?.text || "";
       const suggestionKey = `${currentMessages.length}-${lastAiMsg.slice(-10)}-${trimmedDraft}`;
 
@@ -200,8 +203,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    
-    // Version 4.01: 沈黙検知時の表示
     if (state.isSilent && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
@@ -209,6 +210,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
       setIsLoading(false);
+      isProcessingRef.current = false; // v4.04: Release lock
+      
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
 
@@ -227,33 +230,36 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
 
-      if (aiText.includes('[COMPLETE_READY]')) {
-          setIsCompleteReady(true);
-      } else {
-          setIsCompleteReady(false);
-      }
+      setIsCompleteReady(aiText.includes('[COMPLETE_READY]'));
 
-      // Version 4.01: AIの発話が終了した瞬間に、空欄の状態で一度候補を強制取得しにいく
       if (currentStep >= 6) {
           await triggerSuggestions(currentMessages, "", true);
       }
   };
 
   const handleSendMessage = async (text: string, isRetry: boolean = false) => {
-    if (!text.trim() || (isLoading && !isRetry)) return;
+    const trimmedText = text.trim();
+    // v4.04: Synchronous lock check to prevent duplicate execution during state transitions
+    if (!trimmedText || (isProcessingRef.current && !isRetry)) return;
     
+    isProcessingRef.current = true;
+    setIsLoading(true);
     setInputClearSignal(prev => prev + 1);
 
-    if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
+    if (trimmedText.includes('まとめて') || trimmedText.includes('終了') || trimmedText.includes('完了')) {
         handleGenerateSummary();
+        isProcessingRef.current = false;
+        setIsLoading(false);
         return;
     }
 
-    const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
+    const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(trimmedText));
     if (hasCrisisWord) {
         setCrisisCount(prev => prev + 1);
         setIsCrisisModalOpen(true);
-        setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
+        setMessages(prev => [...prev, { author: MessageAuthor.USER, text: trimmedText }]);
+        isProcessingRef.current = false;
+        setIsLoading(false);
         return;
     }
 
@@ -264,19 +270,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     if (isRetry) {
         newMessages = messages.filter((m, i) => !(m.author === MessageAuthor.AI && i === messages.length - 1));
     } else {
-        const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
-        newMessages = [...messages, userMessage];
+        newMessages = [...messages, { author: MessageAuthor.USER, text: trimmedText }];
     }
     
     setMessages(newMessages);
     setSuggestionsVisible(false); 
     setIsCompleteReady(false); 
-    setIsLoading(true);
     setAiMood('thinking');
     lastSuggestionKeyRef.current = ''; 
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
-        await processOnboarding(text, newMessages);
+        await processOnboarding(trimmedText, newMessages);
         return;
     }
 
@@ -296,6 +300,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                   setIsCrisisModalOpen(true);
                   setMessages(prev => prev.slice(0, -1));
                   setIsLoading(false);
+                  isProcessingRef.current = false;
                   return;
               }
               throw new Error(value.error.message);
@@ -320,6 +325,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: error.message || "通信エラーが発生しました。" }]);
       setIsLoading(false);
+      isProcessingRef.current = false;
       setAiMood('neutral');
     }
   };
@@ -342,6 +348,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);
+    // Artificial small delay for UX smoothness
     await new Promise(r => setTimeout(r, 400));
     let nextText = '';
     let nextStep = onboardingStep + 1;
@@ -389,6 +396,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
     setOnboardingStep(nextStep);
     setIsLoading(false);
+    isProcessingRef.current = false;
   };
 
   const startActualConsultation = async (history: ChatMessage[], profile: UserProfile, stepAtFinalize: number) => {
@@ -415,11 +423,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。時間をおいて再度お試しください。" }]);
       setIsLoading(false);
+      isProcessingRef.current = false;
     }
   };
 
   const handleGoBack = () => {
-    if (onboardingStep <= 1) return;
+    if (onboardingStep <= 1 || isProcessingRef.current) return;
     setBackCount(prev => prev + 1);
     const prevHistory = [...onboardingHistory];
     const prevProfile = prevHistory.pop() || { lifeRoles: [] };
@@ -448,9 +457,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsCompleteReady(false);
     setCrisisCount(0);
     lastSuggestionKeyRef.current = '';
+    isProcessingRef.current = false;
   };
 
   const handleGenerateSummary = () => {
+    if (isProcessingRef.current) return;
     setIsSummaryModalOpen(true);
     setIsSummaryLoading(true);
     generateSummary(messages, aiType, aiName, userProfile)
@@ -478,6 +489,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       
       setUserConversations(updated.filter((c:any) => c.userId === userId));
       setIsFinalizing(false);
+      isProcessingRef.current = false;
       
       if (isInterrupt) {
           setView('dashboard'); 
@@ -499,13 +511,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   const renderOnboardingUI = () => {
-    if (isLoading) return null;
+    // v4.04: Added disabled states and opacity to prevent double clicks during processing
     return (
       <div className="flex flex-col">
         {onboardingStep === 1 && (
-          <div className="grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500">
+          <div className={`grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {STAGES.map(s => (
-              <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all shadow-sm active:scale-[0.98]">
+              <button key={s.id} onClick={() => handleSendMessage(s.label)} disabled={isLoading} className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all shadow-sm active:scale-[0.98]">
                 <p className="font-bold text-slate-800">{s.label}</p>
                 <p className="text-xs text-slate-500 mt-1">{s.sub}</p>
               </button>
@@ -513,29 +525,30 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           </div>
         )}
         {onboardingStep === 2 && (
-          <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500">
+          <div className={`flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {AGES.map(a => (
-              <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
+              <button key={a} onClick={() => handleSendMessage(a)} disabled={isLoading} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {a}
               </button>
             ))}
           </div>
         )}
         {onboardingStep === 3 && (
-          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
+          <div className={`flex flex-wrap gap-2 p-4 animate-in fade-in duration-500 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {['男性', '女性', 'その他', '回答しない'].map(g => (
-              <button key={g} onClick={() => handleSendMessage(g)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
+              <button key={g} onClick={() => handleSendMessage(g)} disabled={isLoading} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {g}
               </button>
             ))}
           </div>
         )}
         {onboardingStep === 4 && (
-          <div className="p-4 flex flex-col gap-5 animate-in fade-in duration-500">
+          <div className={`p-4 flex flex-col gap-5 animate-in fade-in duration-500 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             <div className="flex flex-wrap gap-3">
               {LIFE_ROLES.map(r => (
                 <button 
                   key={r.id} 
+                  disabled={isLoading}
                   onClick={() => setSelectedRoles(prev => prev.includes(r.label) ? prev.filter(x => x !== r.label) : [...prev, r.label])}
                   className={`px-5 py-2.5 rounded-full border transition-all flex items-center gap-2.5 font-bold shadow-sm active:scale-[0.98] ${
                     selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white shadow-sky-100' : 'bg-white border-slate-200 text-slate-700'
@@ -545,13 +558,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 </button>
               ))}
             </div>
-            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-[0.98]">これで決定する</button>
+            <button disabled={selectedRoles.length === 0 || isLoading} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-[0.98]">これで決定する</button>
           </div>
         )}
         {onboardingStep === 5 && (
-          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
+          <div className={`flex flex-wrap gap-2 p-4 animate-in fade-in duration-500 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
-              <button key={c} onClick={() => handleSendMessage(c)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
+              <button key={c} onClick={() => handleSendMessage(c)} disabled={isLoading} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
                 {c}
               </button>
             ))}
@@ -560,9 +573,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         {onboardingStep >= 1 && onboardingStep <= 5 && (
           <div className="flex justify-center gap-8 pb-4 text-xs font-bold text-slate-400">
             {onboardingStep > 1 && (
-              <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>
+              <button onClick={handleGoBack} disabled={isLoading} className="hover:text-sky-600 transition-colors uppercase tracking-wider disabled:opacity-30">← 戻る</button>
             )}
-            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
+            <button onClick={() => resetOnboarding(true)} disabled={isLoading} className="hover:text-sky-600 transition-colors uppercase tracking-wider disabled:opacity-30">最初からやり直す</button>
           </div>
         )}
       </div>
@@ -600,7 +613,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-10">
-                  {/* Recovery Chip */}
                   {isResponseSlow && (
                     <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-2">
@@ -616,7 +628,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     </div>
                   )}
 
-                  {/* Suggestion & Action Layout Optimization for Mobile */}
                   <div className="relative">
                       {onboardingStep >= 6 && !isLoading && (
                         <InductionChip 
@@ -666,7 +677,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       <InterruptModal 
         isOpen={isInterruptModalOpen} 
         onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' }, true)} 
-        onExitWithoutSaving={() => { setIsInterruptModalOpen(false); setView('dashboard'); }} 
+        onExitWithoutSaving={() => { setIsInterruptModalOpen(false); setView('dashboard'); isProcessingRef.current = false; }} 
         onContinue={() => setIsInterruptModalOpen(false)} 
       />
 
