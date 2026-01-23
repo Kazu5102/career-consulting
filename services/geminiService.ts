@@ -1,11 +1,12 @@
 
-// services/geminiService.ts - v2.19 - Enhanced Error Propagation
+// services/geminiService.ts - v4.00 - Resilience Enhancement
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
-const ANALYSIS_TIMEOUT = 300000;
+const ANALYSIS_TIMEOUT = 300000; // 5分（重い分析用）
+const CHAT_TIMEOUT = 60000; // 60秒（チャット用）
 
-async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 20000): Promise<any> {
+async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 30000): Promise<any> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -21,9 +22,9 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.details || errorData.error || `サーバーエラー: ${response.status}`;
+            const errorMessage = errorData.details || errorData.error || `Server Error: ${response.status}`;
             const error: any = new Error(errorMessage);
-            error.code = errorData.code; // Propagation of safety codes
+            error.code = errorData.code;
             throw error;
         }
         
@@ -32,26 +33,17 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
     } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof DOMException && error.name === 'AbortError') {
-            throw new Error('タイムアウトしました。');
+            throw new Error('通信がタイムアウトしました。安定したネットワーク環境で再度お試しください。');
         }
         throw error;
     }
 }
 
 export const checkServerStatus = async (): Promise<{status: string}> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
-        const response = await fetch(PROXY_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'healthCheck', payload: {} }),
-            signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        return response.json();
+        const response = await fetchFromProxy('healthCheck', {}, false, 10000);
+        return response;
     } catch (error) {
-        clearTimeout(timeoutId);
         throw error;
     }
 };
@@ -67,7 +59,7 @@ export interface StreamUpdate {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
-        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, 60000);
+        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, CHAT_TIMEOUT);
         const rawStream = response.body;
         if (!rawStream) return null;
 
@@ -104,13 +96,11 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
                             const parsed = JSON.parse(jsonStr);
                             if (parsed.type === 'text') {
                                 controller.enqueue({ text: parsed.content });
-                            } else if (parsed.type === 'grounding') {
-                                controller.enqueue({ groundingMetadata: parsed.content });
                             } else if (parsed.type === 'error') {
                                 controller.enqueue({ error: { message: parsed.content, code: parsed.code } });
                             }
                         } catch (e) {
-                            console.warn("JSON Parse Error", jsonStr);
+                            // JSONパース失敗時は無視して継続
                         }
                     }
                 } catch (e) {
@@ -122,7 +112,6 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
             }
         });
     } catch (error: any) {
-        // Handle immediate fetch errors
         return new ReadableStream({
             start(controller) {
                 controller.enqueue({ error: { message: error.message, code: error.code } });
@@ -133,30 +122,12 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 };
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
-    const data = await fetchFromProxy('generateSummary', { chatHistory, aiType, aiName, profile }, false, 60000);
+    const data = await fetchFromProxy('generateSummary', { chatHistory, aiType, aiName, profile }, false, CHAT_TIMEOUT);
     return data.text;
-};
-
-export const reviseSummary = async (originalSummary: string, correctionRequest: string): Promise<string> => {
-    const data = await fetchFromProxy('reviseSummary', { originalSummary, correctionRequest });
-    return data.text;
-};
-
-export const analyzeConversations = async (summaries: StoredConversation[]): Promise<AnalysisData> => {
-    return await fetchFromProxy('analyzeConversations', { summaries }, false, ANALYSIS_TIMEOUT);
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
     return await fetchFromProxy('analyzeTrajectory', { conversations, userId }, false, ANALYSIS_TIMEOUT);
-};
-
-export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
-    return await fetchFromProxy('findHiddenPotential', { conversations, userId }, false, ANALYSIS_TIMEOUT);
-};
-
-export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
-    const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze });
-    return data.text;
 };
 
 export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
@@ -165,8 +136,26 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
 
 export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => {
     try {
-        return await fetchFromProxy('generateSuggestions', { messages });
+        return await fetchFromProxy('generateSuggestions', { messages }, false, 15000);
     } catch (e) {
         return { suggestions: [] };
     }
+};
+
+export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
+    const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze }, false, CHAT_TIMEOUT);
+    return data.text;
+};
+
+export const reviseSummary = async (originalSummary: string, correctionRequest: string): Promise<string> => {
+    const data = await fetchFromProxy('reviseSummary', { originalSummary, correctionRequest }, false, CHAT_TIMEOUT);
+    return data.text;
+};
+
+export const analyzeConversations = async (summaries: StoredConversation[]): Promise<AnalysisData> => {
+    return await fetchFromProxy('analyzeConversations', { summaries }, false, ANALYSIS_TIMEOUT);
+};
+
+export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
+    return await fetchFromProxy('findHiddenPotential', { conversations, userId }, false, ANALYSIS_TIMEOUT);
 };

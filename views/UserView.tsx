@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.99 - Expert Matching Protocol Update
+// views/UserView.tsx - v4.00 - Mobile UX Optimization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -76,7 +76,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
 
-  // Recovery States
   const [isResponseSlow, setIsResponseSlow] = useState<boolean>(false);
   const slowResponseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,12 +103,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const lastSuggestionKeyRef = useRef<string>('');
   const isFetchingSuggestionsRef = useRef<boolean>(false);
 
-  // Slow Response Monitoring
   useEffect(() => {
     if (isLoading) {
         slowResponseTimerRef.current = setTimeout(() => {
             setIsResponseSlow(true);
-        }, 15000); 
+        }, 20000); 
     } else {
         if (slowResponseTimerRef.current) clearTimeout(slowResponseTimerRef.current);
         setIsResponseSlow(false);
@@ -191,7 +189,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             }
         }
       } catch (e) {
-        console.warn("Suggestions fetch failed", e);
         lastSuggestionKeyRef.current = '';
       } finally {
         isFetchingSuggestionsRef.current = false;
@@ -201,6 +198,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
     
+    // 入力が止まった、または下書きが空でタイピングしていない時に候補を出す
     if ((state.isSilent || (state.currentDraft.length === 0 && !state.isTyping)) && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
@@ -311,17 +309,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 clearTimeout(slowResponseTimerRef.current);
                 setIsResponseSlow(false);
             }
-
-            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
-            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
-            else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
-            else if (aiResponseText.includes('[REASSURE]')) setAiMood('reassure');
           }
       }
       await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }], onboardingStep);
-    } catch (error) {
+    } catch (error: any) {
       setHasError(true);
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
+      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: error.message || "通信エラーが発生しました。" }]);
       setIsLoading(false);
       setAiMood('neutral');
     }
@@ -390,11 +383,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
 
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
-    
-    if (nextText.includes('[HAPPY]')) setAiMood('happy');
-    else if (nextText.includes('[REASSURE]')) setAiMood('reassure');
-    else if (nextText.includes('[CURIOUS]')) setAiMood('curious');
-    
     setOnboardingStep(nextStep);
     setIsLoading(false);
   };
@@ -416,14 +404,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 updated[updated.length - 1].text = aiResponseText;
                 return updated;
             });
-            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
-            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
           }
       }
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }], stepAtFinalize);
     } catch (e) { 
       setHasError(true);
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
+      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。時間をおいて再度お試しください。" }]);
       setIsLoading(false);
     }
   };
@@ -458,7 +444,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsCompleteReady(false);
     setCrisisCount(0);
     lastSuggestionKeyRef.current = '';
-    isFetchingSuggestionsRef.current = false;
   };
 
   const handleGenerateSummary = () => {
@@ -481,9 +466,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           try {
               const parsed = JSON.parse(storedDataRaw);
               currentAllConversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
-          } catch(e) {
-              console.error("Save error: failed to parse local storage", e);
-          }
+          } catch(e) {}
       }
       
       let updated = [...currentAllConversations, conversation];
@@ -497,7 +480,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setMessages([]); 
           setOnboardingStep(0);
           setIsConsultationReady(false);
-          setAiMood('neutral');
           lastSuggestionKeyRef.current = '';
       } else {
           setView('referral'); 
@@ -509,7 +491,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setMessages([]); 
       setOnboardingStep(0);
       setIsConsultationReady(false);
-      setAiMood('neutral');
       lastSuggestionKeyRef.current = '';
   };
 
@@ -577,7 +558,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             {onboardingStep > 1 && (
               <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>
             )}
-            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり難す</button>
+            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
           </div>
         )}
       </div>
@@ -631,27 +612,33 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     </div>
                   )}
 
-                  {renderOnboardingUI()}
-                  <ChatInput 
-                    onSubmit={handleSendMessage} 
-                    isLoading={isLoading} 
-                    isEditing={false} 
-                    initialText="" 
-                    clearSignal={inputClearSignal}
-                    onCancelEdit={() => {}} 
-                    onStateChange={handleInputStateChange}
-                  />
-                  {onboardingStep >= 6 && !isLoading && (
-                    <InductionChip 
-                        isVisible={isCompleteReady} 
-                        onSummarize={handleGenerateSummary} 
-                        onDeepDive={handleDeepDive} 
-                    />
-                  )}
-                  {onboardingStep >= 6 && (
-                    <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !isCompleteReady} />
-                  )}
-                  {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
+                  {/* Suggestion & Action Layout Optimization for Mobile */}
+                  <div className="relative">
+                      {onboardingStep >= 6 && !isLoading && (
+                        <InductionChip 
+                            isVisible={isCompleteReady} 
+                            onSummarize={handleGenerateSummary} 
+                            onDeepDive={handleDeepDive} 
+                        />
+                      )}
+                      {onboardingStep >= 6 && (
+                        <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !isCompleteReady} />
+                      )}
+                      
+                      {renderOnboardingUI()}
+                      
+                      <ChatInput 
+                        onSubmit={handleSendMessage} 
+                        isLoading={isLoading} 
+                        isEditing={false} 
+                        initialText="" 
+                        clearSignal={inputClearSignal}
+                        onCancelEdit={() => {}} 
+                        onStateChange={handleInputStateChange}
+                      />
+                      
+                      {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
+                  </div>
               </div>
             </div>
          </div>}

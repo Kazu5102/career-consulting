@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v3.88 - Robust Delete UX
+// views/AdminView.tsx - v4.00 - Stability Enhancement
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -37,7 +37,6 @@ const AdminView: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     
-    // 削除モード用ステート
     const [isDeleteMode, setIsDeleteMode] = useState(false);
     const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set());
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -55,13 +54,17 @@ const AdminView: React.FC = () => {
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
 
     const loadData = useCallback(() => {
-        setUsers(userService.getUsers());
-        const stored = localStorage.getItem('careerConsultations');
-        if (stored) {
-            try {
+        try {
+            setUsers(userService.getUsers() || []);
+            const stored = localStorage.getItem('careerConsultations');
+            if (stored) {
                 const parsed = JSON.parse(stored);
                 setConversations(parsed.data || (Array.isArray(parsed) ? parsed : []));
-            } catch (e) { setConversations([]); }
+            } else {
+                setConversations([]);
+            }
+        } catch (e) {
+            console.error("Data loading error", e);
         }
     }, []);
 
@@ -77,9 +80,7 @@ const AdminView: React.FC = () => {
             const isHighRisk = userConvs.some(c => 
                 c.summary.includes('要介入') || 
                 c.summary.includes('危険') || 
-                c.summary.includes('死') || 
-                c.summary.includes('退職代行') ||
-                c.messages.some(m => /死にたい|自殺|消えたい|終わりにしたい/.test(m.text))
+                c.messages.some(m => /死にたい|自殺|消えたい/.test(m.text))
             );
 
             meta[u.id] = {
@@ -94,13 +95,15 @@ const AdminView: React.FC = () => {
 
     const stats = useMemo(() => {
         const counts = { total: users.length, interrupted: 0, highRisk: 0, noHistory: 0 };
-        (Object.values(userMetadata) as Array<{ status: string; isHighRisk: boolean; count: number }>).forEach(m => {
+        users.forEach(u => {
+            const m = userMetadata[u.id];
+            if (!m) return;
             if (m.status === 'interrupted') counts.interrupted++;
             if (m.isHighRisk) counts.highRisk++;
             if (m.count === 0) counts.noHistory++;
         });
         return counts;
-    }, [userMetadata, users.length]);
+    }, [userMetadata, users]);
 
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => 
@@ -121,8 +124,10 @@ const AdminView: React.FC = () => {
         }
 
         return list.sort((a, b) => {
-            const dateA = new Date(userMetadata[a.id].lastDate).getTime() || 0;
-            const dateB = new Date(userMetadata[b.id].lastDate).getTime() || 0;
+            const m_a = userMetadata[a.id];
+            const m_b = userMetadata[b.id];
+            const dateA = m_a ? new Date(m_a.lastDate).getTime() : 0;
+            const dateB = m_b ? new Date(m_b.lastDate).getTime() : 0;
             return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
         });
     }, [users, searchQuery, filterStatus, sortOrder, userMetadata]);
@@ -133,7 +138,8 @@ const AdminView: React.FC = () => {
     }, [conversations, selectedUserId]);
 
     const toggleDeleteMode = () => {
-        setIsDeleteMode(!isDeleteMode);
+        const nextMode = !isDeleteMode;
+        setIsDeleteMode(nextMode);
         setSelectedForDeletion(new Set());
     };
 
@@ -177,11 +183,6 @@ const AdminView: React.FC = () => {
             return;
         }
 
-        if (type === 'trajectory' && selectedUserConversations.length < 2) {
-            setAnalyses(prev => ({ ...prev, trajectory: { status: 'error', data: null, error: "軌跡分析には、少なくとも2回以上の履歴が必要です。" } }));
-            return;
-        }
-
         setAnalyses({
             trajectory: type === 'trajectory' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
             skillMatching: type === 'skillMatching' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
@@ -197,7 +198,7 @@ const AdminView: React.FC = () => {
                 setAnalyses(prev => ({ ...prev, skillMatching: { status: 'success', data, error: null } }));
             }
         } catch (err: any) {
-            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: err.message || "エラーが発生しました。" } }));
+            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: err.message || "分析エラーが発生しました。" } }));
         }
     };
 
@@ -238,15 +239,14 @@ const AdminView: React.FC = () => {
                         <h2 className="text-xl font-black text-slate-800 tracking-tight px-1">相談者リスト</h2>
                         <button 
                             onClick={toggleDeleteMode}
-                            className={`p-2 rounded-xl transition-all ${isDeleteMode ? 'bg-rose-600 text-white shadow-lg shadow-rose-100 ring-2 ring-rose-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            title={isDeleteMode ? '削除モードを終了' : '一括削除モードを開始'}
+                            className={`p-2 rounded-xl transition-all ${isDeleteMode ? 'bg-rose-600 text-white shadow-lg ring-2 ring-rose-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             <TrashIcon className="w-5 h-5" />
                         </button>
                     </div>
 
                     {isDeleteMode ? (
-                        <div className="flex items-center justify-between px-2 py-2 mb-2 bg-rose-50 border border-rose-100 rounded-xl animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center justify-between px-2 py-2 mb-2 bg-rose-50 border border-rose-100 rounded-xl">
                              <div className="flex items-center gap-3">
                                 <input 
                                     type="checkbox" 
@@ -256,7 +256,7 @@ const AdminView: React.FC = () => {
                                 />
                                 <span className="text-xs font-black text-rose-700 uppercase tracking-widest">Select All</span>
                              </div>
-                             <span className="text-[10px] font-black text-rose-400 bg-white px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-tighter shadow-sm">
+                             <span className="text-[10px] font-black text-rose-400 bg-white px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-tighter">
                                 {selectedForDeletion.size} Selected
                              </span>
                         </div>
@@ -288,7 +288,7 @@ const AdminView: React.FC = () => {
                 
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/30">
                     {filteredUsers.length > 0 ? filteredUsers.map(user => {
-                        const meta = userMetadata[user.id];
+                        const meta = userMetadata[user.id] || { isHighRisk: false, lastDate: '', status: '', count: 0 };
                         const isSelected = isDeleteMode && selectedForDeletion.has(user.id);
                         const isCurrent = selectedUserId === user.id;
 
@@ -299,29 +299,28 @@ const AdminView: React.FC = () => {
                                 className={`w-full group relative flex items-center gap-4 p-4 rounded-2xl transition-all border ${
                                     isSelected ? 'bg-rose-50 border-rose-300 shadow-md ring-2 ring-rose-100' : 
                                     isCurrent ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' : 
-                                    'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'
+                                    'bg-white border-slate-100 hover:border-slate-300'
                                 }`}
                             >
                                 {isDeleteMode && (
-                                    <div className="flex-shrink-0 animate-in zoom-in duration-200">
+                                    <div className="flex-shrink-0">
                                         <input 
                                             type="checkbox" 
                                             checked={isSelected}
-                                            onChange={(e) => handleToggleUserSelection(user.id, e)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="w-6 h-6 rounded-lg border-rose-300 text-rose-600 focus:ring-rose-500 transition-all cursor-pointer shadow-sm pointer-events-none"
+                                            readOnly
+                                            className="w-6 h-6 rounded-lg border-rose-300 text-rose-600 focus:ring-rose-500 pointer-events-none"
                                         />
                                     </div>
                                 )}
                                 
                                 {meta.isHighRisk && !isDeleteMode && (
-                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full animate-in fade-in duration-300">
+                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                     <span className="text-[8px] font-black text-white uppercase tracking-tighter">Critical</span>
                                   </div>
                                 )}
 
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 ${
                                     isSelected ? 'bg-rose-500' : isCurrent ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'
                                 }`}>
                                     <UserIcon className="w-6 h-6" />
@@ -337,34 +336,32 @@ const AdminView: React.FC = () => {
                             </button>
                         );
                     }) : (
-                        <div className="text-center py-20 opacity-30">
-                            <p className="text-sm font-bold text-slate-500 italic">該当する相談者はいません</p>
-                        </div>
+                        <div className="text-center py-20 opacity-30 italic font-bold">相談者がいません</div>
                     )}
                 </div>
 
                 {isDeleteMode ? (
-                    <div className="p-4 bg-white border-t space-y-3 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-4 bg-white border-t space-y-3">
                          <button 
                             onClick={executeBulkDelete}
                             disabled={selectedForDeletion.size === 0}
-                            className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all active:scale-[0.98] disabled:bg-slate-200 disabled:shadow-none"
+                            className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 active:scale-[0.98] disabled:bg-slate-200"
                         >
                             <TrashIcon className="w-5 h-5" />
-                            <span className="uppercase tracking-widest text-sm">Delete Selected ({selectedForDeletion.size})</span>
+                            <span>選択した {selectedForDeletion.size} 名を削除</span>
                         </button>
                         <button 
                             onClick={toggleDeleteMode}
                             className="w-full py-3 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest"
                         >
-                            Cancel
+                            キャンセル
                         </button>
                     </div>
                 ) : (
                     <div className="p-4 bg-white border-t space-y-2">
-                        <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
-                        <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest border border-slate-100"><LogIcon className="w-4 h-4" /> System Logs</button>
-                        <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all uppercase tracking-widest border border-rose-100"><LockIcon className="w-4 h-4" /> Security Settings</button>
+                        <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 uppercase tracking-widest"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
+                        <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 uppercase tracking-widest"><LogIcon className="w-4 h-4" /> System Logs</button>
+                        <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-100 uppercase tracking-widest"><LockIcon className="w-4 h-4" /> Security Settings</button>
                     </div>
                 )}
             </aside>
@@ -375,7 +372,7 @@ const AdminView: React.FC = () => {
             `}>
                 {selectedUserId ? (
                     <div className="flex-1 flex flex-col h-full">
-                        <header className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 backdrop-blur-md px-4 md:px-8 py-4 border-b border-slate-100 shadow-sm">
+                        <header className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 backdrop-blur-md px-4 md:px-8 py-4 border-b border-slate-100">
                             <div className="flex items-center gap-4 w-full md:w-auto">
                                 <button 
                                     onClick={handleDeselectUser}
@@ -384,21 +381,14 @@ const AdminView: React.FC = () => {
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                                 </button>
                                 <div className="overflow-hidden">
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-800 truncate">{users.find(u => u.id === selectedUserId)?.nickname} <span className="font-medium text-slate-400">さんの分析</span></h1>
+                                    <h1 className="text-xl md:text-2xl font-black text-slate-800 truncate">{users.find(u => u.id === selectedUserId)?.nickname} さんの分析</h1>
                                     <p className="text-[10px] text-slate-400 font-mono truncate">{selectedUserId}</p>
                                 </div>
                             </div>
                             <div className="flex gap-2 w-full md:w-auto">
                                 <button onClick={() => runAnalysis('trajectory')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-100 text-xs sm:text-sm active:scale-95 transition-all"><TrajectoryIcon className="w-4 h-4" />軌跡分析</button>
                                 <button onClick={() => runAnalysis('skillMatching')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 text-xs sm:text-sm active:scale-95 transition-all"><TargetIcon className="w-4 h-4" />適職診断</button>
-                                <button 
-                                    onClick={() => setIsShareModalOpen(true)} 
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95 text-xs sm:text-sm"
-                                    title="暗号化レポートを出力"
-                                >
-                                    <FileTextIcon className="w-4 h-4"/>
-                                    レポート出力
-                                </button>
+                                <button onClick={() => setIsShareModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all active:scale-95 text-xs sm:text-sm"><FileTextIcon className="w-4 h-4"/> レポート出力</button>
                             </div>
                         </header>
 
@@ -409,34 +399,20 @@ const AdminView: React.FC = () => {
                                 <section className="space-y-6">
                                     <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1">
                                         <div className="w-2 h-6 bg-slate-200 rounded-full"></div>
-                                        個別セッション履歴 ({selectedUserConversations.length}件)
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase ml-2 bg-slate-100 px-2 py-1 rounded">クリックで全ログを表示</span>
+                                        セッション履歴 ({selectedUserConversations.length}件)
                                     </h3>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         {selectedUserConversations.map(conv => (
                                             <button 
                                                 key={conv.id} 
                                                 onClick={() => setSelectedConvForDetail(conv)}
-                                                className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-300 transition-all group text-left relative overflow-hidden"
+                                                className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-300 transition-all text-left relative"
                                             >
-                                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <div className="bg-sky-600 text-white p-2 rounded-full shadow-lg">
-                                                        <ChatIcon className="w-4 h-4" />
-                                                    </div>
-                                                </div>
-
                                                 <div className="flex justify-between items-center mb-4">
                                                     <div className="text-[10px] font-black text-slate-400 font-mono">{new Date(conv.date).toLocaleString()}</div>
-                                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{conv.status}</span>
+                                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{conv.status}</span>
                                                 </div>
-                                                <p className="text-[10px] text-sky-600 font-black mb-4 uppercase tracking-tighter flex items-center gap-1.5">
-                                                    <ChatIcon className="w-3 h-3" /> Consulted by {conv.aiName}
-                                                </p>
-                                                <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600 font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(parseUserSummary(conv.summary)) }} />
-                                                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest group-hover:text-sky-600 transition-colors">
-                                                    <span>View full dialog</span>
-                                                    <span>→</span>
-                                                </div>
+                                                <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600 font-medium" dangerouslySetInnerHTML={{ __html: marked.parse(parseUserSummary(conv.summary)) }} />
                                             </button>
                                         ))}
                                     </div>
@@ -447,13 +423,11 @@ const AdminView: React.FC = () => {
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
                         <div className="relative mb-8">
-                            <div className="absolute inset-0 bg-sky-100 rounded-full scale-150 opacity-10 animate-pulse"></div>
                             <div className="relative p-12 bg-white rounded-full shadow-2xl border border-slate-50"><UserIcon className="w-20 h-20 text-slate-200" /></div>
                         </div>
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">相談者を選択して分析を開始</h2>
-                        <p className="mt-4 font-bold text-slate-400 max-w-sm mx-auto leading-relaxed text-base">
-                            左側のリストから相談者を選ぶと、<br/>
-                            AIが対話履歴に基づいた専門的な分析、レポート出力が可能です。
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">相談者を選択してください</h2>
+                        <p className="mt-4 font-bold text-slate-400 max-w-sm mx-auto leading-relaxed">
+                            左側のリストから相談者を選ぶと、AIによる詳細な分析が可能になります。
                         </p>
                     </div>
                 )}
@@ -479,18 +453,8 @@ const AdminView: React.FC = () => {
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={analyses.trajectory.data ? { trajectory: analyses.trajectory.data, skillMatching: analyses.skillMatching.data } : null} />}
-            {selectedConvForDetail && (
-                <ConversationDetailModal 
-                    conversation={selectedConvForDetail} 
-                    onClose={() => setSelectedConvForDetail(null)} 
-                />
-            )}
-            <DeleteConfirmModal 
-                isOpen={isDeleteModalOpen} 
-                count={selectedForDeletion.size} 
-                onCancel={() => setIsDeleteModalOpen(false)} 
-                onConfirm={handleFinalDelete} 
-            />
+            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} />}
+            <DeleteConfirmModal isOpen={isDeleteModalOpen} count={selectedForDeletion.size} onCancel={() => setIsDeleteModalOpen(false)} onConfirm={handleFinalDelete} />
         </div>
     );
 };

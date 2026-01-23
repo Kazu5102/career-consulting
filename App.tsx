@@ -1,5 +1,5 @@
 
-// App.tsx - v3.99 - Version Update
+// App.tsx - v4.00 - Major Stability Update
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -12,7 +12,7 @@ import UserSelectionView from './views/UserSelectionView';
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
 
-const VERSION = "3.99";
+const VERSION = "4.00";
 const CONSENT_KEY = `legal_consent_v${VERSION}`;
 
 const App: React.FC = () => {
@@ -33,7 +33,6 @@ const App: React.FC = () => {
         };
         verifyServer();
 
-        // Protocol 2.0: Strict version-based consent check
         const hasConsented = localStorage.getItem(CONSENT_KEY);
         if (!hasConsented) {
             setIsLegalModalOpen(true);
@@ -64,7 +63,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        alert(`【Protocol 2.0 Verified (v${VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`);
+        alert(`【Stability Protocol 4.0 (v${VERSION})】\n\n1. 通信エラー耐性の強化（タイムアウト緩和）\n2. モバイル向けSuggestionロジックの刷新\n3. 管理者操作の完全同期・クラッシュ防止\n4. データ整合性チェックの自動化`);
     };
 
     return (
@@ -78,8 +77,8 @@ const App: React.FC = () => {
                                     onClick={showProtocolDetail}
                                     className="bg-sky-500 hover:bg-sky-400 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm transition-colors flex items-center gap-1 normal-case"
                                 >
-                                    <span>Protocol 2.0 Verified</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span>Stability Protocol 4.0</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                                 </button>
                                 <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {VERSION}</span>
                             </div>
