@@ -1,5 +1,5 @@
 
-// App.tsx - v3.91 - Version Synchronization
+// App.tsx - v3.92 - Version Synchronization
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -12,7 +12,7 @@ import UserSelectionView from './views/UserSelectionView';
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
 
-const VERSION = "3.91";
+const VERSION = "3.92";
 const CONSENT_KEY = `legal_consent_v${VERSION}`;
 
 const App: React.FC = () => {

@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.91 - Suggestion Stability Fix
+// views/UserView.tsx - v3.92 - Robust Suggestion Recovery
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -45,6 +45,13 @@ const LIFE_ROLES = [
 const CRISIS_KEYWORDS = [
     /死にたい/, /自殺/, /消えたい/, /死にたくなった/, /自死/, /終わりにしたい/, 
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
+];
+
+// APIエラー時や取得失敗時に表示するデフォルトのヒント
+const FALLBACK_SUGGESTIONS = [
+    '言い方を変えてみる',
+    'これまでの話を整理する',
+    '少し休憩する'
 ];
 
 const GREETINGS = {
@@ -153,7 +160,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
-  // ignoreLoading: AI応答直後など、isLoadingステートの更新ラグを無視して強制実行する場合にtrue
+  // ignoreLoading: AI応答直後やエラー時など、isLoadingステートの更新ラグを無視して強制実行する場合にtrue
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '', ignoreLoading: boolean = false) => {
       // 排他制御とタイミングの検証
       if (isFetchingSuggestionsRef.current) return;
@@ -176,15 +183,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-            // ロード中(強制モード以外)なら表示しない。強制モード(AIターン終了直後)なら表示する。
-            if (!isLoading || ignoreLoading) {
-                setSuggestionsVisible(true);
-            }
+        } else {
+            // APIが空配列を返した場合のフォールバック
+            setSuggestions(FALLBACK_SUGGESTIONS);
         }
       } catch (e) {
         console.warn("Suggestions fetch failed", e);
+        // APIエラー時のフォールバック
+        setSuggestions(FALLBACK_SUGGESTIONS);
+        // キーをリセットして再試行可能にする
         lastSuggestionKeyRef.current = '';
       } finally {
+        // ロード中(強制モード以外)なら表示しない。強制モード(AIターン終了直後やエラー時)なら表示する。
+        if (!isLoading || ignoreLoading) {
+            setSuggestionsVisible(true);
+        }
         isFetchingSuggestionsRef.current = false;
       }
   };
@@ -298,6 +311,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
       setIsLoading(false);
       setAiMood('neutral');
+      // エラー時でも、ユーザーが次の一手を打てるようにヒントを再生成（またはフォールバック表示）する
+      // ここでも ignoreLoading=true で強制実行する
+      await triggerSuggestions(newMessages, '', true);
     }
   };
 
@@ -383,6 +399,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
       setIsLoading(false);
+      // ここでもリカバリを実行
+      await triggerSuggestions(history, '', true);
     }
   };
 
