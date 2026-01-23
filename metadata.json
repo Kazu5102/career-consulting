@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.95",
-  "description": "Protocol 2.0 Compliant. Feature: Safe Suggestion Chips Restoration.",
-  "version": "3.95",
+  "name": "Career Consulting_3.96",
+  "description": "Protocol 2.0 Compliant. Feature: Optimized Suggestion Logic (3-4 items).",
+  "version": "3.96",
   "prompt": ""
 }

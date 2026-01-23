@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.93 - Lightweight Logic
+// api/gemini-proxy.ts - v3.96 - Optimized Suggestion Logic
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -236,10 +236,10 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
     const recentMessages = messages.slice(-4);
     
-    // プロンプトを軽量化し、flashモデルで高速に応答させる
+    // プロンプトを軽量化し、flashモデルで高速に応答させる。選択肢は状況に応じて3〜4つ可変とする。
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `ユーザーが次に発言しそうな短いフレーズを3つ予測してください。JSON形式 { suggestions: string[] } で返してください。
+        contents: `文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。JSON形式 { suggestions: string[] } で返してください。
 履歴:
 ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
         config: {
