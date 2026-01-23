@@ -1,17 +1,16 @@
 
-// services/geminiService.ts - v4.02 - Resilience & Payload Optimization
+// services/geminiService.ts - v4.03 - Auto-Retry Resilience Engine
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
-const ANALYSIS_TIMEOUT = 55000; // Vercelの制限に合わせた短縮 (55秒)
-const CHAT_TIMEOUT = 30000; // チャットは30秒
+const ANALYSIS_TIMEOUT = 55000; 
+const CHAT_TIMEOUT = 30000; 
 
 /**
  * Truncates chat history to keep payloads small and prevent timeouts
  */
 const pruneHistory = (messages: ChatMessage[], limit: number = 20): ChatMessage[] => {
     if (messages.length <= limit) return messages;
-    // Keep first 2 (intro context) and last N-2
     return [
         ...messages.slice(0, 2),
         { author: messages[0].author === 'user' ? 'ai' : 'user' as any, text: "...(中略)..." },
@@ -19,37 +18,87 @@ const pruneHistory = (messages: ChatMessage[], limit: number = 20): ChatMessage[
     ];
 };
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Enhanced fetch with Exponential Backoff Retry logic
+ */
 async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 30000): Promise<any> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const maxRetries = 3;
+    let lastError: any;
 
-    try {
-        const response = await fetch(PROXY_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, payload }),
-            signal: controller.signal,
-        });
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            // Exponential backoff with jitter
+            if (attempt > 0) {
+                const backoffDelay = Math.pow(2, attempt - 1) * 1000 + Math.random() * 500;
+                console.log(`[Stability Protocol 4.03] Retry attempt ${attempt}/${maxRetries} after ${Math.floor(backoffDelay)}ms...`);
+                await sleep(backoffDelay);
+            }
+
+            const response = await fetch(PROXY_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, payload }),
+                signal: controller.signal,
+            });
     
-        clearTimeout(timeoutId);
+            clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.details || errorData.error || `Server Error: ${response.status}`;
-            const error: any = new Error(errorMessage);
-            error.code = errorData.code;
-            throw error;
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const statusCode = response.status;
+                
+                // Parse nested error objects common in Gemini API responses
+                let errorMessage = '不明なサーバーエラー';
+                if (typeof errorData.error === 'object' && errorData.error !== null) {
+                    errorMessage = errorData.error.message || JSON.stringify(errorData.error);
+                } else {
+                    errorMessage = errorData.details || errorData.error || `Server Error: ${statusCode}`;
+                }
+
+                const error: any = new Error(errorMessage);
+                error.status = statusCode;
+                error.code = errorData.code || (typeof errorData.error === 'object' ? errorData.error.code : null);
+                
+                // Retry conditions: 503 (Overloaded), 429 (Rate Limit), or specific "overloaded" message
+                const isOverloaded = statusCode === 503 || errorMessage.includes('overloaded') || errorMessage.includes('UNAVAILABLE');
+                const isRateLimited = statusCode === 429 || errorMessage.includes('quota');
+                
+                if (attempt < maxRetries && (isOverloaded || isRateLimited)) {
+                    console.warn(`[Stability Protocol] Recoverable error detected (${statusCode}). Retrying...`);
+                    continue;
+                }
+                throw error;
+            }
+            
+            if (isStreaming) return response;
+            return response.json();
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            lastError = error;
+            
+            // Retry on timeouts
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                if (attempt < maxRetries) {
+                    console.warn(`[Stability Protocol] Request timed out. Retrying...`);
+                    continue;
+                }
+                throw new Error('通信がタイムアウトしました。安定したネットワーク環境で再度お試しください。');
+            }
+            
+            // Generic network errors
+            if (attempt < maxRetries && (!error.status || error.status >= 500)) {
+                continue;
+            }
+
+            if (attempt === maxRetries) throw error;
         }
-        
-        if (isStreaming) return response;
-        return response.json();
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error instanceof DOMException && error.name === 'AbortError') {
-            throw new Error('通信がタイムアウトしました。安定したネットワーク環境で再度お試しください。');
-        }
-        throw error;
     }
+    throw lastError;
 }
 
 export const checkServerStatus = async (): Promise<{status: string}> => {
@@ -72,7 +121,6 @@ export interface StreamUpdate {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
-        // v4.02: Chat streaming should handle its own history pruning if needed, but here we keep it full for context.
         const pruned = pruneHistory(messages, 30); 
         const response = await fetchFromProxy('getStreamingChatResponse', { messages: pruned, aiType, aiName, profile }, true, CHAT_TIMEOUT);
         const rawStream = response.body;
@@ -114,9 +162,7 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
                             } else if (parsed.type === 'error') {
                                 controller.enqueue({ error: { message: parsed.content, code: parsed.code } });
                             }
-                        } catch (e) {
-                            // JSONパース失敗時は無視して継続
-                        }
+                        } catch (e) { }
                     }
                 } catch (e) {
                     controller.error(e);
@@ -137,14 +183,12 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 };
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
-    // v4.02: Summary payload optimization
     const prunedHistory = pruneHistory(chatHistory, 25);
     const data = await fetchFromProxy('generateSummary', { chatHistory: prunedHistory, aiType, aiName, profile }, false, CHAT_TIMEOUT);
     return data.text;
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
-    // Note: analyzeTrajectory handles its own pruning in proxy by only using summaries.
     return await fetchFromProxy('analyzeTrajectory', { conversations, userId }, false, ANALYSIS_TIMEOUT);
 };
 
@@ -154,7 +198,6 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
 
 export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => {
     try {
-        // v4.02: Suggestion payload optimization
         const pruned = pruneHistory(messages, 15);
         return await fetchFromProxy('generateSuggestions', { messages: pruned }, false, 15000);
     } catch (e) {
@@ -163,7 +206,6 @@ export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ su
 };
 
 export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
-    // Limit input text length
     const limitedText = textToAnalyze.slice(0, 10000);
     const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze: limitedText }, false, CHAT_TIMEOUT);
     return data.text;
