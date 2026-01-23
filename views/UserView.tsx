@@ -1,8 +1,8 @@
 
-// views/UserView.tsx - v3.94 - Stability Fix: API Key Alignment & Simplified Logic
+// views/UserView.tsx - v3.95 - Safe Suggestion Restoration
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
-import { getStreamingChatResponse, generateSummary } from '../services/index';
+import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
 import { getUserById } from '../services/userService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
@@ -149,7 +149,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    // 自動サジェスト生成は安定性のため無効化
+    // ユーザーが入力中はサジェストを隠す
+    if (state.isTyping) {
+        setSuggestionsVisible(false);
+    }
   }, []);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
@@ -172,7 +175,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
       
-      // 自動サジェスト生成は安定性のため無効化
+      // 安全なサジェスト取得: エラー時は静かに無視する (Silent Fail)
+      if (onboardingStep >= 6) {
+          generateSuggestions(currentMessages)
+            .then(resp => {
+                if (resp && resp.suggestions && resp.suggestions.length > 0) {
+                    setSuggestions(resp.suggestions);
+                    setSuggestionsVisible(true);
+                }
+            })
+            .catch(e => {
+                // 通信エラー等は無視し、フローを止めない
+                console.debug('Suggestion generation skipped due to network/api status');
+            });
+      }
   };
 
   const handleSendMessage = async (text: string) => {

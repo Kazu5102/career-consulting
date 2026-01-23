@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.94",
-  "description": "Protocol 2.0 Compliant. Critical Fix: API Key alignment & Disabled auto-suggestions.",
-  "version": "3.94",
+  "name": "Career Consulting_3.95",
+  "description": "Protocol 2.0 Compliant. Feature: Safe Suggestion Chips Restoration.",
+  "version": "3.95",
   "prompt": ""
 }
