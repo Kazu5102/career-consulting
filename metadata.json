@@ -1,11 +1,9 @@
-
 {
   "requestFramePermissions": [
-    "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.13",
-  "description": "Full Restoration 4.13: 消失した全てのUIプロセス（性別・役割・カテゴリ選択）と質問予測機能を完全に復旧。400回の改変の歴史を尊重し、最高品質のUXをProエンジンで再構築しました。",
-  "version": "4.13",
+  "name": "Career Consulting_3.86B",
+  "description": "Protocol 2.0 Compliant. clearSignal命令による入力欄の確実な初期化と、入力テキストに基づくヒント生成の安定化を実現。",
+  "version": "3.86",
   "prompt": ""
 }

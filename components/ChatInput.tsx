@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.01 - Silence Logic Optimization
+// components/ChatInput.tsx - v2.39 - clearSignal Protocol
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -11,13 +11,13 @@ interface ChatInputProps {
   isLoading: boolean;
   isEditing: boolean;
   initialText: string; 
-  clearSignal?: number;
+  clearSignal?: number; // 確実にクリアするための信号
   onCancelEdit: () => void;
   onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 1200; // 沈黙判定を少し早める（1.2秒）
+const SILENCE_TIMEOUT = 2500; // 少し感度を上げる
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -31,30 +31,30 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
 
+  // clearSignalが更新されたら問答無用でクリア
   useEffect(() => {
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
   }, [clearSignal]);
 
+  // 編集開始時などの同期
   useEffect(() => {
     if (initialText) {
       setText(initialText);
     }
   }, [initialText]);
   
-  // 沈黙判定ロジックの修正: Version 4.01
+  // 静止判定ロジックの改善
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // 入力中、編集中、読み込み中、音声入力中は判定しない
-    if (isLoading || isEditing || isListening || isActiveTyping) {
+    // 静止判定の対象外
+    if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
       return;
     }
 
-    // Version 4.01: テキストが空でも「沈黙（入力待ち）」と判定するように変更
-    // これにより、AIが話し終えた直後（空欄状態）でも候補トリガーが引けるようになる
     silenceTimerRef.current = setTimeout(() => {
       setIsSilent(true);
     }, SILENCE_TIMEOUT);
@@ -62,8 +62,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [text, isLoading, isEditing, isListening, isActiveTyping]);
+  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
 
+  // 状態の外部通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
@@ -132,6 +133,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     const trimmedText = text.trim();
     if (!trimmedText || isLoading) return;
     onSubmit(trimmedText);
+    // 内部でも念の為クリア
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
@@ -160,7 +162,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
           value={text}
           onChange={handleTextChange}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            setIsSilent(false);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={isLoading ? "AIが応答中です..." : isListening ? "お話しください..." : isEditing ? "メッセージを編集..." : "メッセージを入力してください..."}
           disabled={isLoading || isListening}

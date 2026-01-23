@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v3.95 - Motivational Text Update
+// components/SummaryModal.tsx - v3.71 - Default Step Adjustment
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -28,7 +28,7 @@ const REASSURANCE_MESSAGES = [
 ];
 
 const SURVEY_CONFIG: SurveyConfig = {
-  isEnabled: false,
+  isEnabled: false, // デフォルトは無効
   url: "https://www.google.com/search?q=career+consulting+survey",
   title: "より良いサービス向上のためのアンケート",
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
@@ -62,6 +62,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       setCorrectionRequest('');
       setActiveTab('user');
       
+      // 指示に基づき、デフォルト値をfalse(非表示)として扱う
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
@@ -240,7 +241,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                 <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl transition-all ${isCopied ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
               </div>
               <button onClick={onFinalize} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
-                <SaveIcon />整理を完了し、プロに相談する準備をする
+                <SaveIcon />整理を完了し、専門家に相談する
               </button>
             </div>
            ) : null}

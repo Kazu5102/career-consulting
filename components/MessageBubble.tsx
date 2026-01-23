@@ -1,5 +1,5 @@
 
-// components/MessageBubble.tsx - v2.23 - Tag Cleanup Update
+// components/MessageBubble.tsx - v2.22 - Dog Action Chip Implementation
 import React from 'react';
 import { marked } from 'marked';
 import { ChatMessage, MessageAuthor } from '../types';
@@ -17,13 +17,13 @@ interface MessageBubbleProps {
 
 const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
-    // Remove special tags from rendering as normal text
-    const cleanText = markdownText.replace(/\[(HAPPY|CURIOUS|THINKING|REASSURE|COMPLETE_READY)\]/g, '');
+    // Remove special [MOOD] tags from rendering as normal text
+    const cleanText = markdownText.replace(/\[(HAPPY|CURIOUS|THINKING|REASSURE)\]/g, '');
     
     // Process action tags like [くんくん] as styled spans
     const textWithActions = cleanText.replace(/\[([^\]]+)\]/g, (match, p1) => {
-        // Skip specific system tags
-        if (['HAPPY', 'CURIOUS', 'THINKING', 'REASSURE', 'COMPLETE_READY'].includes(p1)) return '';
+        // Skip mood tags already handled
+        if (['HAPPY', 'CURIOUS', 'THINKING', 'REASSURE'].includes(p1)) return '';
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 mx-1 border border-amber-200">🐕 ${p1}</span>`;
     });
 
