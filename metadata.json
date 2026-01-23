@@ -1,10 +1,9 @@
-
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.90",
-  "description": "Protocol 2.0 Compliant. 人間アバターの解剖学的シルエットの再構築、テーパードな輪郭、および毛束感を強調した有機的な髪型デザインの刷新を実装。",
-  "version": "3.90",
+  "name": "Career Consulting_3.91",
+  "description": "Protocol 2.0 Compliant. サジェスト機能のレースコンディション解消、およびプロンプトのコンテキスト認識強化を実装。",
+  "version": "3.91",
   "prompt": ""
 }

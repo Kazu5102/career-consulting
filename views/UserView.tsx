@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.86 - Suggestion Lock & clearSignal Implementation
+// views/UserView.tsx - v3.91 - Suggestion Stability Fix
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -153,9 +153,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
-  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
+  // ignoreLoading: AI応答直後など、isLoadingステートの更新ラグを無視して強制実行する場合にtrue
+  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '', ignoreLoading: boolean = false) => {
       // 排他制御とタイミングの検証
-      if (isFetchingSuggestionsRef.current || isLoading) return;
+      if (isFetchingSuggestionsRef.current) return;
+      // ロード中かつ強制フラグがない場合はスキップ
+      if (!ignoreLoading && isLoading) return;
       if (onboardingStep < 6) return;
 
       const trimmedDraft = draftText.trim();
@@ -173,7 +176,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-            if (!isLoading) {
+            // ロード中(強制モード以外)なら表示しない。強制モード(AIターン終了直後)なら表示する。
+            if (!isLoading || ignoreLoading) {
                 setSuggestionsVisible(true);
             }
         }
@@ -215,7 +219,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
       if (currentStep >= 6) {
           // AI発言直後は文脈が変わるのでヒントを再生成
-          await triggerSuggestions(currentMessages);
+          // isLoadingがfalseになるrender前でも強制的に実行する
+          await triggerSuggestions(currentMessages, '', true);
       }
   };
 

@@ -234,10 +234,23 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
     const { messages } = payload;
+    
+    // 直近の文脈を重視するために、最後の数件を特に強調して渡すことも検討できるが、
+    // ここではプロンプトを強化する。
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `候補を3つ提案してください。JSONで返してください。
-履歴: ${messages.map(m => m.text).join('\n')}`,
+        contents: `あなたはプロのキャリアコンサルタントのサポートAIです。
+これまでの対話履歴（特に直近の発言）を踏まえ、相談者（ユーザー）が次に発言しそうなこと、あるいは思考を深めるのに適した「次のアクションの選択肢（返答のヒント）」を3つ提案してください。
+
+### 制約事項:
+1. **短く具体的**: ユーザーがタップするだけで送信できるような、20文字以内の短いフレーズにすること。
+2. **文脈維持**: 直前のAIの問いかけに対する回答として自然なものを含めること。
+3. **視点の多様性**: 「肯定」「深掘り」「別視点」など、異なる方向性の選択肢を用意すること。
+
+JSON形式で返してください。
+
+履歴:
+${messages.map(m => `[${m.author}]: ${m.text}`).join('\n')}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
