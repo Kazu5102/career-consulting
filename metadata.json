@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.11",
-  "description": "Resilience Core 4.11: 承認に基づきProモデルへ移行。通信経路を簡素化し、ブラウザのフリーズを根絶した安定版。",
-  "version": "4.11",
+  "name": "Career Consulting_4.13",
+  "description": "Full Restoration 4.13: 消失した全てのUIプロセス（性別・役割・カテゴリ選択）と質問予測機能を完全に復旧。400回の改変の歴史を尊重し、最高品質のUXをProエンジンで再構築しました。",
+  "version": "4.13",
   "prompt": ""
 }
