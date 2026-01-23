@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.00 - Mobile UX Optimization
+// views/UserView.tsx - v4.01 - Active Suggestion Protocol
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -165,20 +165,23 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
-  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
+  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '', force: boolean = false) => {
       if (isFetchingSuggestionsRef.current || isLoading) return;
       if (onboardingStep < 6) return;
 
       const trimmedDraft = draftText.trim();
-      const suggestionKey = `${currentMessages.length}-${trimmedDraft}`;
-      if (lastSuggestionKeyRef.current === suggestionKey) return;
+      // Version 4.01: 直近のAIの発話も含めてキーを生成し、文脈が変わるたびに確実にトリガーされるように改善
+      const lastAiMsg = [...currentMessages].reverse().find(m => m.author === MessageAuthor.AI)?.text || "";
+      const suggestionKey = `${currentMessages.length}-${lastAiMsg.slice(-10)}-${trimmedDraft}`;
+
+      if (!force && lastSuggestionKeyRef.current === suggestionKey) return;
       
       isFetchingSuggestionsRef.current = true;
       lastSuggestionKeyRef.current = suggestionKey;
 
       try {
         const contextualMessages = trimmedDraft
-            ? [...currentMessages, { author: MessageAuthor.USER, text: `(相談者が伝えようとしていること: ${trimmedDraft})` }] 
+            ? [...currentMessages, { author: MessageAuthor.USER, text: `(相談者が入力しようとしていること: ${trimmedDraft})` }] 
             : currentMessages;
             
         const response = await generateSuggestions(contextualMessages);
@@ -198,8 +201,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
     
-    // 入力が止まった、または下書きが空でタイピングしていない時に候補を出す
-    if ((state.isSilent || (state.currentDraft.length === 0 && !state.isTyping)) && !isLoading && onboardingStep >= 6) {
+    // Version 4.01: 沈黙検知時の表示
+    if (state.isSilent && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
   }, [messages, isLoading, onboardingStep]);
@@ -230,8 +233,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsCompleteReady(false);
       }
 
+      // Version 4.01: AIの発話が終了した瞬間に、空欄の状態で一度候補を強制取得しにいく
       if (currentStep >= 6) {
-          await triggerSuggestions(currentMessages);
+          await triggerSuggestions(currentMessages, "", true);
       }
   };
 

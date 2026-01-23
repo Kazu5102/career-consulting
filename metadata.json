@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.00",
-  "description": "Critical Bug Fixes & Mobile UX Optimization. 候補表示ロジックの刷新と管理者画面の安定性向上。",
-  "version": "4.00",
+  "name": "Career Consulting_4.01",
+  "description": "Suggestion Logic Optimization. AI発話終了時の自動候補取得と、モバイルでの入力待ち検知を強化。",
+  "version": "4.01",
   "prompt": ""
 }

@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.00 - Mobile Support Enhancement
+// components/ChatInput.tsx - v4.01 - Silence Logic Optimization
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -17,7 +17,7 @@ interface ChatInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 1500; // 1.5秒間入力がなければ「沈黙」とみなす
+const SILENCE_TIMEOUT = 1200; // 沈黙判定を少し早める（1.2秒）
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -43,22 +43,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     }
   }, [initialText]);
   
-  // 沈黙判定ロジック：モバイル対応のためフォーカス要件を外す
+  // 沈黙判定ロジックの修正: Version 4.01
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // 入力中、編集中、読み込み中は判定しない
+    // 入力中、編集中、読み込み中、音声入力中は判定しない
     if (isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
       return;
     }
 
-    // 文字が入力されていない場合も候補は出さない（会話の流れに基づく初期候補はUserView側で制御）
-    if (!text.trim()) {
-        setIsSilent(false);
-        return;
-    }
-
+    // Version 4.01: テキストが空でも「沈黙（入力待ち）」と判定するように変更
+    // これにより、AIが話し終えた直後（空欄状態）でも候補トリガーが引けるようになる
     silenceTimerRef.current = setTimeout(() => {
       setIsSilent(true);
     }, SILENCE_TIMEOUT);
