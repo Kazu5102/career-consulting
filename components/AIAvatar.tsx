@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.89 - Version Label Update
+// components/AIAvatar.tsx - v3.93 - Gapless Hair Update (Enhanced Overlap)
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -36,9 +36,9 @@ const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; 
       <circle cx={cx1} cy={cy} r="9" fill={color}/>
       <circle cx={cx2} cy={cy} r="9" fill={color}/>
       <circle cx={cx1-3} cy={cy-3} r="3.5" fill="#fff"/>
-      <circle cx={2-3} cy={cy-3} r="3.5" fill="#fff"/>
+      <circle cx={cx2-3} cy={cy-3} r="3.5" fill="#fff"/>
       <circle cx={cx1+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
-      <circle cx={2+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
+      <circle cx={cx2+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
     </g>
   );
 };
@@ -66,7 +66,7 @@ const DynamicMouth: React.FC<{ cx: number; cy: number; mood: Mood; color?: strin
 const DynamicBlush: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood }> = ({ cx1, cx2, cy, mood }) => (
   <g opacity={mood === 'happy' ? "0.6" : "0.3"}>
     <ellipse cx={cx1} cy={cy} rx="14" ry="8" fill="#fb7185" />
-    <ellipse cx={2} cy={cy} rx="14" ry="8" fill="#fb7185" />
+    <ellipse cx={cx2} cy={cy} rx="14" ry="8" fill="#fb7185" />
   </g>
 );
 
@@ -81,13 +81,14 @@ export const FemaleAvatar1: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 35,200 Q 100,150 165,200 Z" fill="#64748b" />
         <HumanBase skin="#ffedd5" mood={mood as Mood}>
-            <path d="M 35,100 C 35,25 165,25 165,100 C 165,130 155,160 100,160 C 45,160 35,130 35,100" fill="#2d1d1d" />
+            <path d="M 32,105 C 32,10 168,10 168,105 C 168,145 155,165 100,165 C 45,165 32,145 32,105" fill="#2d1d1d" />
             <circle cx="100" cy="100" r="58" fill="#ffedd5" />
+            {/* Deep Overlap: Start higher and wider to eliminate gaps */}
+            <path d="M 35,95 Q 100,10 165,95 L 165,65 Q 100,15 35,65 Z" fill="#2d1d1d" />
             <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#2d1d1d" />
             <DynamicBlush cx1={72} cx2={128} cy={122} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={102} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={130} mood={mood as Mood} color="#2d1d1d" />
-            <path d="M 40,80 Q 70,35 120,45 Q 155,55 160,85 L 160,75 Q 150,40 100,40 Q 50,40 40,75 Z" fill="#2d1d1d" />
         </HumanBase>
     </svg>
 );
@@ -96,13 +97,14 @@ export const MaleAvatar1: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 30,200 C 30,165 60,150 100,150 S 170,165 170,200 Z" fill="#334155" />
         <HumanBase skin="#fef3c7" mood={mood as Mood}>
-            <path d="M 38,90 C 38,15 162,15 162,90 L 162,110 L 38,110 Z" fill="#1e293b" />
+            <path d="M 34,95 C 34,10 166,10 166,95 L 166,115 L 34,115 Z" fill="#1e293b" />
             <circle cx="100" cy="105" r="58" fill="#fef3c7" />
+            {/* Deep Overlap: Ensuring top of hair covers skin circle even when rotating */}
+            <path d="M 30,95 Q 100,20 170,95 L 170,80 Q 100,10 30,80 Z" fill="#1e293b" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e293b" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#1e293b" />
-            <path d="M 40,85 Q 70,50 100,60 Q 130,50 160,85" fill="none" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" opacity="0.4" />
         </HumanBase>
     </svg>
 );
@@ -111,13 +113,14 @@ export const FemaleAvatar2: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 30,200 Q 100,155 170,200" fill="#fbcfe8" />
         <HumanBase skin="#fff7ed" mood={mood as Mood}>
-            <path d="M 35,100 C 35,20 165,20 165,100 L 165,155 Q 100,165 35,155 Z" fill="#4c1d95" />
+            <path d="M 30,105 C 30,10 170,10 170,105 L 170,165 Q 100,175 30,165 Z" fill="#4c1d95" />
             <circle cx="100" cy="105" r="58" fill="#fff7ed" />
+            {/* FIX: Deep-Overlap Bangs path to fix the "bald gap" */}
+            <path d="M 28,105 Q 100,0 172,105 Q 100,60 28,105 Z" fill="#4c1d95" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#4c1d95" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#4c1d95" />
-            <path d="M 38,85 Q 85,35 140,80 Q 110,65 38,85 Z" fill="#4c1d95" />
         </HumanBase>
     </svg>
 );
@@ -126,8 +129,10 @@ export const MaleAvatar2: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 25,200 C 25,170 55,160 100,160 S 175,170 175,200 Z" fill="#0284c7" />
         <HumanBase skin="#ffedd5" mood={mood as Mood}>
-            <path d="M 40,95 Q 100,20 160,95 L 160,115 Q 100,105 40,115 Z" fill="#1e1b4b" />
+            <path d="M 36,95 Q 100,0 164,95 L 164,120 Q 100,110 36,120 Z" fill="#1e1b4b" />
             <circle cx="100" cy="105" r="58" fill="#ffedd5" />
+            {/* Deep Overlap: Spikes integrated more deeply into the skull silhouette */}
+            <path d="M 35,100 Q 100,-10 165,100 Q 100,80 35,100 Z" fill="#1e1b4b" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e1b4b" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
@@ -145,14 +150,15 @@ export const FemaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 25,200 Q 100,165 175,200" fill="#44403c" />
         <HumanBase skin="#fef3c7" mood={mood as Mood}>
-            <circle cx="100" cy="50" r="30" fill="#44403c" />
-            <path d="M 38,105 C 38,30 162,30 162,105 C 162,150 100,155 38,105" fill="#44403c" />
+            <circle cx="100" cy="45" r="35" fill="#44403c" />
+            <path d="M 34,105 C 34,20 166,20 166,105 C 166,160 100,165 34,105" fill="#44403c" />
             <circle cx="100" cy="105" r="58" fill="#fef3c7" />
+            {/* Deep Overlap: Covering the forehead hairline completely */}
+            <path d="M 32,105 Q 100,30 168,105 Q 100,80 32,105 Z" fill="#44403c" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#44403c" />
             <DynamicBlush cx1={72} cx2={128} cy={130} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={112} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={142} mood={mood as Mood} color="#27272a" />
-            <path d="M 45,90 Q 100,60 155,90" fill="none" stroke="#44403c" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
         </HumanBase>
     </svg>
 );
@@ -161,13 +167,14 @@ export const MaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <path d="M 25,200 L 175,200 L 100,160 Z" fill="#1e293b" />
         <HumanBase skin="#fffbeb" mood={mood as Mood}>
-            <path d="M 42,100 C 42,35 158,35 158,100 L 158,120 Q 100,110 42,120 Z" fill="#334155" />
+            <path d="M 38,100 C 38,20 162,20 162,100 L 162,125 Q 100,115 38,125 Z" fill="#334155" />
             <circle cx="100" cy="105" r="58" fill="#fffbeb" />
+            {/* Deep Overlap: Higher hairline anchor */}
+            <path d="M 35,90 Q 100,10 165,90 Q 100,75 35,90 Z" fill="#334155" />
             <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e293b" />
             <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={140} mood={mood as Mood} color="#1e293b" />
-            <path d="M 60,75 Q 100,50 140,75" fill="none" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
@@ -310,7 +317,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.89
+        Ver 3.93
       </div>
     </div>
   );
