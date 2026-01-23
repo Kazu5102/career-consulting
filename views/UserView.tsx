@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.95 - Referral Integration Logic
+// views/UserView.tsx - v3.97 - Persistent Suggestions Update
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -75,6 +75,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
 
+  // Recovery States
+  const [isResponseSlow, setIsResponseSlow] = useState<boolean>(false);
+  const slowResponseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
   const [resetCount, setResetCount] = useState(0);
@@ -99,11 +103,27 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const lastSuggestionKeyRef = useRef<string>('');
   const isFetchingSuggestionsRef = useRef<boolean>(false);
 
+  // Slow Response Monitoring
+  useEffect(() => {
+    if (isLoading) {
+        slowResponseTimerRef.current = setTimeout(() => {
+            setIsResponseSlow(true);
+        }, 15000); 
+    } else {
+        if (slowResponseTimerRef.current) clearTimeout(slowResponseTimerRef.current);
+        setIsResponseSlow(false);
+    }
+    return () => { if (slowResponseTimerRef.current) clearTimeout(slowResponseTimerRef.current); };
+  }, [isLoading]);
+
+  // FIX: 入力中も候補を維持するように変更 (削除またはコメントアウト)
+  /* 
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
     }
   }, [isTyping]);
+  */
 
   useEffect(() => {
     const user = getUserById(userId);
@@ -188,7 +208,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    if (state.isSilent && !isLoading && onboardingStep >= 6) {
+    
+    // 文字が消された場合や、一定時間入力が止まった場合に候補を更新
+    if ((state.isSilent || (state.currentDraft.length === 0 && !state.isTyping)) && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
   }, [messages, isLoading, onboardingStep]);
@@ -219,13 +241,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsCompleteReady(false);
       }
 
+      // AI応答完了後、即座に次の候補を準備する
       if (currentStep >= 6) {
           await triggerSuggestions(currentMessages);
       }
   };
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
+  const handleSendMessage = async (text: string, isRetry: boolean = false) => {
+    if (!text.trim() || (isLoading && !isRetry)) return;
     
     setInputClearSignal(prev => prev + 1);
 
@@ -243,8 +266,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
 
     setHasError(false);
-    const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
-    const newMessages = [...messages, userMessage];
+    setIsResponseSlow(false);
+
+    let newMessages: ChatMessage[];
+    if (isRetry) {
+        newMessages = messages.filter((m, i) => !(m.author === MessageAuthor.AI && i === messages.length - 1));
+    } else {
+        const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
+        newMessages = [...messages, userMessage];
+    }
+    
     setMessages(newMessages);
     setSuggestionsVisible(false); 
     setIsCompleteReady(false); 
@@ -286,6 +317,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 return updated;
             });
             
+            if (slowResponseTimerRef.current) {
+                clearTimeout(slowResponseTimerRef.current);
+                setIsResponseSlow(false);
+            }
+
             if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
             else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
             else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
@@ -298,6 +334,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
       setIsLoading(false);
       setAiMood('neutral');
+    }
+  };
+
+  const handleRetry = () => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].author === MessageAuthor.USER) {
+            handleSendMessage(messages[i].text, true);
+            return;
+        }
     }
   };
 
@@ -458,7 +503,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setAiMood('neutral');
           lastSuggestionKeyRef.current = '';
       } else {
-          setView('referral'); // 完了時は専用のリファーラル画面へ
+          setView('referral'); 
       }
   };
 
@@ -572,6 +617,22 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-10">
+                  {/* Recovery Chip */}
+                  {isResponseSlow && (
+                    <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
+                            <span className="text-xs font-bold text-amber-800">応答に時間がかかっています。接続を確認するか再試行してください。</span>
+                        </div>
+                        <button 
+                            onClick={handleRetry}
+                            className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:bg-amber-700 transition-colors uppercase tracking-widest"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                  )}
+
                   {renderOnboardingUI()}
                   <ChatInput 
                     onSubmit={handleSendMessage} 

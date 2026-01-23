@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.39 - clearSignal Protocol
+// components/ChatInput.tsx - v2.40 - High Sensitivity Protocol
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -17,7 +17,7 @@ interface ChatInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 2500; // 少し感度を上げる
+const SILENCE_TIMEOUT = 1200; // 候補表示の感度を大幅に向上 (2500 -> 1200)
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -53,6 +53,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
       return;
+    }
+
+    // 文字が入力されていない場合も候補は出さない（会話の流れに基づく初期候補はUserView側で制御）
+    if (!text.trim()) {
+        setIsSilent(false);
+        return;
     }
 
     silenceTimerRef.current = setTimeout(() => {
@@ -93,7 +99,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
         setIsActiveTyping(false);
-    }, 800);
+    }, 600); // タイピング判定の残響を短縮 (800 -> 600)
   };
 
   const handleMicClick = () => {

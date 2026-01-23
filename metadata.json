@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_3.95",
-  "description": "Protocol 2.0 Compliant. 専門家相談への強力な導線（リファーラル画面）を追加。",
-  "version": "3.95",
+  "name": "Career Consulting_3.97",
+  "description": "Protocol 2.0 Compliant. 入力文字に応じた自動候補作成機能を復旧・高速化。",
+  "version": "3.97",
   "prompt": ""
 }
