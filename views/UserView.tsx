@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.89 - Smart Induction Logic
+// views/UserView.tsx - v3.95 - Referral Integration Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -16,6 +16,7 @@ import UserDashboard from '../components/UserDashboard';
 import ActionFooter from '../components/ActionFooter';
 import SuggestionChips from '../components/SuggestionChips';
 import InductionChip from '../components/InductionChip';
+import ReferralView from './ReferralView';
 import { ASSISTANTS } from '../config/aiAssistants';
 
 interface UserViewProps {
@@ -23,7 +24,7 @@ interface UserViewProps {
   onSwitchUser: () => void;
 }
 
-type UserViewMode = 'loading' | 'dashboard' | 'avatarSelection' | 'chatting';
+type UserViewMode = 'loading' | 'dashboard' | 'avatarSelection' | 'chatting' | 'referral';
 
 const STAGES = [
   { id: 'cultivate', label: 'じっくり自分を育み、守っている', sub: '好きなことを見つけたり、自分を蓄えている感覚' },
@@ -63,7 +64,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
-  const [isCompleteReady, setIsCompleteReady] = useState<boolean>(false); // NEW: 誘導チップ表示用
+  const [isCompleteReady, setIsCompleteReady] = useState<boolean>(false); 
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
@@ -95,11 +96,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
-  // コンテキスト・ロック用
   const lastSuggestionKeyRef = useRef<string>('');
   const isFetchingSuggestionsRef = useRef<boolean>(false);
 
-  // タイピング中はヒントを非表示にする
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
@@ -157,7 +156,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   }, []);
 
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
-      // 排他制御とタイミングの検証
       if (isFetchingSuggestionsRef.current || isLoading) return;
       if (onboardingStep < 6) return;
 
@@ -190,7 +188,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    // 静止した瞬間に、入力内容があればそれを反映してヒントをリクエスト
     if (state.isSilent && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
@@ -216,7 +213,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
 
-      // [COMPLETE_READY] タグのチェック
       if (aiText.includes('[COMPLETE_READY]')) {
           setIsCompleteReady(true);
       } else {
@@ -224,7 +220,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
 
       if (currentStep >= 6) {
-          // AI発言直後は文脈が変わるのでヒントを再生成
           await triggerSuggestions(currentMessages);
       }
   };
@@ -232,7 +227,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // 信号を送って入力をクリア
     setInputClearSignal(prev => prev + 1);
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
@@ -253,7 +247,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestionsVisible(false); 
-    setIsCompleteReady(false); // ユーザー発言時は一度隠す
+    setIsCompleteReady(false); 
     setIsLoading(true);
     setAiMood('thinking');
     lastSuggestionKeyRef.current = ''; 
@@ -432,7 +426,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
   };
 
-  const finalizeAndSave = async (conversation: StoredConversation) => {
+  const finalizeAndSave = async (conversation: StoredConversation, isInterrupt: boolean = false) => {
       setIsSummaryModalOpen(false);
       setIsInterruptModalOpen(false); 
       setIsFinalizing(true);
@@ -455,6 +449,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       
       setUserConversations(updated.filter((c:any) => c.userId === userId));
       setIsFinalizing(false);
+      
+      if (isInterrupt) {
+          setView('dashboard'); 
+          setMessages([]); 
+          setOnboardingStep(0);
+          setIsConsultationReady(false);
+          setAiMood('neutral');
+          lastSuggestionKeyRef.current = '';
+      } else {
+          setView('referral'); // 完了時は専用のリファーラル画面へ
+      }
+  };
+
+  const handleCloseReferral = () => {
       setView('dashboard'); 
       setMessages([]); 
       setOnboardingStep(0);
@@ -555,9 +563,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         </div>
       )}
 
-      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
+      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' || view === 'referral' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
+         view === 'referral' ? <ReferralView onBack={handleCloseReferral} /> :
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
@@ -593,16 +602,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
              </div>
              <h3 className="text-2xl font-bold text-slate-800">相談データを保存しています</h3>
-             <p className="text-slate-500 mt-4 leading-relaxed font-medium">整理した内容を安全に保存しました。<br/>ダッシュボードへ戻ります。</p>
+             <p className="text-slate-500 mt-4 leading-relaxed font-medium">整理した内容を安全に保存しました。<br/>次のステップを案内します。</p>
           </div>
         </div>
       )}
 
-      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} />
+      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' }, false)} />
       
       <InterruptModal 
         isOpen={isInterruptModalOpen} 
-        onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} 
+        onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' }, true)} 
         onExitWithoutSaving={() => { setIsInterruptModalOpen(false); setView('dashboard'); }} 
         onContinue={() => setIsInterruptModalOpen(false)} 
       />
