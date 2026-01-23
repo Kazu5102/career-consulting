@@ -1,10 +1,23 @@
 
-// services/geminiService.ts - v4.00 - Resilience Enhancement
+// services/geminiService.ts - v4.02 - Resilience & Payload Optimization
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
-const ANALYSIS_TIMEOUT = 300000; // 5分（重い分析用）
-const CHAT_TIMEOUT = 60000; // 60秒（チャット用）
+const ANALYSIS_TIMEOUT = 55000; // Vercelの制限に合わせた短縮 (55秒)
+const CHAT_TIMEOUT = 30000; // チャットは30秒
+
+/**
+ * Truncates chat history to keep payloads small and prevent timeouts
+ */
+const pruneHistory = (messages: ChatMessage[], limit: number = 20): ChatMessage[] => {
+    if (messages.length <= limit) return messages;
+    // Keep first 2 (intro context) and last N-2
+    return [
+        ...messages.slice(0, 2),
+        { author: messages[0].author === 'user' ? 'ai' : 'user' as any, text: "...(中略)..." },
+        ...messages.slice(-(limit - 3))
+    ];
+};
 
 async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 30000): Promise<any> {
     const controller = new AbortController();
@@ -59,7 +72,9 @@ export interface StreamUpdate {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
-        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, CHAT_TIMEOUT);
+        // v4.02: Chat streaming should handle its own history pruning if needed, but here we keep it full for context.
+        const pruned = pruneHistory(messages, 30); 
+        const response = await fetchFromProxy('getStreamingChatResponse', { messages: pruned, aiType, aiName, profile }, true, CHAT_TIMEOUT);
         const rawStream = response.body;
         if (!rawStream) return null;
 
@@ -122,11 +137,14 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 };
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
-    const data = await fetchFromProxy('generateSummary', { chatHistory, aiType, aiName, profile }, false, CHAT_TIMEOUT);
+    // v4.02: Summary payload optimization
+    const prunedHistory = pruneHistory(chatHistory, 25);
+    const data = await fetchFromProxy('generateSummary', { chatHistory: prunedHistory, aiType, aiName, profile }, false, CHAT_TIMEOUT);
     return data.text;
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
+    // Note: analyzeTrajectory handles its own pruning in proxy by only using summaries.
     return await fetchFromProxy('analyzeTrajectory', { conversations, userId }, false, ANALYSIS_TIMEOUT);
 };
 
@@ -136,14 +154,18 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
 
 export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => {
     try {
-        return await fetchFromProxy('generateSuggestions', { messages }, false, 15000);
+        // v4.02: Suggestion payload optimization
+        const pruned = pruneHistory(messages, 15);
+        return await fetchFromProxy('generateSuggestions', { messages: pruned }, false, 15000);
     } catch (e) {
         return { suggestions: [] };
     }
 };
 
 export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
-    const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze }, false, CHAT_TIMEOUT);
+    // Limit input text length
+    const limitedText = textToAnalyze.slice(0, 10000);
+    const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze: limitedText }, false, CHAT_TIMEOUT);
     return data.text;
 };
 

@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.89 - Smart Induction Protocol
+// api/gemini-proxy.ts - v4.02 - Stability Engine (Flash Migration)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -78,10 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleAnalyzeTrajectory(payload: { conversations: StoredConversation[], userId: string }) {
     const { conversations } = payload;
+    // Context pruning: Use summaries for history instead of full logs to stay within limits and speed up
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
     
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3-flash-preview', // v4.02: Migrated to Flash for stability
         contents: `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
 職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
@@ -99,7 +100,7 @@ ${historyText}`,
                 type: Type.OBJECT,
                 properties: {
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "臨床的な重要指摘事項" },
-                    overallSummary: { type: Type.STRING, description: "初回から現在までのナラティブな変容プロセス（心理動態の専門的解説）" },
+                    overallSummary: { type: Type.STRING, description: "初回から現在までのナラティブな変容プロセス（心理動態の専門적解説）" },
                     triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"], description: "心理的緊急度（安定/不安定）" },
                     ageStageGap: { type: Type.NUMBER, description: "実年齢と心理的成熟（発達課題）の乖離度(0-100)" },
                     theoryBasis: { type: Type.STRING, description: "分析の根拠とした学術的キャリア理論" },
@@ -118,7 +119,7 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
     const historyText = conversations.map(c => c.summary).join('\n');
     
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3-flash-preview', // v4.02: Migrated to Flash for stability
         contents: `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
 相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
 
@@ -126,7 +127,7 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
 1. **地続きの提案**: 相談者が明日からでも目指せる、または現在の職種の延長線上にある「現実的な一歩（ネクストステップ）」を優先すること。
 2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
 3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
-4. **ギャップ의 誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
+4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
 
 履歴:
 ${historyText}`,
@@ -218,7 +219,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3-flash-preview', // v4.02: Migrated to Flash for stability
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {

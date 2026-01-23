@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.01",
-  "description": "Suggestion Logic Optimization. AI発話終了時の自動候補取得と、モバイルでの入力待ち検知を強化。",
-  "version": "4.01",
+  "name": "Career Consulting_4.02",
+  "description": "Stability Protocol 4.02: 5xxエラー撲滅のため分析エンジンをFlashモデルへ移行。通信効率化とペイロード最適化を実施。",
+  "version": "4.02",
   "prompt": ""
 }
