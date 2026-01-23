@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.99",
-  "description": "Protocol 2.0 Compliant. Feature: Auto-recovery Chat Logic for Robustness.",
-  "version": "3.99",
+  "name": "Career Consulting_4.00",
+  "description": "Protocol 2.0 Compliant. Feature: Unbreakable Mode (Instant Mock Bypass).",
+  "version": "4.00",
   "prompt": ""
 }
