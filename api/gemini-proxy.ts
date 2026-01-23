@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.82 - Empathetic Crisis Protocol
+// api/gemini-proxy.ts - v3.69 - Empathetic Crisis Protocol
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -86,7 +86,7 @@ async function handleAnalyzeTrajectory(payload: { conversations: StoredConversat
 職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
 ### 分析指示:
-1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を時方向に追う。
+1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を時系列で追う。
 2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
 3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
 4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。

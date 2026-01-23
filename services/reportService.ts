@@ -1,5 +1,3 @@
-
-// services/reportService.ts - v3.80 - High-Fidelity Encrypted HTML Report
 import { encryptData } from './cryptoService';
 import { StoredConversation, UserAnalysisCache } from '../types';
 
@@ -19,97 +17,51 @@ export const generateReport = async (data: ReportData, password: string): Promis
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Career Consulting - Encrypted Report</title>
+    <title>暗号化された相談レポート</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+        body { font-family: sans-serif; }
+        .prose h1, .prose h2, .prose h3, .prose h4 { font-weight: bold; }
+        .prose ul { list-style-type: disc; padding-left: 1.5rem; }
+        .prose li { margin-bottom: 0.5rem; }
         #content { display: none; }
-        .prose h1, .prose h2, .prose h3 { font-weight: 900; tracking: -0.025em; color: #1e293b; }
-        .prose p { line-height: 1.8; color: #475569; }
-        .prose strong { color: #0f172a; }
+        #password-form { max-width: 400px; margin: 5rem auto; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
-    <div id="password-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-md">
-        <div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/20 animate-in zoom-in duration-300">
-            <div class="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-8 mx-auto shadow-xl">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-            </div>
-            <h1 class="text-2xl font-black text-center text-slate-900 mb-2">レポート閲覧認証</h1>
-            <p class="text-sm text-slate-500 text-center mb-8 font-medium">このファイルは高度に暗号化されています。<br/>設定されたパスワードを入力してください。</p>
-            
-            <form onsubmit="decryptAndShow(event)" class="space-y-4">
-                <input type="password" id="password" placeholder="Password" required class="w-full px-6 py-4 bg-slate-100 border-2 border-transparent rounded-2xl focus:outline-none focus:border-sky-500 focus:bg-white transition-all text-center font-bold tracking-widest text-lg">
-                <button type="submit" id="submit-btn" class="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] uppercase tracking-widest text-sm">
-                    Unlock Report
-                </button>
-                <div id="error" class="text-rose-500 text-xs font-bold text-center mt-4 h-4"></div>
-            </form>
-            <p class="mt-8 text-[10px] text-slate-300 text-center uppercase font-black tracking-[0.2em]">Protocol 2.0 Security Verified</p>
-        </div>
+<body class="bg-slate-100 text-slate-800">
+    <div id="password-form" class="bg-white">
+        <h1 class="text-2xl font-bold text-center mb-4">レポート閲覧</h1>
+        <p class="text-sm text-slate-600 text-center mb-6">このレポートは暗号化されています。閲覧するにはパスワードを入力してください。</p>
+        <form onsubmit="decryptAndShow(event)">
+            <input type="password" id="password" placeholder="パスワード" required class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <button type="submit" id="submit-btn" class="w-full mt-4 px-4 py-2 bg-sky-600 text-white font-semibold rounded-md hover:bg-sky-700">閲覧する</button>
+            <p id="error" class="text-red-500 text-sm mt-2 h-4 text-center"></p>
+        </form>
     </div>
 
-    <main id="content" class="max-w-5xl mx-auto p-4 md:p-12 animate-in fade-in duration-700">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200 mb-12">
-            <div>
-                <span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest rounded-full mb-3">Consultation Record</span>
-                <h1 class="text-4xl font-black text-slate-900 tracking-tight">相談者レポート</h1>
-                <p class="text-slate-400 mt-2 font-bold uppercase tracking-tighter text-sm">Client ID: <span id="user-id" class="font-mono text-slate-600"></span></p>
-            </div>
-            <div class="text-right">
-                <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Report Generated At</p>
-                <p id="generated-date" class="font-bold text-slate-500"></p>
-            </div>
+    <main id="content" class="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 bg-white my-8 rounded-xl shadow-lg">
+        <header class="pb-4 border-b border-slate-200 mb-6">
+            <h1 class="text-3xl font-bold">相談者レポート</h1>
+            <p class="text-slate-500">相談者ID: <span id="user-id" class="font-mono"></span></p>
         </header>
-
-        <div id="report-body" class="space-y-16"></div>
+        <div id="report-body" class="space-y-12"></div>
     </main>
     
     <script>
         const encryptedData = '${encryptedData}';
         
-        /**
-         * Robust hex to byte conversion
-         */
-        function hexToBytes(hex) {
-            const bytes = new Uint8Array(hex.length / 2);
-            for (let i = 0; i < hex.length; i += 2) {
-                bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-            }
-            return bytes;
-        }
-
         async function decryptData(encryptedString, password) {
             try {
-                const parts = encryptedString.split(':');
-                if (parts.length !== 3) throw new Error('Invalid format');
-                
-                const iv = hexToBytes(parts[0]);
-                const salt = hexToBytes(parts[1]);
-                const data = hexToBytes(parts[2]);
-
-                const keyMaterial = await window.crypto.subtle.importKey(
-                    'raw', 
-                    new TextEncoder().encode(password), 
-                    { name: 'PBKDF2' }, 
-                    false, 
-                    ['deriveKey']
-                );
-
-                const key = await window.crypto.subtle.deriveKey(
-                    { name: 'PBKDF2', salt, iterations: 100, hash: 'SHA-256' }, 
-                    keyMaterial, 
-                    { name: 'AES-GCM', length: 256 }, 
-                    true, 
-                    ['decrypt']
-                );
-
+                const [ivHex, saltHex, dataHex] = encryptedString.split(':');
+                const iv = new Uint8Array(ivHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                const salt = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                const data = new Uint8Array(dataHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                const keyMaterial = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+                const key = await window.crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
                 const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
                 return new TextDecoder().decode(decrypted);
             } catch (error) {
-                console.error('Decryption error:', error);
+                console.error('Decryption failed:', error);
                 return null;
             }
         }
@@ -121,95 +73,76 @@ export const generateReport = async (data: ReportData, password: string): Promis
             const submitBtn = document.getElementById('submit-btn');
             
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Decrypting...';
+            submitBtn.textContent = '復号中...';
             errorEl.textContent = '';
             
             const decrypted = await decryptData(encryptedData, passwordInput.value);
             
             if (decrypted) {
-                try {
-                    const reportData = JSON.parse(decrypted);
-                    renderReport(reportData);
-                    document.getElementById('password-screen').style.display = 'none';
-                    document.getElementById('content').style.display = 'block';
-                } catch (e) {
-                    errorEl.textContent = 'データの破損または形式が不正です。';
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Unlock Report';
-                }
+                const reportData = JSON.parse(decrypted);
+                renderReport(reportData);
+                document.getElementById('password-form').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
             } else {
-                errorEl.textContent = 'パスワードが正しくありません。';
+                errorEl.textContent = 'パスワードが違うか、データが破損しています。';
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Unlock Report';
+                submitBtn.textContent = '閲覧する';
             }
         }
 
         function renderReport(data) {
             document.getElementById('user-id').textContent = data.userId;
-            document.getElementById('generated-date').textContent = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'long', day:'numeric'});
             const reportBody = document.getElementById('report-body');
             let html = '';
 
-            // 1. Analysis Section
+            // Render Analysis Sections
             if (data.analysisCache) {
-                html += '<section class="space-y-8 animate-in slide-in-from-bottom-4 duration-700">';
-                html += '<div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-sky-600 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">AI 総合解析レポート</h2></div>';
-                
+                html += '<div><h2 class="text-2xl font-bold border-b pb-2 mb-4">分析レポート</h2><div class="space-y-6">';
                 if (data.analysisCache.trajectory) {
-                    html += \`<div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100">
-                        <h3 class="text-xl font-black text-sky-700 mb-6 flex items-center gap-2">
-                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                           相談の軌跡・内的変容分析
-                        </h3>
-                        <div class="prose prose-slate max-w-none">\${marked.parse(data.analysisCache.trajectory.overallSummary || '')}</div>
-                    </div>\`;
+                    html += '<h3 class="text-xl font-bold text-sky-700 mt-4">相談の軌跡</h3>';
+                    html += '<div class="prose max-w-none">' + markdownToHtml(data.analysisCache.trajectory.overallSummary) + '</div>';
                 }
-                
                 if (data.analysisCache.skillMatching) {
-                    html += \`<div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100">
-                        <h3 class="text-xl font-black text-emerald-700 mb-6 flex items-center gap-2">
-                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                           適職診断・市場価値レポート
-                        </h3>
-                        <div class="prose prose-slate max-w-none">\${marked.parse(data.analysisCache.skillMatching.analysisSummary || '')}</div>
-                    </div>\`;
+                    html += '<h3 class="text-xl font-bold text-sky-700 mt-4">適性診断</h3>';
+                    html += '<div class="prose max-w-none">' + markdownToHtml(data.analysisCache.skillMatching.analysisSummary) + '</div>';
                 }
-                html += '</section>';
+                if (data.analysisCache.hiddenPotential) {
+                     html += '<h3 class="text-xl font-bold text-amber-700 mt-4">隠れた可能性</h3>';
+                     html += '<div class="prose max-w-none">' + data.analysisCache.hiddenPotential.hiddenSkills.map(s => \`<h4>\${s.skill}</h4><p>\${s.reason}</p>\`).join('') + '</div>';
+                }
+                html += '</div></div>';
             }
 
-            // 2. Conversation Logs
-            html += \`<section class="space-y-8">
-                <div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-slate-400 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">全セッション履歴 (\${data.conversations.length}件)</h2></div>
-                <div class="space-y-6">
+            // Render Conversations
+            html += \`<div>
+                <h2 class="text-2xl font-bold border-b pb-2 mb-4">対話履歴 (\${data.conversations.length}件)</h2>
+                <div class="space-y-6 mt-4">
             \`;
             data.conversations.forEach(conv => {
-                const date = new Date(conv.date).toLocaleString('ja-JP', {dateStyle:'full', timeStyle:'short'});
-                html += \`<div class="bg-slate-100/50 p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-inner">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Session Timeline</p>
-                            <h3 class="font-black text-xl text-slate-800">\${date}</h3>
-                        </div>
-                        <span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-black rounded-full border border-slate-200 shadow-sm uppercase tracking-tighter">
-                           Agent: \${conv.aiName}
-                        </span>
-                    </div>
-                    <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 prose prose-slate max-w-none">
-                        <h4 class="text-sm font-black text-sky-600 uppercase tracking-widest mb-4">Session Summary</h4>
-                        \${marked.parse(parseUserSummary(conv.summary))}
+                const date = new Date(conv.date).toLocaleString('ja-JP');
+                html += \`<div class="p-4 border rounded-lg bg-slate-50">
+                    <h3 class="font-bold text-lg">相談日時: \${date}</h3>
+                    <p class="text-sm text-slate-600">担当AI: \${conv.aiName}</p>
+                    <div class="mt-4 pt-4 border-t prose max-w-none">
+                        <h4>相談サマリー</h4>
+                        \${markdownToHtml(conv.summary)}
                     </div>
                 </div>\`;
             });
-            html += '</div></section>';
+            html += '</div></div>';
 
             reportBody.innerHTML = html;
         }
 
-        function parseUserSummary(raw) {
-            try {
-                const p = JSON.parse(raw);
-                return p.user_summary || raw;
-            } catch(e) { return raw; }
+        function markdownToHtml(md) {
+            if (!md) return '';
+            return md
+                .replace(/^### (.*$)/gim, '<h4 class="text-lg font-bold mt-4 mb-2">$1</h4>')
+                .replace(/^## (.*$)/gim, '<h3 class="text-xl font-bold mt-6 mb-3 border-b pb-2">$1</h3>')
+                .replace(/\* \*(.*?)\* \*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/^- (.*$)/gim, (match, content) => \`<li class="ml-4 list-disc">\${content.trim()}</li>\`)
+                .replace(/\\n/g, '<br>');
         }
     </script>
 </body>

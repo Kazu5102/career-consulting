@@ -1,56 +1,88 @@
 
-// components/ChatInput.tsx - v2.39 - clearSignal Protocol
+// components/ChatInput.tsx - v2.36 - Controlled Input Reset Logic
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
 import SaveIcon from './icons/SaveIcon';
 import EditIcon from './icons/EditIcon';
 
+// Manually define types for Web Speech API
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  lang: string;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+    readonly isFinal: boolean;
+    readonly length: number;
+    item(index: number): SpeechRecognitionAlternative;
+    [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+    readonly transcript: string;
+    readonly confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: { new (): SpeechRecognition };
+    webkitSpeechRecognition: { new (): SpeechRecognition };
+  }
+}
+
 interface ChatInputProps {
   onSubmit: (text: string) => void;
   isLoading: boolean;
   isEditing: boolean;
-  initialText: string; 
-  clearSignal?: number; // 確実にクリアするための信号
+  initialText: string; // 親（UserView）からリセットや初期化のために渡される
   onCancelEdit: () => void;
   onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 2500; // 少し感度を上げる
+const SILENCE_TIMEOUT = 10000; 
+const DRAFT_STABILITY_THRESHOLD = 15;
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSilent, setIsSilent] = useState(false);
-  const [isActiveTyping, setIsActiveTyping] = useState(false); 
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recognitionRef = useRef<any>(null);
 
-  // clearSignalが更新されたら問答無用でクリア
+  // 重要: initialTextが空文字になった場合（送信後など）にテキストボックスをクリアする
   useEffect(() => {
-    setText('');
-    setIsActiveTyping(false);
-    setIsSilent(false);
-  }, [clearSignal]);
-
-  // 編集開始時などの同期
-  useEffect(() => {
-    if (initialText) {
-      setText(initialText);
-    }
+    setText(initialText);
   }, [initialText]);
   
-  // 静止判定ロジックの改善
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // 静止判定の対象外
-    if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
+    if (!isFocused || isLoading || isEditing || isListening) {
       setIsSilent(false);
       return;
     }
@@ -62,39 +94,32 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
+  }, [isFocused, text, isLoading, isEditing, isListening]);
 
-  // 状態の外部通知
   useEffect(() => {
     onStateChange?.({
       isFocused,
-      isTyping: isActiveTyping || isListening, 
+      isTyping: text.length > 0 || isListening,
       isSilent,
       currentDraft: text
     });
-  }, [isFocused, isActiveTyping, isListening, isSilent, text, onStateChange]);
+  }, [isFocused, text, isListening, isSilent, onStateChange]);
 
   useEffect(() => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
       textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-      textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
-      textarea.style.overflowY = scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+
+      if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+        textarea.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.height = `${scrollHeight}px`;
+        textarea.style.overflowY = 'hidden';
+      }
     }
   }, [text]);
-
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setText(val);
-    setIsSilent(false);
-    
-    setIsActiveTyping(true);
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-        setIsActiveTyping(false);
-    }, 800);
-  };
 
   const handleMicClick = () => {
     if (isListening) {
@@ -103,40 +128,47 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       return;
     }
 
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognitionAPI) {
-      try {
-          const recognition = new SpeechRecognitionAPI();
-          recognition.continuous = false;
-          recognition.lang = 'ja-JP';
-          recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setText(prev => (prev ? prev + ' ' : '') + transcript);
-          };
-          recognition.onerror = () => {
-            setMicError('音声認識エラーが発生しました。');
-            setIsListening(false);
-          };
-          recognition.onend = () => setIsListening(false);
-          recognitionRef.current = recognition;
-          recognition.start();
-          setIsListening(true);
-      } catch (err) {
-          setMicError('音声入力の初期化に失敗しました。');
+    if (!recognitionRef.current) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognitionAPI) {
+        try {
+            const recognition = new SpeechRecognitionAPI();
+            recognition.continuous = false;
+            recognition.lang = 'ja-JP';
+            recognition.interimResults = false;
+            recognition.onresult = (event) => {
+              const transcript = event.results[0][0].transcript;
+              setText(prev => (prev ? prev + ' ' : '') + transcript);
+            };
+            recognition.onerror = (event) => {
+              setMicError('音声認識エラーが発生しました。');
+              setIsListening(false);
+            };
+            recognition.onend = () => setIsListening(false);
+            recognitionRef.current = recognition;
+        } catch (err) {
+            setMicError('音声入力の初期化に失敗しました。');
+            return;
+        }
+      } else {
+        setMicError('お使いのブラウザは音声入力に対応していません。');
+        return;
       }
-    } else {
-      setMicError('お使いのブラウザは音声入力に対応していません。');
+    }
+    
+    try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+    } catch (e) {
+        setIsListening(false);
     }
   };
 
   const handleTextSubmit = () => {
-    const trimmedText = text.trim();
-    if (!trimmedText || isLoading) return;
-    onSubmit(trimmedText);
-    // 内部でも念の為クリア
-    setText('');
-    setIsActiveTyping(false);
-    setIsSilent(false);
+    if (!text.trim() || isLoading) return;
+    onSubmit(text);
+    // 送信直後に自身でもクリア（即時反映用）
+    if (!isEditing) setText('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -160,7 +192,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={handleTextChange}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (isSilent) setIsSilent(false);
+          }}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);
