@@ -1,8 +1,8 @@
 
-// views/UserView.tsx - v3.93 - Stable Rollback
+// views/UserView.tsx - v3.94 - Stability Fix: API Key Alignment & Simplified Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
-import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
+import { getStreamingChatResponse, generateSummary } from '../services/index';
 import { getUserById } from '../services/userService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
@@ -147,33 +147,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setView('chatting');
   }, []);
 
-  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
-      // 安定化のための修正: ロード中やオンボーディング中はヒント生成を行わない
-      if (isLoading || onboardingStep < 6) return;
-
-      try {
-        const contextualMessages = draftText
-            ? [...currentMessages, { author: MessageAuthor.USER, text: `(作成中: ${draftText})` }] 
-            : currentMessages;
-            
-        const response = await generateSuggestions(contextualMessages);
-        if (response?.suggestions?.length) {
-            setSuggestions(response.suggestions);
-            if (!isLoading) {
-                setSuggestionsVisible(true);
-            }
-        }
-      } catch (e) {
-        console.warn("Suggestions fetch failed", e);
-      }
-  };
-
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    if (state.isSilent && !isLoading && onboardingStep >= 6) {
-        triggerSuggestions(messages, state.currentDraft);
-    }
-  }, [messages, isLoading, onboardingStep]);
+    // 自動サジェスト生成は安定性のため無効化
+  }, []);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -194,11 +171,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (currentMessages.length >= 4) {
           setIsConsultationReady(true);
       }
-
-      // AI応答完了時にサジェストを更新
-      if (onboardingStep >= 6) {
-          setTimeout(() => triggerSuggestions(currentMessages, ''), 500);
-      }
+      
+      // 自動サジェスト生成は安定性のため無効化
   };
 
   const handleSendMessage = async (text: string) => {

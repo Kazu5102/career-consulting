@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.93",
-  "description": "Protocol 2.0 Compliant. Rollback to v3.90 stability. 通信エラーの原因となる複雑な処理を削除。",
-  "version": "3.93",
+  "name": "Career Consulting_3.94",
+  "description": "Protocol 2.0 Compliant. Critical Fix: API Key alignment & Disabled auto-suggestions.",
+  "version": "3.94",
   "prompt": ""
 }
