@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.92 - Robust Suggestion Recovery
+// views/UserView.tsx - v3.93 - Stable Rollback
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -47,13 +47,6 @@ const CRISIS_KEYWORDS = [
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
 ];
 
-// APIエラー時や取得失敗時に表示するデフォルトのヒント
-const FALLBACK_SUGGESTIONS = [
-    '言い方を変えてみる',
-    'これまでの話を整理する',
-    '少し休憩する'
-];
-
 const GREETINGS = {
   human: (name: string) => `[HAPPY] こんにちは、${name}です。お越しいただきありがとうございます。今のあなたの想いや状況を、まずはありのままにお聞かせください。対話を通じて現状を丁寧に整理し、あなたが自信を持って次の一歩を踏み出せるよう、誠心誠意サポートさせていただきます。まずは、今のあなたの状況に近いものを教えていただけますか？`,
   dog: (name: string) => `[HAPPY] こんにちは、${name}だワン！会えて嬉しいワン！今のあなたの気持ちや、がんばっていること、なんでもお話ししてほしいワン。ボクがしっかり寄りさとって、一緒にこれからのことを整理するワン。キミが元気に一歩踏み出せるように応援するからね！まずは、今のキミはどんな感じかな？`
@@ -99,10 +92,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
-
-  // コンテキスト・ロック用
-  const lastSuggestionKeyRef = useRef<string>('');
-  const isFetchingSuggestionsRef = useRef<boolean>(false);
 
   // タイピング中はヒントを非表示にする
   useEffect(() => {
@@ -154,63 +143,39 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
-    lastSuggestionKeyRef.current = ''; 
-    isFetchingSuggestionsRef.current = false;
     
     setView('chatting');
   }, []);
 
-  // ignoreLoading: AI応答直後やエラー時など、isLoadingステートの更新ラグを無視して強制実行する場合にtrue
-  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '', ignoreLoading: boolean = false) => {
-      // 排他制御とタイミングの検証
-      if (isFetchingSuggestionsRef.current) return;
-      // ロード中かつ強制フラグがない場合はスキップ
-      if (!ignoreLoading && isLoading) return;
-      if (onboardingStep < 6) return;
-
-      const trimmedDraft = draftText.trim();
-      const suggestionKey = `${currentMessages.length}-${trimmedDraft}`;
-      if (lastSuggestionKeyRef.current === suggestionKey) return;
-      
-      isFetchingSuggestionsRef.current = true;
-      lastSuggestionKeyRef.current = suggestionKey;
+  const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
+      // 安定化のための修正: ロード中やオンボーディング中はヒント生成を行わない
+      if (isLoading || onboardingStep < 6) return;
 
       try {
-        const contextualMessages = trimmedDraft
-            ? [...currentMessages, { author: MessageAuthor.USER, text: `(相談者が伝えようとしていること: ${trimmedDraft})` }] 
+        const contextualMessages = draftText
+            ? [...currentMessages, { author: MessageAuthor.USER, text: `(作成中: ${draftText})` }] 
             : currentMessages;
             
         const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-        } else {
-            // APIが空配列を返した場合のフォールバック
-            setSuggestions(FALLBACK_SUGGESTIONS);
+            if (!isLoading) {
+                setSuggestionsVisible(true);
+            }
         }
       } catch (e) {
         console.warn("Suggestions fetch failed", e);
-        // APIエラー時のフォールバック
-        setSuggestions(FALLBACK_SUGGESTIONS);
-        // キーをリセットして再試行可能にする
-        lastSuggestionKeyRef.current = '';
-      } finally {
-        // ロード中(強制モード以外)なら表示しない。強制モード(AIターン終了直後やエラー時)なら表示する。
-        if (!isLoading || ignoreLoading) {
-            setSuggestionsVisible(true);
-        }
-        isFetchingSuggestionsRef.current = false;
       }
   };
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    // 静止した瞬間に、入力内容があればそれを反映してヒントをリクエスト
     if (state.isSilent && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
   }, [messages, isLoading, onboardingStep]);
 
-  const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
+  const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
       const lastAiMessage = currentMessages[currentMessages.length - 1];
       const aiText = lastAiMessage?.text || "";
@@ -230,17 +195,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
 
-      if (currentStep >= 6) {
-          // AI発言直後は文脈が変わるのでヒントを再生成
-          // isLoadingがfalseになるrender前でも強制的に実行する
-          await triggerSuggestions(currentMessages, '', true);
+      // AI応答完了時にサジェストを更新
+      if (onboardingStep >= 6) {
+          setTimeout(() => triggerSuggestions(currentMessages, ''), 500);
       }
   };
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // 信号を送って入力をクリア
     setInputClearSignal(prev => prev + 1);
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
@@ -263,7 +226,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSuggestionsVisible(false); 
     setIsLoading(true);
     setAiMood('thinking');
-    lastSuggestionKeyRef.current = ''; 
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
         await processOnboarding(text, newMessages);
@@ -305,15 +267,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             else if (aiResponseText.includes('[REASSURE]')) setAiMood('reassure');
           }
       }
-      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }], onboardingStep);
+      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (error) {
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
       setIsLoading(false);
       setAiMood('neutral');
-      // エラー時でも、ユーザーが次の一手を打てるようにヒントを再生成（またはフォールバック表示）する
-      // ここでも ignoreLoading=true で強制実行する
-      await triggerSuggestions(newMessages, '', true);
     }
   };
 
@@ -359,7 +318,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         };
         setUserProfile(finalProfile);
         setOnboardingStep(6);
-        await startActualConsultation(history, finalProfile, 6);
+        await startActualConsultation(history, finalProfile);
         return;
     }
 
@@ -373,7 +332,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsLoading(false);
   };
 
-  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile, stepAtFinalize: number) => {
+  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
     try {
       const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
       if (!stream) throw new Error("Stream failed");
@@ -394,13 +353,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
           }
       }
-      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }], stepAtFinalize);
+      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (e) { 
       setHasError(true);
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
       setIsLoading(false);
-      // ここでもリカバリを実行
-      await triggerSuggestions(history, '', true);
     }
   };
 
@@ -416,7 +373,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setAiMood('neutral');
-    lastSuggestionKeyRef.current = '';
   };
 
   const resetOnboarding = (isManualReset: boolean = true) => {
@@ -431,8 +387,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
-    lastSuggestionKeyRef.current = '';
-    isFetchingSuggestionsRef.current = false;
   };
 
   const handleGenerateSummary = () => {
@@ -470,7 +424,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setOnboardingStep(0);
       setIsConsultationReady(false);
       setAiMood('neutral');
-      lastSuggestionKeyRef.current = '';
   };
 
   const renderOnboardingUI = () => {
