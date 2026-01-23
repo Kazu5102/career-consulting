@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v3.71 - Default Step Adjustment
+// components/SummaryModal.tsx - v3.97 - Expert Referral
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -28,7 +28,7 @@ const REASSURANCE_MESSAGES = [
 ];
 
 const SURVEY_CONFIG: SurveyConfig = {
-  isEnabled: false, // デフォルトは無効
+  isEnabled: false,
   url: "https://www.google.com/search?q=career+consulting+survey",
   title: "より良いサービス向上のためのアンケート",
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
@@ -61,8 +61,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       setIsEditing(false);
       setCorrectionRequest('');
       setActiveTab('user');
-      
-      // 指示に基づき、デフォルト値をfalse(非表示)として扱う
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
@@ -207,22 +205,48 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
               </div>
             </div>
           ) : (
-            <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 ${activeTab === 'user' ? 'bg-amber-50/40 border-amber-100 shadow-inner' : 'bg-emerald-50/40 border-emerald-100 shadow-inner'}`}>
-                {activeTab === 'pro' && (
-                  <p className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-3 py-1.5 rounded-md mb-8 inline-block shadow-sm">
-                    ※プロのキャリアコンサルタントが分析する際に参照する情報です
-                  </p>
-                )}
-                <article 
-                    className={`prose max-w-none 
-                               ${activeTab === 'user' 
-                                 ? 'prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800' 
-                                 : 'prose-slate prose-h2:text-emerald-800 prose-h2:border-emerald-200 prose-h3:text-emerald-700'}
-                               prose-h2:font-bold prose-h2:border-b-2 prose-h2:pb-3 prose-h2:mb-8
-                               prose-p:leading-relaxed prose-p:text-slate-700`}
-                    dangerouslySetInnerHTML={createMarkup(currentContent)} 
-                />
-            </div>
+            <>
+              <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 ${activeTab === 'user' ? 'bg-amber-50/40 border-amber-100 shadow-inner' : 'bg-emerald-50/40 border-emerald-100 shadow-inner'}`}>
+                  {activeTab === 'pro' && (
+                    <p className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-3 py-1.5 rounded-md mb-8 inline-block shadow-sm">
+                      ※プロのキャリアコンサルタントが分析する際に参照する情報です
+                    </p>
+                  )}
+                  <article 
+                      className={`prose max-w-none 
+                                 ${activeTab === 'user' 
+                                   ? 'prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800' 
+                                   : 'prose-slate prose-h2:text-emerald-800 prose-h2:border-emerald-200 prose-h3:text-emerald-700'}
+                                 prose-h2:font-bold prose-h2:border-b-2 prose-h2:pb-3 prose-h2:mb-8
+                                 prose-p:leading-relaxed prose-p:text-slate-700`}
+                      dangerouslySetInnerHTML={createMarkup(currentContent)} 
+                  />
+              </div>
+
+              {/* Expert Referral Section */}
+              <div className="mt-8 p-6 bg-sky-50 rounded-2xl border border-sky-100 animate-in fade-in slide-in-from-bottom-6">
+                <div className="flex items-start gap-4">
+                   <div className="p-3 bg-sky-100 text-sky-600 rounded-xl hidden sm:block">
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                   </div>
+                   <div className="flex-1">
+                      <h4 className="font-black text-sky-800 text-lg mb-2">次のステップへ：専門家への相談</h4>
+                      <p className="text-sm text-sky-700 leading-relaxed font-medium mb-4">
+                        AIによる整理はあくまで補助です。このシートを保存し、国家資格キャリアコンサルタント等の専門家に見せることで、より具体的で深い支援が得られます。
+                      </p>
+                      <a 
+                        href="https://careerconsultant.mhlw.go.jp/search/Matching/MatchingSearch" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-sky-600 font-bold rounded-lg border border-sky-200 hover:bg-sky-50 hover:border-sky-300 transition-all text-sm shadow-sm"
+                      >
+                        キャリコンサーチ（厚生労働省）を開く
+                        <LinkIcon className="w-4 h-4" />
+                      </a>
+                   </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

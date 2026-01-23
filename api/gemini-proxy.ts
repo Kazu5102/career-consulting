@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.96 - Optimized Suggestion Logic
+// api/gemini-proxy.ts - v3.97 - Closing Guidance Update
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -183,6 +183,9 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
 3. その上で、専門の相談機関があることを「一緒に考えましょう」というトーンで伝えてください。
 4. 否定したり、無理に元気づけようとするアドバイスは避けてください。
+
+### 進行・クロージング指示:
+- 相談者の悩み・希望・強みなどの主要な情報が出揃ったと判断したタイミング、または会話が一定量（10往復程度）続いたタイミングで、「ここまでの内容で一度情報を整理し、専門家への引継ぎシートを作成してみませんか？画面下の【相談を終了して整理する】ボタンを押してください」と、自然に完了を促してください。
 
 回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
 `.trim();
