@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.97",
-  "description": "Protocol 2.0 Compliant. Feature: UX Improvement for Closing & Expert Referral.",
-  "version": "3.97",
+  "name": "Career Consulting_3.98",
+  "description": "Protocol 2.0 Compliant. Feature: Auto-fallback to Offline Mode on connection failure.",
+  "version": "3.98",
   "prompt": ""
 }

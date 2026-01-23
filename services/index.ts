@@ -1,45 +1,45 @@
 
+// services/index.ts - v3.98 - Dynamic Service Switching with Fallback
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
-// FIX: Added UserProfile to imports and updated re-exports to support the profile argument.
 import type { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
-// This file intelligently switches between the real API service and a mock service.
-// This allows the app to be functional in preview environments (where serverless functions don't run)
-// and fully operational in production (like on Vercel).
-
-// Vite injects environment variables into `import.meta.env`.
-// We check for this object and its properties safely to avoid errors in environments where Vite isn't running.
+// Environment detection
 const env = (import.meta as any).env || {};
-
-// isProduction is true only if the build is a production build (e.g., `vite build`).
-// Vercel sets `env.PROD` to true during its build process.
 const isProduction = env.PROD === true;
 
-const service = isProduction ? realService : mockService;
+// Mutable service reference to allow runtime fallback
+let activeService = isProduction ? realService : mockService;
 
-console.log(`[Service Initialized] Using ${isProduction ? 'REAL' : 'MOCK'} service. (isProduction: ${isProduction})`);
+console.log(`[Service Initialized] Defaulting to ${isProduction ? 'REAL' : 'MOCK'} service.`);
 
-// Re-export all functions from the selected service.
-export const checkServerStatus = (): Promise<{status: string}> => service.checkServerStatus();
+/**
+ * Forces the application to use the Mock Service.
+ * Useful when the backend is unreachable or for demo purposes.
+ */
+export const useMockService = () => {
+    console.warn("⚠️ Switching to Mock Service (Fallback Mode)");
+    activeService = mockService;
+};
 
-// FIX: Updated getStreamingChatResponse signature to include profile.
-export const getStreamingChatResponse = (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => service.getStreamingChatResponse(messages, aiType, aiName, profile);
+// Exported functions delegate to the currently active service
+export const checkServerStatus = (): Promise<{status: string}> => activeService.checkServerStatus();
 
-// FIX: Updated generateSummary signature to include profile.
-export const generateSummary = (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => service.generateSummary(chatHistory, aiType, aiName, profile);
+export const getStreamingChatResponse = (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => activeService.getStreamingChatResponse(messages, aiType, aiName, profile);
 
-export const reviseSummary = (originalSummary: string, correctionRequest: string): Promise<string> => service.reviseSummary(originalSummary, correctionRequest);
+export const generateSummary = (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => activeService.generateSummary(chatHistory, aiType, aiName, profile);
 
-export const analyzeConversations = (summaries: StoredConversation[]): Promise<AnalysisData> => service.analyzeConversations(summaries);
+export const reviseSummary = (originalSummary: string, correctionRequest: string): Promise<string> => activeService.reviseSummary(originalSummary, correctionRequest);
 
-export const analyzeTrajectory = (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => service.analyzeTrajectory(conversations, userId);
+export const analyzeConversations = (summaries: StoredConversation[]): Promise<AnalysisData> => activeService.analyzeConversations(summaries);
 
-export const findHiddenPotential = (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => service.findHiddenPotential(conversations, userId);
+export const analyzeTrajectory = (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => activeService.analyzeTrajectory(conversations, userId);
 
-export const generateSummaryFromText = (textToAnalyze: string): Promise<string> => service.generateSummaryFromText(textToAnalyze);
+export const findHiddenPotential = (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => activeService.findHiddenPotential(conversations, userId);
 
-export const performSkillMatching = (conversations: StoredConversation[]): Promise<SkillMatchingResult> => service.performSkillMatching(conversations);
+export const generateSummaryFromText = (textToAnalyze: string): Promise<string> => activeService.generateSummaryFromText(textToAnalyze);
 
-export const generateSuggestions = (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => service.generateSuggestions(messages);
+export const performSkillMatching = (conversations: StoredConversation[]): Promise<SkillMatchingResult> => activeService.performSkillMatching(conversations);
+
+export const generateSuggestions = (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => activeService.generateSuggestions(messages);
