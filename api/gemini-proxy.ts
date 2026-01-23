@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v3.82 - Empathetic Crisis Protocol
+// api/gemini-proxy.ts - v3.89 - Smart Induction Protocol
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -126,7 +126,7 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
 1. **地続きの提案**: 相談者が明日からでも目指せる、または現在の職種の延長線上にある「現実的な一歩（ネクストステップ）」を優先すること。
 2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
 3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
-4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
+4. **ギャップ의 誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
 
 履歴:
 ${historyText}`,
@@ -183,6 +183,10 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
 3. その上で、専門の相談機関があることを「一緒に考えましょう」というトーンで伝えてください。
 4. 否定したり、無理に元気づけようとするアドバイスは避けてください。
+
+### スマート誘導プロトコル:
+1. 相談者の「現状」「課題」「将来の希望」「強み」について、要約を行うのに十分な情報が集まったと判断した場合は、回答の最後に \`[COMPLETE_READY]\` というタグを付与してください。
+2. このタグはシステムが検知し、ユーザーに要約を提案するために使用されます。
 
 回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
 `.trim();

@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.86 - Suggestion Lock & clearSignal Implementation
+// views/UserView.tsx - v3.89 - Smart Induction Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -15,6 +15,7 @@ import AvatarSelectionView from './AvatarSelectionView';
 import UserDashboard from '../components/UserDashboard';
 import ActionFooter from '../components/ActionFooter';
 import SuggestionChips from '../components/SuggestionChips';
+import InductionChip from '../components/InductionChip';
 import { ASSISTANTS } from '../config/aiAssistants';
 
 interface UserViewProps {
@@ -62,6 +63,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
+  const [isCompleteReady, setIsCompleteReady] = useState<boolean>(false); // NEW: 誘導チップ表示用
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
@@ -146,6 +148,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSelectedRoles([]);
     setHasError(false);
     setSuggestionsVisible(false);
+    setIsCompleteReady(false);
     setCrisisCount(0);
     lastSuggestionKeyRef.current = ''; 
     isFetchingSuggestionsRef.current = false;
@@ -213,6 +216,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
 
+      // [COMPLETE_READY] タグのチェック
+      if (aiText.includes('[COMPLETE_READY]')) {
+          setIsCompleteReady(true);
+      } else {
+          setIsCompleteReady(false);
+      }
+
       if (currentStep >= 6) {
           // AI発言直後は文脈が変わるのでヒントを再生成
           await triggerSuggestions(currentMessages);
@@ -243,6 +253,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestionsVisible(false); 
+    setIsCompleteReady(false); // ユーザー発言時は一度隠す
     setIsLoading(true);
     setAiMood('thinking');
     lastSuggestionKeyRef.current = ''; 
@@ -392,6 +403,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setOnboardingHistory(prevHistory);
     setHasError(false);
     setSuggestionsVisible(false);
+    setIsCompleteReady(false);
     setAiMood('neutral');
     lastSuggestionKeyRef.current = '';
   };
@@ -407,6 +419,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSelectedRoles([]);
     setHasError(false);
     setSuggestionsVisible(false);
+    setIsCompleteReady(false);
     setCrisisCount(0);
     lastSuggestionKeyRef.current = '';
     isFetchingSuggestionsRef.current = false;
@@ -560,8 +573,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onCancelEdit={() => {}} 
                     onStateChange={handleInputStateChange}
                   />
+                  {onboardingStep >= 6 && !isLoading && (
+                    <InductionChip isVisible={isCompleteReady} onSummarize={handleGenerateSummary} />
+                  )}
                   {onboardingStep >= 6 && (
-                    <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
+                    <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !isCompleteReady} />
                   )}
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>

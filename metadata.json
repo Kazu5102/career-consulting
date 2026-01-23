@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.88",
-  "description": "Protocol 2.0 Compliant. 管理者画面の削除モードを強化。カスタム確認モーダル導入とイベント制御により、プレビュー環境での削除不能問題を解消。",
-  "version": "3.88",
+  "name": "Career Consulting_3.89",
+  "description": "Protocol 2.0 Compliant. スマート誘導チップ（Option B）の実装。AIが対話の進捗を判断し、要約フェーズへの移行を提案する機能を追加。",
+  "version": "3.89",
   "prompt": ""
 }
