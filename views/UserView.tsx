@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.97 - Persistent Suggestions Update
+// views/UserView.tsx - v3.99 - Expert Matching Protocol Update
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -17,6 +17,7 @@ import ActionFooter from '../components/ActionFooter';
 import SuggestionChips from '../components/SuggestionChips';
 import InductionChip from '../components/InductionChip';
 import ReferralView from './ReferralView';
+import ExpertMatchingView from './ExpertMatchingView';
 import { ASSISTANTS } from '../config/aiAssistants';
 
 interface UserViewProps {
@@ -24,7 +25,7 @@ interface UserViewProps {
   onSwitchUser: () => void;
 }
 
-type UserViewMode = 'loading' | 'dashboard' | 'avatarSelection' | 'chatting' | 'referral';
+type UserViewMode = 'loading' | 'dashboard' | 'avatarSelection' | 'chatting' | 'referral' | 'expertMatching';
 
 const STAGES = [
   { id: 'cultivate', label: 'じっくり自分を育み、守っている', sub: '好きなことを見つけたり、自分を蓄えている感覚' },
@@ -116,15 +117,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     return () => { if (slowResponseTimerRef.current) clearTimeout(slowResponseTimerRef.current); };
   }, [isLoading]);
 
-  // FIX: 入力中も候補を維持するように変更 (削除またはコメントアウト)
-  /* 
-  useEffect(() => {
-    if (isTyping) {
-      setSuggestionsVisible(false);
-    }
-  }, [isTyping]);
-  */
-
   useEffect(() => {
     const user = getUserById(userId);
     setNickname(user?.nickname || userId);
@@ -209,7 +201,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
     
-    // 文字が消された場合や、一定時間入力が止まった場合に候補を更新
     if ((state.isSilent || (state.currentDraft.length === 0 && !state.isTyping)) && !isLoading && onboardingStep >= 6) {
         triggerSuggestions(messages, state.currentDraft);
     }
@@ -241,7 +232,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsCompleteReady(false);
       }
 
-      // AI応答完了後、即座に次の候補を準備する
       if (currentStep >= 6) {
           await triggerSuggestions(currentMessages);
       }
@@ -344,6 +334,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             return;
         }
     }
+  };
+
+  const handleDeepDive = () => {
+      const prompt = aiType === 'dog' 
+          ? "もっと深く話したいワン！今の内容をさらに深掘りして、ボクがまだ気づいていない視点やテーマを3つほど提案してほしいワン！"
+          : "さらに深く対話したいと考えています。これまでの内容を踏まえ、私がまだ自覚していない可能性や、掘り下げるべき価値のあるテーマを3点ほど提示いただけますか。";
+      handleSendMessage(prompt);
   };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
@@ -580,7 +577,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             {onboardingStep > 1 && (
               <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>
             )}
-            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
+            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり難す</button>
           </div>
         )}
       </div>
@@ -608,10 +605,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         </div>
       )}
 
-      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' || view === 'referral' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
+      <main className={`flex-1 flex flex-col items-center ${view === 'chatting' || view === 'referral' || view === 'expertMatching' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
-         view === 'referral' ? <ReferralView onBack={handleCloseReferral} /> :
+         view === 'referral' ? <ReferralView onBack={handleCloseReferral} onContinueChat={() => setView('chatting')} onSearchExperts={() => setView('expertMatching')} /> :
+         view === 'expertMatching' ? <ExpertMatchingView onBack={handleCloseReferral} /> :
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
@@ -644,7 +642,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onStateChange={handleInputStateChange}
                   />
                   {onboardingStep >= 6 && !isLoading && (
-                    <InductionChip isVisible={isCompleteReady} onSummarize={handleGenerateSummary} />
+                    <InductionChip 
+                        isVisible={isCompleteReady} 
+                        onSummarize={handleGenerateSummary} 
+                        onDeepDive={handleDeepDive} 
+                    />
                   )}
                   {onboardingStep >= 6 && (
                     <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !isCompleteReady} />

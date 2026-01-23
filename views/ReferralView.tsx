@@ -1,5 +1,5 @@
 
-// views/ReferralView.tsx - v1.00 - Professional Referral UI
+// views/ReferralView.tsx - v1.20 - Integrated Expert Search導線
 import React from 'react';
 import SparklesIcon from '../components/icons/SparklesIcon';
 import BriefcaseIcon from '../components/icons/BriefcaseIcon';
@@ -8,9 +8,11 @@ import TrendingUpIcon from '../components/icons/TrendingUpIcon';
 
 interface ReferralViewProps {
   onBack: () => void;
+  onContinueChat: () => void;
+  onSearchExperts: () => void; // 外部サイトではなくシミュレーターへ
 }
 
-const ReferralView: React.FC<ReferralViewProps> = ({ onBack }) => {
+const ReferralView: React.FC<ReferralViewProps> = ({ onBack, onContinueChat, onSearchExperts }) => {
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center p-6 h-full overflow-y-auto animate-in fade-in duration-700">
       <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-200 overflow-hidden w-full max-w-2xl relative">
@@ -57,19 +59,25 @@ const ReferralView: React.FC<ReferralViewProps> = ({ onBack }) => {
                 </div>
 
                 <div className="space-y-4 pt-4">
-                    <a 
-                        href="https://careerconsultant.mhlw.go.jp/search/Matching/Search" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                    <button 
+                        onClick={onSearchExperts}
                         className="w-full flex items-center justify-center gap-3 py-5 bg-sky-600 text-white font-black rounded-2xl shadow-xl shadow-sky-100 hover:bg-sky-700 transition-all active:scale-[0.98] text-lg"
                     >
                         <BriefcaseIcon className="w-6 h-6" />
                         国家資格保持者を探す
-                    </a>
+                    </button>
+
+                    <button 
+                        onClick={onContinueChat}
+                        className="w-full flex items-center justify-center gap-2 py-4 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-[0.98] text-sm"
+                    >
+                        <ChatIcon className="w-4 h-4 text-sky-500" />
+                        補足したいことをAIと対話する
+                    </button>
                     
                     <button 
                         onClick={onBack}
-                        className="w-full py-4 text-slate-400 font-bold hover:text-slate-600 transition-all uppercase tracking-widest text-xs"
+                        className="w-full py-2 text-slate-400 font-bold hover:text-slate-600 transition-all uppercase tracking-widest text-[10px]"
                     >
                         ダッシュボードへ戻る
                     </button>
@@ -79,7 +87,7 @@ const ReferralView: React.FC<ReferralViewProps> = ({ onBack }) => {
         
         <footer className="bg-slate-50 p-6 border-t border-slate-100 text-center">
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-relaxed">
-                National Career Consultant Referral Protocol v1.0<br/>
+                National Career Consultant Referral Protocol v1.2<br/>
                 Empowering Human Connection
             </p>
         </footer>
