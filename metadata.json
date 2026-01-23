@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.74B",
-  "description": "Protocol 2.0 Compliant. 高度な暗号化レポート出力と厳格な合意形成フローを搭載したキャリアコンサルティング支援プラットフォーム。",
-  "version": "3.74",
+  "name": "Career Consulting_3.90",
+  "description": "Protocol 2.0 Compliant. 人間アバターの解剖学的シルエットの再構築、テーパードな輪郭、および毛束感を強調した有機的な髪型デザインの刷新を実装。",
+  "version": "3.90",
   "prompt": ""
 }

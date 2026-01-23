@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v3.72 - Message Box Clear Logic Fix
+// views/UserView.tsx - v3.86 - Suggestion Lock & clearSignal Implementation
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -70,8 +70,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
-  // メッセージボックスを外部からリセットするためのフラグ
-  const [inputText, setInputText] = useState<string>('');
+  const [inputClearSignal, setInputClearSignal] = useState<number>(0);
 
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
@@ -94,6 +93,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
+  // コンテキスト・ロック用
+  const lastSuggestionKeyRef = useRef<string>('');
+  const isFetchingSuggestionsRef = useRef<boolean>(false);
+
+  // タイピング中はヒントを非表示にする
   useEffect(() => {
     if (isTyping) {
       setSuggestionsVisible(false);
@@ -143,26 +147,51 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
+    lastSuggestionKeyRef.current = ''; 
+    isFetchingSuggestionsRef.current = false;
     
     setView('chatting');
   }, []);
 
   const triggerSuggestions = async (currentMessages: ChatMessage[], draftText: string = '') => {
-      if (currentMessages.length < 4) return;
+      // 排他制御とタイミングの検証
+      if (isFetchingSuggestionsRef.current || isLoading) return;
+      if (onboardingStep < 6) return;
+
+      const trimmedDraft = draftText.trim();
+      const suggestionKey = `${currentMessages.length}-${trimmedDraft}`;
+      if (lastSuggestionKeyRef.current === suggestionKey) return;
+      
+      isFetchingSuggestionsRef.current = true;
+      lastSuggestionKeyRef.current = suggestionKey;
+
       try {
-        const contextualMessages = draftText.trim() 
-            ? [...currentMessages, { author: MessageAuthor.USER, text: `(書きかけの思考: ${draftText})` }] 
+        const contextualMessages = trimmedDraft
+            ? [...currentMessages, { author: MessageAuthor.USER, text: `(相談者が伝えようとしていること: ${trimmedDraft})` }] 
             : currentMessages;
             
         const response = await generateSuggestions(contextualMessages);
         if (response?.suggestions?.length) {
             setSuggestions(response.suggestions);
-            setTimeout(() => setSuggestionsVisible(true), 0);
+            if (!isLoading) {
+                setSuggestionsVisible(true);
+            }
         }
       } catch (e) {
-        console.warn("Suggestions failed", e);
+        console.warn("Suggestions fetch failed", e);
+        lastSuggestionKeyRef.current = '';
+      } finally {
+        isFetchingSuggestionsRef.current = false;
       }
   };
+
+  const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
+    setIsTyping(state.isTyping);
+    // 静止した瞬間に、入力内容があればそれを反映してヒントをリクエスト
+    if (state.isSilent && !isLoading && onboardingStep >= 6) {
+        triggerSuggestions(messages, state.currentDraft);
+    }
+  }, [messages, isLoading, onboardingStep]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[], currentStep: number) => {
       setIsLoading(false);
@@ -185,6 +214,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
 
       if (currentStep >= 6) {
+          // AI発言直後は文脈が変わるのでヒントを再生成
           await triggerSuggestions(currentMessages);
       }
   };
@@ -192,8 +222,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     
-    // ヒント選択時・直接入力時どちらも、送信開始時に入力欄をクリアする
-    setInputText('');
+    // 信号を送って入力をクリア
+    setInputClearSignal(prev => prev + 1);
 
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
@@ -212,10 +242,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setSuggestions([]);
     setSuggestionsVisible(false); 
     setIsLoading(true);
     setAiMood('thinking');
+    lastSuggestionKeyRef.current = ''; 
 
     if (onboardingStep >= 1 && onboardingStep <= 5) {
         await processOnboarding(text, newMessages);
@@ -363,6 +393,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setAiMood('neutral');
+    lastSuggestionKeyRef.current = '';
   };
 
   const resetOnboarding = (isManualReset: boolean = true) => {
@@ -377,6 +408,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
+    lastSuggestionKeyRef.current = '';
+    isFetchingSuggestionsRef.current = false;
   };
 
   const handleGenerateSummary = () => {
@@ -414,6 +447,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setOnboardingStep(0);
       setIsConsultationReady(false);
       setAiMood('neutral');
+      lastSuggestionKeyRef.current = '';
   };
 
   const renderOnboardingUI = () => {
@@ -521,16 +555,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     onSubmit={handleSendMessage} 
                     isLoading={isLoading} 
                     isEditing={false} 
-                    initialText={inputText} 
+                    initialText="" 
+                    clearSignal={inputClearSignal}
                     onCancelEdit={() => {}} 
-                    onStateChange={(state) => {
-                        setIsTyping(state.isTyping);
-                        // 入力中の内容をUserView側でも同期（送信時にリセットできるようにするため）
-                        setInputText(state.currentDraft);
-                        if (state.isSilent && !isLoading && onboardingStep >= 6) {
-                            triggerSuggestions(messages, state.currentDraft);
-                        }
-                    }}
+                    onStateChange={handleInputStateChange}
                   />
                   {onboardingStep >= 6 && (
                     <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
