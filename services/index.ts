@@ -1,5 +1,5 @@
 
-// services/index.ts - v3.98 - Dynamic Service Switching with Fallback
+// services/index.ts - v3.99 - Dynamic Service Switching with Fallback & State Check
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
 import type { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, UserProfile } from '../types';
@@ -11,6 +11,7 @@ const isProduction = env.PROD === true;
 
 // Mutable service reference to allow runtime fallback
 let activeService = isProduction ? realService : mockService;
+let isMockActive = !isProduction;
 
 console.log(`[Service Initialized] Defaulting to ${isProduction ? 'REAL' : 'MOCK'} service.`);
 
@@ -21,6 +22,14 @@ console.log(`[Service Initialized] Defaulting to ${isProduction ? 'REAL' : 'MOCK
 export const useMockService = () => {
     console.warn("⚠️ Switching to Mock Service (Fallback Mode)");
     activeService = mockService;
+    isMockActive = true;
+};
+
+/**
+ * Checks if the application is currently running in Mock Mode.
+ */
+export const isMockMode = (): boolean => {
+    return isMockActive;
 };
 
 // Exported functions delegate to the currently active service

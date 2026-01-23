@@ -1,8 +1,8 @@
 
-// views/UserView.tsx - v3.95 - Safe Suggestion Restoration
+// views/UserView.tsx - v3.99 - Auto-Recovery Chat Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
-import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
+import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
 import { getUserById } from '../services/userService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
@@ -222,48 +222,85 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         return;
     }
 
-    try {
-      const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
-      if (!stream) throw new Error("Stream connection failed");
-      let aiResponseText = '';
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-      const reader = stream.getReader();
-      while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          if (value.error) {
-              if (value.error.code === 'SAFETY_BLOCK') {
-                  setCrisisCount(prev => prev + 1);
-                  setIsCrisisModalOpen(true);
-                  setMessages(prev => prev.slice(0, -1));
-                  setIsLoading(false);
-                  return;
-              }
-              throw new Error(value.error.message);
-          }
-
-          if (value.text) {
-            aiResponseText += value.text;
-            setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1].text = aiResponseText;
-                return updated;
-            });
+    // Auto-Recovery Logic
+    const performRequest = async (currentHistory: ChatMessage[], retryCount = 0): Promise<void> => {
+        try {
+            const stream = await getStreamingChatResponse(currentHistory, aiType, aiName, userProfile);
+            if (!stream) throw new Error("Stream connection failed");
             
-            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
-            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
-            else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
-            else if (aiResponseText.includes('[REASSURE]')) setAiMood('reassure');
-          }
-      }
-      await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
-    } catch (error) {
-      setHasError(true);
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }]);
-      setIsLoading(false);
-      setAiMood('neutral');
-    }
+            let aiResponseText = '';
+            setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
+            
+            const reader = stream.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                if (value.error) {
+                    if (value.error.code === 'SAFETY_BLOCK') {
+                        setCrisisCount(prev => prev + 1);
+                        setIsCrisisModalOpen(true);
+                        setMessages(prev => prev.slice(0, -1));
+                        setIsLoading(false);
+                        return;
+                    }
+                    throw new Error(value.error.message);
+                }
+
+                if (value.text) {
+                    aiResponseText += value.text;
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        updated[updated.length - 1].text = aiResponseText;
+                        return updated;
+                    });
+                    if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
+                    else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
+                    else if (aiResponseText.includes('[THINKING]')) setAiMood('thinking');
+                    else if (aiResponseText.includes('[REASSURE]')) setAiMood('reassure');
+                }
+            }
+            await finalizeAiTurn([...currentHistory, { author: MessageAuthor.AI, text: aiResponseText }]);
+        } catch (error) {
+            // Auto-fallback to mock mode on failure if not already in mock mode
+            if (!isMockMode() && retryCount === 0) {
+                console.warn("API Error detected. Switching to Mock Mode for auto-recovery.");
+                useMockService();
+                
+                // User Feedback (System Message)
+                const fallbackNotice: ChatMessage = {
+                    author: MessageAuthor.AI,
+                    text: "⚠️ 通信環境が不安定なため、デモモード(オフライン)に切り替えて応答を継続します。"
+                };
+                
+                // Insert notice and retry immediately
+                setMessages(prev => [...prev, fallbackNotice]);
+                await new Promise(r => setTimeout(r, 1500)); // Small delay for UX
+                
+                // Remove the empty AI bubble if it was added before error
+                setMessages(prev => prev.filter(m => m.text !== ''));
+                
+                // Retry with same history
+                return performRequest(currentHistory, 1);
+            }
+
+            setHasError(true);
+            setMessages(prev => {
+                // If the last message was an empty AI bubble, replace it with error
+                const last = prev[prev.length - 1];
+                if (last.author === MessageAuthor.AI && !last.text) {
+                    const updated = [...prev];
+                    updated[updated.length - 1].text = "通信エラーが発生しました。";
+                    return updated;
+                }
+                return [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }];
+            });
+            setIsLoading(false);
+            setAiMood('neutral');
+        }
+    };
+
+    await performRequest(newMessages);
   };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
@@ -323,6 +360,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
+    // Similar auto-recovery logic for the first consultation message
     try {
       const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
       if (!stream) throw new Error("Stream failed");
@@ -345,9 +383,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (e) { 
-      setHasError(true);
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
-      setIsLoading(false);
+        if (!isMockMode()) {
+            useMockService();
+            setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "⚠️ 通信環境を確認し、デモモードで対話を継続します。" }]);
+            await new Promise(r => setTimeout(r, 1000));
+            // Retry (Recursive call could be risky here without counter, simplify for this specific case)
+            // Just retry once with mock
+            return startActualConsultation(history, profile);
+        }
+        setHasError(true);
+        setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
+        setIsLoading(false);
     }
   };
 
@@ -383,7 +429,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsSummaryModalOpen(true);
     setIsSummaryLoading(true);
     generateSummary(messages, aiType, aiName, userProfile)
-      .then(setSummary).catch(() => setSummary("エラーが発生しました。")).finally(() => setIsSummaryLoading(false));
+      .then(setSummary)
+      .catch((e) => {
+          if (!isMockMode()) {
+              useMockService();
+              // Retry summary generation with mock
+              generateSummary(messages, aiType, aiName, userProfile).then(setSummary);
+          } else {
+              setSummary("エラーが発生しました。");
+          }
+      })
+      .finally(() => setIsSummaryLoading(false));
   };
 
   const finalizeAndSave = async (conversation: StoredConversation) => {

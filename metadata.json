@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.98",
-  "description": "Protocol 2.0 Compliant. Feature: Auto-fallback to Offline Mode on connection failure.",
-  "version": "3.98",
+  "name": "Career Consulting_3.99",
+  "description": "Protocol 2.0 Compliant. Feature: Auto-recovery Chat Logic for Robustness.",
+  "version": "3.99",
   "prompt": ""
 }
