@@ -4,8 +4,8 @@
     "camera",
     "microphone"
   ],
-  "name": "Career Consulting_4.04",
-  "description": "Stability Protocol 4.04: 二重返信防止プロトコルを実装。同期ロック(Ref Lock)によりレースコンディションを完全に排除。",
-  "version": "4.04",
+  "name": "Career Consulting_4.11",
+  "description": "Resilience Core 4.11: 承認に基づきProモデルへ移行。通信経路を簡素化し、ブラウザのフリーズを根絶した安定版。",
+  "version": "4.11",
   "prompt": ""
 }
