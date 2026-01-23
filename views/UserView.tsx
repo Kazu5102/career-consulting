@@ -222,13 +222,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         return;
     }
 
-    // Auto-Recovery Logic
+    // Auto-Recovery Logic: 再帰的に再試行を行う
     const performRequest = async (currentHistory: ChatMessage[], retryCount = 0): Promise<void> => {
         try {
             const stream = await getStreamingChatResponse(currentHistory, aiType, aiName, userProfile);
             if (!stream) throw new Error("Stream connection failed");
             
             let aiResponseText = '';
+            // AIの応答プレースホルダーを追加
             setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
             
             const reader = stream.getReader();
@@ -251,7 +252,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     aiResponseText += value.text;
                     setMessages(prev => {
                         const updated = [...prev];
-                        updated[updated.length - 1].text = aiResponseText;
+                        // 直近のメッセージ（AIのプレースホルダー）を更新
+                        const lastMsg = updated[updated.length - 1];
+                        if (lastMsg.author === MessageAuthor.AI) {
+                            lastMsg.text = aiResponseText;
+                        }
                         return updated;
                     });
                     if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
@@ -262,38 +267,42 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             }
             await finalizeAiTurn([...currentHistory, { author: MessageAuthor.AI, text: aiResponseText }]);
         } catch (error) {
-            // Auto-fallback to mock mode on failure if not already in mock mode
+            // エラー時: まだモックモードでなければ、モックに切り替えて再試行
             if (!isMockMode() && retryCount === 0) {
                 console.warn("API Error detected. Switching to Mock Mode for auto-recovery.");
                 useMockService();
                 
-                // User Feedback (System Message)
+                // システムメッセージを挿入（ユーザーへのフィードバック）
                 const fallbackNotice: ChatMessage = {
                     author: MessageAuthor.AI,
                     text: "⚠️ 通信環境が不安定なため、デモモード(オフライン)に切り替えて応答を継続します。"
                 };
                 
-                // Insert notice and retry immediately
-                setMessages(prev => [...prev, fallbackNotice]);
-                await new Promise(r => setTimeout(r, 1500)); // Small delay for UX
+                // 直前の空のAIメッセージがあれば削除してから通知を追加
+                setMessages(prev => {
+                    const filtered = prev.filter(m => m.text !== ''); 
+                    return [...filtered, fallbackNotice];
+                });
+
+                // 少し待ってから再試行（UX調整）
+                await new Promise(r => setTimeout(r, 1000));
                 
-                // Remove the empty AI bubble if it was added before error
-                setMessages(prev => prev.filter(m => m.text !== ''));
-                
-                // Retry with same history
+                // 再帰呼び出し (retryCount = 1)
                 return performRequest(currentHistory, 1);
             }
 
+            // モックモードでもダメだった場合、あるいは再試行後のエラー
             setHasError(true);
             setMessages(prev => {
-                // If the last message was an empty AI bubble, replace it with error
-                const last = prev[prev.length - 1];
-                if (last.author === MessageAuthor.AI && !last.text) {
-                    const updated = [...prev];
-                    updated[updated.length - 1].text = "通信エラーが発生しました。";
-                    return updated;
+                const updated = [...prev];
+                // 直近が空メッセージならエラーメッセージに置換
+                const last = updated[updated.length - 1];
+                if (last && last.author === MessageAuthor.AI && !last.text) {
+                    last.text = "通信エラーが発生しました。";
+                } else {
+                    updated.push({ author: MessageAuthor.AI, text: "通信エラーが発生しました。" });
                 }
-                return [...prev, { author: MessageAuthor.AI, text: "通信エラーが発生しました。" }];
+                return updated;
             });
             setIsLoading(false);
             setAiMood('neutral');
@@ -360,41 +369,45 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
-    // Similar auto-recovery logic for the first consultation message
-    try {
-      const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
-      if (!stream) throw new Error("Stream failed");
-      let aiResponseText = '';
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-      const reader = stream.getReader();
-      while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value.text) {
-            aiResponseText += value.text;
-            setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1].text = aiResponseText;
-                return updated;
-            });
-            if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
-            else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
-          }
-      }
-      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
-    } catch (e) { 
-        if (!isMockMode()) {
-            useMockService();
-            setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "⚠️ 通信環境を確認し、デモモードで対話を継続します。" }]);
-            await new Promise(r => setTimeout(r, 1000));
-            // Retry (Recursive call could be risky here without counter, simplify for this specific case)
-            // Just retry once with mock
-            return startActualConsultation(history, profile);
+    // 初回メッセージも自動修復ロジックで保護
+    const performStart = async (retryCount = 0) => {
+        try {
+            const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
+            if (!stream) throw new Error("Stream failed");
+            let aiResponseText = '';
+            setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
+            const reader = stream.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value.text) {
+                    aiResponseText += value.text;
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        const lastMsg = updated[updated.length - 1];
+                        if (lastMsg.author === MessageAuthor.AI) lastMsg.text = aiResponseText;
+                        return updated;
+                    });
+                    if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
+                    else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
+                }
+            }
+            await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+        } catch (e) {
+            if (!isMockMode() && retryCount === 0) {
+                useMockService();
+                setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "⚠️ 通信環境を確認し、デモモードで対話を継続します。" }]);
+                await new Promise(r => setTimeout(r, 1000));
+                // Retry
+                await performStart(1);
+                return;
+            }
+            setHasError(true);
+            setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
+            setIsLoading(false);
         }
-        setHasError(true);
-        setMessages(prev => [...prev, { author: MessageAuthor.AI, text: "接続に失敗しました。" }]);
-        setIsLoading(false);
-    }
+    };
+    await performStart();
   };
 
   const handleGoBack = () => {
@@ -428,18 +441,30 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleGenerateSummary = () => {
     setIsSummaryModalOpen(true);
     setIsSummaryLoading(true);
-    generateSummary(messages, aiType, aiName, userProfile)
-      .then(setSummary)
-      .catch((e) => {
-          if (!isMockMode()) {
-              useMockService();
-              // Retry summary generation with mock
-              generateSummary(messages, aiType, aiName, userProfile).then(setSummary);
-          } else {
-              setSummary("エラーが発生しました。");
-          }
-      })
-      .finally(() => setIsSummaryLoading(false));
+    
+    // 要約生成も自動修復対応
+    const performSummary = async () => {
+        try {
+            const result = await generateSummary(messages, aiType, aiName, userProfile);
+            setSummary(result);
+        } catch (e) {
+            if (!isMockMode()) {
+                useMockService();
+                // Retry with mock
+                try {
+                    const mockResult = await generateSummary(messages, aiType, aiName, userProfile);
+                    setSummary(mockResult);
+                } catch (retryErr) {
+                    setSummary("エラーが発生しました。");
+                }
+            } else {
+                setSummary("エラーが発生しました。");
+            }
+        } finally {
+            setIsSummaryLoading(false);
+        }
+    };
+    performSummary();
   };
 
   const finalizeAndSave = async (conversation: StoredConversation) => {
