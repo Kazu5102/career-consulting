@@ -1,10 +1,11 @@
 
-// views/AdminView.tsx - v3.74 - Enhanced Report Export & User Analysis
+// views/AdminView.tsx - v4.12 - Enhanced Report Export & User Analysis with Audit Logs
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
 import * as userService from '../services/userService';
 import { analyzeTrajectory, performSkillMatching } from '../services/index';
+import { addLogEntry } from '../services/devLogService';
 
 import ShareReportModal from '../components/ShareReportModal';
 import DevLogModal from '../components/DevLogModal';
@@ -145,6 +146,14 @@ const AdminView: React.FC = () => {
             hiddenPotential: { status: 'idle', data: null, error: null }
         });
 
+        // Audit Log for Analysis Execution
+        addLogEntry({
+            type: 'audit',
+            level: 'info',
+            action: `Run Analysis: ${type}`,
+            details: `Target User: ${selectedUserId}`
+        });
+
         try {
             if (type === 'trajectory') {
                 const data = await analyzeTrajectory(selectedUserConversations, selectedUserId);
@@ -169,6 +178,17 @@ const AdminView: React.FC = () => {
 
     const handleDeselectUser = () => {
         setSelectedUserId(null);
+    };
+
+    const handleOpenConversationDetail = (conv: StoredConversation) => {
+        setSelectedConvForDetail(conv);
+        // Audit Log: Sensitive Data Access
+        addLogEntry({
+            type: 'audit',
+            level: 'info',
+            action: 'View Conversation Detail',
+            details: `Accessed conversation ID: ${conv.id} (User: ${conv.userId})`
+        });
     };
 
     const parseUserSummary = (rawSummary: string): string => {
@@ -293,7 +313,7 @@ const AdminView: React.FC = () => {
                                         {selectedUserConversations.map(conv => (
                                             <button 
                                                 key={conv.id} 
-                                                onClick={() => setSelectedConvForDetail(conv)}
+                                                onClick={() => handleOpenConversationDetail(conv)}
                                                 className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl hover:border-sky-300 transition-all group text-left relative overflow-hidden"
                                             >
                                                 <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">

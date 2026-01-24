@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.10 - Export Props Added
+// views/UserView.tsx - v4.11 - Hybrid Instant Suggestions
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
@@ -48,6 +48,20 @@ const CRISIS_KEYWORDS = [
     /死にたい/, /自殺/, /消えたい/, /死にたくなった/, /自死/, /終わりにしたい/, 
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
 ];
+
+// Client-Side Dictionary for Instant Feedback (Zero Latency)
+const INSTANT_KEYWORDS: Record<string, string[]> = {
+    '仕事': ['仕事の悩みについて', '業務内容の話', '職場の人間関係', 'キャリアの方向性'],
+    '転職': ['転職を考えている', '今の仕事を辞めたい', '未経験分野への挑戦', 'スキルアップ'],
+    '人間関係': ['上司との関係', '同僚とのトラブル', 'チームの雰囲気', 'コミュニケーション'],
+    '余計': ['余計な仕事が多い', '無駄を感じる', '効率化したい', '断れない業務'],
+    '無駄': ['無駄な会議', '意味のない業務', '時間の使い方', '生産性を上げたい'],
+    '将来': ['将来が不安', 'キャリアプラン', '5年後の自分', 'ロールモデルがない'],
+    '給料': ['給与への不満', '評価制度について', '年収アップ', '待遇改善'],
+    'スキル': ['スキル不足を感じる', '新しい技術', '資格取得', '学習方法'],
+    '疲れ': ['仕事に疲れた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
+    '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング']
+};
 
 const FALLBACK_SUGGESTIONS = [
     "もう少し詳しく話したい",
@@ -103,10 +117,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isTyping) {
+    if (isTyping && onboardingStep < 6) {
       setSuggestionsVisible(false);
     }
-  }, [isTyping]);
+  }, [isTyping, onboardingStep]);
 
   useEffect(() => {
     const user = getUserById(userId);
@@ -157,23 +171,50 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
-    if (state.isTyping) {
-        setSuggestionsVisible(false);
-    } else if (state.isSilent && !isLoading && onboardingStep >= 6) {
-        // Hands-stopped Logic: Update hints based on draft if available
-        if (state.currentDraft.trim().length > 0) {
-            generateSuggestions(messages, state.currentDraft)
+    const draft = state.currentDraft;
+
+    // 1. Instant Client-Side Suggestion (Hybrid Mode)
+    // AIの推論を待たず、入力中のテキストに特定のキーワードが含まれていれば即座に候補を更新・表示する
+    if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {
+        let matched = false;
+        for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
+            if (draft.includes(key)) {
+                setSuggestions(list);
+                setSuggestionsVisible(true);
+                matched = true;
+                break; // 最初のマッチを優先（速度重視）
+            }
+        }
+        // マッチしない場合は、既存の表示を消さない（チラつき防止）か、または消すか。
+        // ここでは「入力中かつマッチしない」場合は、AIの推論を待つために一時的に非表示にしない（前のサジェストを残す）
+        // ただしドラフトが大きく変わった場合は消したい... 
+        // シンプルにマッチしなければ非表示にすると、「入力された瞬間」感が損なわれる可能性があるが、
+        // 誤ったサジェストが出続けるよりは良い。
+        if (!matched) {
+            setSuggestionsVisible(false);
+        }
+    }
+    // 2. AI-Powered Suggestion (On Silence)
+    // 静止判定（ChatInput側で600msに短縮済）後にAPIを叩いてより高度なサジェストを取得
+    else if (state.isSilent && !isLoading && onboardingStep >= 6) {
+        if (draft.trim().length > 0) {
+            generateSuggestions(messages, draft)
                 .then(resp => {
                     if (resp && resp.suggestions && resp.suggestions.length > 0) {
                         setSuggestions(resp.suggestions);
+                        setSuggestionsVisible(true);
                     }
-                    // If API fails or returns empty, keep existing suggestions or fallback
                 })
                 .catch(err => console.debug('Draft suggestion update failed', err));
         } else if (suggestions.length === 0) {
+            // ドラフトが空で、かつサジェストも空ならフォールバックを表示
             setSuggestions(FALLBACK_SUGGESTIONS);
+            setSuggestionsVisible(true);
         }
-        setSuggestionsVisible(true);
+    }
+    // 3. Reset
+    else if (!state.isTyping && draft.trim().length === 0 && !state.isSilent) {
+         setSuggestionsVisible(false);
     }
   }, [isLoading, onboardingStep, suggestions.length, messages]);
 

@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.40 - Faster Silence Detection
+// components/ChatInput.tsx - v2.41 - Rapid Response Tuning
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -17,7 +17,7 @@ interface ChatInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 1500; // 2500ms -> 1500ms に短縮し、より早くサジェストを出す
+const SILENCE_TIMEOUT = 600; // 1500ms -> 600ms に短縮し、入力停止後の反応を高速化
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');

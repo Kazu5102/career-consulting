@@ -1,6 +1,8 @@
 
+// components/PasswordModal.tsx - v4.12 - Security Audit Logging
 import React, { useState, useEffect, useRef } from 'react';
 import LockIcon from './icons/LockIcon';
+import { addLogEntry } from '../services/devLogService';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -15,7 +17,6 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpen, onClose, onSubmit
 
   useEffect(() => {
     if (isOpen) {
-      // Focus input when modal opens
       setTimeout(() => inputRef.current?.focus(), 100);
       setPassword('');
       setError('');
@@ -28,6 +29,13 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpen, onClose, onSubmit
     e.preventDefault();
     setError('');
     if (onSubmit(password)) {
+      // Audit Log: Admin Access Granted
+      addLogEntry({
+          type: 'security',
+          level: 'warn',
+          action: 'Admin Access Granted',
+          details: '管理者画面へのアクセス認証に成功しました。'
+      });
       setPassword('');
     } else {
       setError('パスワードが正しくありません。');
@@ -45,7 +53,6 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpen, onClose, onSubmit
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={handleClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200 relative" onClick={e => e.stopPropagation()}>
-        {/* Cancel Button (Top Right) */}
         <button 
           onClick={handleClose}
           className="absolute top-4 right-4 p-2 text-slate-300 hover:text-slate-600 transition-colors rounded-full hover:bg-slate-50"

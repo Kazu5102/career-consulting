@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v4.05 - Context-Aware Mock Suggestions
+// services/mockGeminiService.ts - v4.06 - Enhanced Suggestion Mock Logic
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -154,6 +154,10 @@ export const generateSuggestions = async (messages: ChatMessage[], currentDraft?
             dynamicSuggestions = ['自分の強みが見つからない', 'ポータブルスキルの棚卸し', '客観的な評価が知りたい', '資格取得は必要？'];
         } else if (text.includes('疲れ') || text.includes('辛い') || text.includes('しんどい')) {
             dynamicSuggestions = ['少し休みたい気持ちがある', '誰かに聞いてほしかった', 'リフレッシュの方法', '仕事量の調整について'];
+        } else if (text.includes('余計') || text.includes('無駄')) {
+            dynamicSuggestions = ['余計な仕事が多すぎる', '無駄な会議を減らしたい', '効率的に働きたい', '断り方を知りたい'];
+        } else if (text.includes('給料') || text.includes('年収') || text.includes('金')) {
+            dynamicSuggestions = ['給料への不満がある', '評価制度に納得できない', '年収アップの方法', '副業について'];
         } else {
             // マッチしない場合は入力を補完するようなフレーズ
             dynamicSuggestions = [

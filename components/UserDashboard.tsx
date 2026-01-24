@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v3.32 - Erasure Right & Protocol Clarity
+// components/UserDashboard.tsx - v4.12 - Erasure Right with Audit Logging
 import React, { useState, useRef, useMemo } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import ConversationDetailModal from './ConversationDetailModal';
@@ -8,6 +8,7 @@ import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
 import TrashIcon from './icons/TrashIcon';
 import ExportSuccessModal from './ExportSuccessModal';
+import { addLogEntry } from '../services/devLogService';
 
 interface UserDashboardProps {
   conversations: StoredConversation[];
@@ -46,6 +47,15 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
 
   const handleErasureRequest = () => {
       if (window.confirm("【忘れられる権利（抹消権）の行使】\n\nあなたのすべての相談履歴と個人設定をサーバーおよびブラウザから完全に削除します。この操作は取り消せません。本当によろしいですか？")) {
+          // 1. Audit Logging (Before deletion)
+          addLogEntry({
+              type: 'audit',
+              level: 'critical',
+              action: 'Right to Erasure Executed',
+              details: `User ${userId} requested full data deletion.`
+          });
+
+          // 2. Perform Deletion
           const currentAllRaw = localStorage.getItem('careerConsultations');
           if (currentAllRaw) {
               const parsed = JSON.parse(currentAllRaw);
@@ -55,6 +65,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
           const users = JSON.parse(localStorage.getItem('careerConsultingUsers_v1') || '[]');
           const remainingUsers = users.filter((u: any) => u.id !== userId);
           localStorage.setItem('careerConsultingUsers_v1', JSON.stringify(remainingUsers));
+          
           alert("すべてのデータが抹消されました。");
           window.location.reload();
       }
