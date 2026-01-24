@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v3.97 - Expert Referral
+// components/SummaryModal.tsx - v4.07 - Referral Step Enhanced
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -34,7 +34,7 @@ const SURVEY_CONFIG: SurveyConfig = {
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
 };
 
-type ModalStep = 'survey' | 'loading' | 'result';
+type ModalStep = 'survey' | 'loading' | 'result' | 'referral';
 
 const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, isLoading, onRevise, onFinalize }) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -106,6 +106,10 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
     setIsEditing(false);
     setCorrectionRequest('');
   };
+  
+  const handleProceedToReferral = () => {
+      setCurrentStep('referral');
+  };
 
   const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
@@ -120,7 +124,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : '対話の振り返り'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への相談へ' : '対話の振り返り'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -189,6 +193,47 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                 {REASSURANCE_MESSAGES[messageIndex]}
               </p>
             </div>
+          ) : currentStep === 'referral' ? (
+             <div className="flex flex-col items-center justify-center h-full space-y-8 py-6 animate-in fade-in zoom-in duration-500">
+                <div className="w-24 h-24 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-2 shadow-xl shadow-sky-100/50 border-4 border-sky-100">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                </div>
+                <div className="text-center space-y-4 max-w-md px-2">
+                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">専門家への相談を推奨します</h3>
+                    <p className="text-slate-600 leading-relaxed font-medium text-sm">
+                        AIによる整理はあくまで「自己理解の補助」です。<br/>
+                        より深い悩みや具体的なキャリア形成については、<br/>
+                        <strong className="text-sky-700">国家資格を持つキャリアコンサルタント</strong>へ<br/>
+                        このシートを見せて相談することをお勧めします。
+                    </p>
+                </div>
+                <div className="w-full max-w-sm space-y-3">
+                    <a 
+                      href="https://careerconsultant.mhlw.go.jp/search/Matching/MatchingSearch" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-white border-2 border-sky-500 text-sky-600 font-bold rounded-2xl hover:bg-sky-50 transition-all shadow-sm group"
+                    >
+                        <LinkIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        キャリコンサーチ（厚生労働省）を開く
+                    </a>
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div className="w-full border-t border-slate-200"></div>
+                        </div>
+                        <div className="relative flex justify-center">
+                            <span className="bg-white px-2 text-xs font-bold text-slate-400">または</span>
+                        </div>
+                    </div>
+                    <button 
+                      onClick={onFinalize}
+                      className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 hover:bg-sky-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <SaveIcon />
+                        保存してトップに戻る
+                    </button>
+                </div>
+            </div>
           ) : isEditing ? (
              <div className="space-y-4 animate-in fade-in duration-300">
               <div>
@@ -222,30 +267,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                       dangerouslySetInnerHTML={createMarkup(currentContent)} 
                   />
               </div>
-
-              {/* Expert Referral Section */}
-              <div className="mt-8 p-6 bg-sky-50 rounded-2xl border border-sky-100 animate-in fade-in slide-in-from-bottom-6">
-                <div className="flex items-start gap-4">
-                   <div className="p-3 bg-sky-100 text-sky-600 rounded-xl hidden sm:block">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                   </div>
-                   <div className="flex-1">
-                      <h4 className="font-black text-sky-800 text-lg mb-2">次のステップへ：専門家への相談</h4>
-                      <p className="text-sm text-sky-700 leading-relaxed font-medium mb-4">
-                        AIによる整理はあくまで補助です。このシートを保存し、国家資格キャリアコンサルタント等の専門家に見せることで、より具体的で深い支援が得られます。
-                      </p>
-                      <a 
-                        href="https://careerconsultant.mhlw.go.jp/search/Matching/MatchingSearch" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-sky-600 font-bold rounded-lg border border-sky-200 hover:bg-sky-50 hover:border-sky-300 transition-all text-sm shadow-sm"
-                      >
-                        キャリコンサーチ（厚生労働省）を開く
-                        <LinkIcon className="w-4 h-4" />
-                      </a>
-                   </div>
-                </div>
-              </div>
             </>
           )}
         </div>
@@ -264,10 +285,17 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                 <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all"><EditIcon />修正・追記</button>
                 <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl transition-all ${isCopied ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
               </div>
-              <button onClick={onFinalize} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
-                <SaveIcon />整理を完了し、専門家に相談する
+              <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
+                <div className="flex items-center gap-2">
+                    <span>整理を完了し、専門家に相談する</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </div>
               </button>
             </div>
+           ) : currentStep === 'referral' ? (
+             <button onClick={() => setCurrentStep('result')} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">
+                振り返り画面に戻る
+             </button>
            ) : null}
         </footer>
       </div>
