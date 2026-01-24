@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.07",
-  "description": "Protocol 2.0 Compliant. Feature: Expert Referral Step Enhanced.",
-  "version": "4.07",
+  "name": "Career Consulting_4.10",
+  "description": "Protocol 2.0 Compliant. Feature: Career-Action Data Handover & Export.",
+  "version": "4.10",
   "prompt": ""
 }

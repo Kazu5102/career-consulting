@@ -1,5 +1,4 @@
-
-// api/gemini-proxy.ts - v4.03 - Draft-Aware Suggestions
+// api/gemini-proxy.ts - v4.08 - Suggestion Formatting Refined
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -239,26 +238,37 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[], cur
     const { messages, currentDraft } = payload;
     const recentMessages = messages.slice(-4);
     
+    // Formatting instructions to prevent numbering issues (e.g., "1の...", "2. ...")
+    // Explicitly updated to adhere to Protocol 2.0 approval
+    const formattingInstruction = `
+出力ルール:
+1. JSON形式 { suggestions: string[] } で返してください。
+2. 各suggestionはユーザーがそのまま発言できる自然な短い口語文（30文字以内）にしてください。
+3. **絶対厳守: 出力される各提案の文頭に、数字、連番、箇条書き記号（例: 1, 1., 1の, -, ・, その1）を一切含めないでください。**
+4. 提案は「～について」のような名詞止めではなく、ユーザーの「一人称のセリフ」として完結させてください。
+`;
+
     let prompt = "";
     if (currentDraft && currentDraft.trim().length > 0) {
-        // ドラフトがある場合：入力補完・意図予測モード
         prompt = `
 文脈と、ユーザーが現在入力中のテキスト（ドラフト）に基づき、ユーザーが言おうとしていること、またはそれに続く言葉を3〜4つ予測してください。
+${formattingInstruction}
+
 履歴:
 ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
 現在入力中のドラフト: "${currentDraft}"
-JSON形式 { suggestions: string[] } で返してください。
 `;
     } else {
-        // 従来モード：次の発言予測
         prompt = `
-文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。JSON形式 { suggestions: string[] } で返してください。
+文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。
+${formattingInstruction}
+
 履歴:
 ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
 `;
     }
 
-    // プロンプトを軽量化し、flashモデルで高速に応答させる。
+    // Use flash model for speed
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,

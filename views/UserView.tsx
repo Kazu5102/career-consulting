@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.03 - Draft-Aware Hint Logic
+// views/UserView.tsx - v4.10 - Export Props Added
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
@@ -667,7 +667,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         </div>
       )}
 
-      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} />
+      <SummaryModal 
+        isOpen={isSummaryModalOpen} 
+        onClose={() => setIsSummaryModalOpen(false)} 
+        summary={summary} 
+        isLoading={isSummaryLoading} 
+        onRevise={() => {}} 
+        onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })}
+        // Pass necessary data for handover export
+        messages={messages}
+        userId={userId}
+        aiName={aiName}
+      />
       
       <InterruptModal 
         isOpen={isInterruptModalOpen} 

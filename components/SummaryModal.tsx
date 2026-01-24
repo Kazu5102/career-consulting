@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.07 - Referral Step Enhanced
+// components/SummaryModal.tsx - v4.09 - Career-Action Handover Flow
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -7,7 +7,8 @@ import CheckIcon from './icons/CheckIcon';
 import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
 import LinkIcon from './icons/LinkIcon';
-import { StructuredSummary, SurveyConfig } from '../types';
+import ExportIcon from './icons/ExportIcon';
+import { StructuredSummary, SurveyConfig, ChatMessage } from '../types';
 
 interface SummaryModalProps {
   isOpen: boolean;
@@ -16,6 +17,10 @@ interface SummaryModalProps {
   isLoading: boolean;
   onRevise: (correctionRequest: string) => void;
   onFinalize: () => void;
+  // Added for Handover Export
+  messages: ChatMessage[];
+  userId: string;
+  aiName: string;
 }
 
 const REASSURANCE_MESSAGES = [
@@ -36,7 +41,17 @@ const SURVEY_CONFIG: SurveyConfig = {
 
 type ModalStep = 'survey' | 'loading' | 'result' | 'referral';
 
-const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, isLoading, onRevise, onFinalize }) => {
+const SummaryModal: React.FC<SummaryModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  summary, 
+  isLoading, 
+  onRevise, 
+  onFinalize,
+  messages,
+  userId,
+  aiName
+}) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [correctionRequest, setCorrectionRequest] = useState('');
@@ -111,6 +126,39 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       setCurrentStep('referral');
   };
 
+  const handleReferralAndExport = () => {
+    // 1. Create Export Data
+    const exportData = {
+        meta: {
+            title: "Career-Action 引継ぎ用データ",
+            description: "一般社団法人Career-Action所属コンサルタントへの提供用ファイル",
+            generatedAt: new Date().toISOString(),
+            userId,
+            aiAgent: aiName
+        },
+        summary: parsedSummary,
+        chatHistory: messages
+    };
+    
+    // 2. Trigger Download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `career_action_handoff_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // 3. Confirm and Redirect (Dummy URL)
+    setTimeout(() => {
+        if (window.confirm("引継ぎ用データを保存しました。\n\n開いたページのフォームやメールにて、\nこのファイルを担当コンサルタントにお渡しください。\n\n一般社団法人Career-Actionのサイトへ移動しますか？")) {
+            window.open("https://example.com/career-action-dummy", "_blank");
+        }
+    }, 500);
+  };
+
   const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
     const rawMarkup = marked.parse(markdownText, { breaks: true, gfm: true }) as string;
@@ -124,7 +172,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への相談へ' : '対話の振り返り'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : '対話の振り返り'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -178,9 +226,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                     >
                         回答しました（要約結果を表示）
                     </button>
-                    <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
-                        Your privacy is our priority
-                    </p>
                 </div>
             </div>
           ) : currentStep === 'loading' || isLoading ? (
@@ -201,22 +246,20 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                 <div className="text-center space-y-4 max-w-md px-2">
                     <h3 className="text-2xl font-black text-slate-800 tracking-tight">専門家への相談を推奨します</h3>
                     <p className="text-slate-600 leading-relaxed font-medium text-sm">
-                        AIによる整理はあくまで「自己理解の補助」です。<br/>
-                        より深い悩みや具体的なキャリア形成については、<br/>
-                        <strong className="text-sky-700">国家資格を持つキャリアコンサルタント</strong>へ<br/>
-                        このシートを見せて相談することをお勧めします。
+                        AIとの対話データを引き継ぐことで、よりスムーズな支援が受けられます。<br/>
+                        <strong className="text-sky-700">一般社団法人Career-Action</strong>に所属する<br/>
+                        キャリアコンサルタントへデータを渡して相談しましょう。
                     </p>
                 </div>
                 <div className="w-full max-w-sm space-y-3">
-                    <a 
-                      href="https://careerconsultant.mhlw.go.jp/search/Matching/MatchingSearch" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-4 bg-white border-2 border-sky-500 text-sky-600 font-bold rounded-2xl hover:bg-sky-50 transition-all shadow-sm group"
+                    <button 
+                      onClick={handleReferralAndExport}
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
                     >
-                        <LinkIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        キャリコンサーチ（厚生労働省）を開く
-                    </a>
+                        <ExportIcon className="w-5 h-5" />
+                        データを保存して相談を申し込む
+                    </button>
+                    
                     <div className="relative py-2">
                         <div className="absolute inset-0 flex items-center" aria-hidden="true">
                             <div className="w-full border-t border-slate-200"></div>
@@ -225,12 +268,13 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ isOpen, onClose, summary, i
                             <span className="bg-white px-2 text-xs font-bold text-slate-400">または</span>
                         </div>
                     </div>
+                    
                     <button 
                       onClick={onFinalize}
-                      className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 hover:bg-sky-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 bg-white border-2 border-slate-200 text-slate-600 font-bold text-lg rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                     >
-                        <SaveIcon />
-                        保存してトップに戻る
+                        <SaveIcon className="w-5 h-5" />
+                        相談せず、保存してトップに戻る
                     </button>
                 </div>
             </div>
