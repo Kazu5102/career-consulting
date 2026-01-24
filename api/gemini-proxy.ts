@@ -1,4 +1,5 @@
-// api/gemini-proxy.ts - v4.01 - Model Upgrade to Pro
+
+// api/gemini-proxy.ts - v4.03 - Draft-Aware Suggestions
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -234,16 +235,33 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     return { text: result.text || "{}" };
 }
 
-async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
-    const { messages } = payload;
+async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
+    const { messages, currentDraft } = payload;
     const recentMessages = messages.slice(-4);
     
-    // プロンプトを軽量化し、flashモデルで高速に応答させる。選択肢は状況に応じて3〜4つ可変とする。
+    let prompt = "";
+    if (currentDraft && currentDraft.trim().length > 0) {
+        // ドラフトがある場合：入力補完・意図予測モード
+        prompt = `
+文脈と、ユーザーが現在入力中のテキスト（ドラフト）に基づき、ユーザーが言おうとしていること、またはそれに続く言葉を3〜4つ予測してください。
+履歴:
+${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
+現在入力中のドラフト: "${currentDraft}"
+JSON形式 { suggestions: string[] } で返してください。
+`;
+    } else {
+        // 従来モード：次の発言予測
+        prompt = `
+文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。JSON形式 { suggestions: string[] } で返してください。
+履歴:
+${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
+`;
+    }
+
+    // プロンプトを軽量化し、flashモデルで高速に応答させる。
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。JSON形式 { suggestions: string[] } で返してください。
-履歴:
-${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}`,
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

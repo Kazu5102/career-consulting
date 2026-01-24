@@ -1,4 +1,3 @@
-
 // services/index.ts - v3.99 - Dynamic Service Switching with Fallback & State Check
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
@@ -51,4 +50,4 @@ export const generateSummaryFromText = (textToAnalyze: string): Promise<string> 
 
 export const performSkillMatching = (conversations: StoredConversation[]): Promise<SkillMatchingResult> => activeService.performSkillMatching(conversations);
 
-export const generateSuggestions = (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => activeService.generateSuggestions(messages);
+export const generateSuggestions = (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => activeService.generateSuggestions(messages, currentDraft);

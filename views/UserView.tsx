@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.01 - Enhanced Hint Logic & Idle Detection
+// views/UserView.tsx - v4.03 - Draft-Aware Hint Logic
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
@@ -160,13 +160,22 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     if (state.isTyping) {
         setSuggestionsVisible(false);
     } else if (state.isSilent && !isLoading && onboardingStep >= 6) {
-        // Hands-stopped Logic: Show hints when silent
-        if (suggestions.length === 0) {
+        // Hands-stopped Logic: Update hints based on draft if available
+        if (state.currentDraft.trim().length > 0) {
+            generateSuggestions(messages, state.currentDraft)
+                .then(resp => {
+                    if (resp && resp.suggestions && resp.suggestions.length > 0) {
+                        setSuggestions(resp.suggestions);
+                    }
+                    // If API fails or returns empty, keep existing suggestions or fallback
+                })
+                .catch(err => console.debug('Draft suggestion update failed', err));
+        } else if (suggestions.length === 0) {
             setSuggestions(FALLBACK_SUGGESTIONS);
         }
         setSuggestionsVisible(true);
     }
-  }, [isLoading, onboardingStep, suggestions.length]);
+  }, [isLoading, onboardingStep, suggestions.length, messages]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);

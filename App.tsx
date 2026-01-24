@@ -12,7 +12,7 @@ import UserSelectionView from './views/UserSelectionView';
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
 
-const VERSION = "3.98";
+const VERSION = "4.03";
 const CONSENT_KEY = `legal_consent_v${VERSION}`;
 
 const App: React.FC = () => {

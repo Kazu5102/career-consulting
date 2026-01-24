@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.02",
-  "description": "Protocol 2.0 Compliant. Feature: Unbreakable Mode & Pro Model Upgrade. Refined Avatar.",
-  "version": "4.02",
+  "name": "Career Consulting_4.03",
+  "description": "Protocol 2.0 Compliant. Feature: Draft-Aware Live Suggestions.",
+  "version": "4.03",
   "prompt": ""
 }

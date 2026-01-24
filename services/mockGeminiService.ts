@@ -1,4 +1,3 @@
-
 // services/mockGeminiService.ts - v2.72 - Mock Update
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
@@ -135,7 +134,7 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
     return sampleSkillMatchingResult;
 };
 
-export const generateSuggestions = async (messages: ChatMessage[]): Promise<{ suggestions: string[] }> => {
+export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {
     await delay(800);
     return { suggestions: ['自分の強みを知りたい', '今後のプランを整理したい']};
 };
