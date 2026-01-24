@@ -81,3 +81,43 @@ export const addNewUser = (): UserInfo => {
     saveUsers([...users, newUser]);
     return newUser;
 }
+
+/**
+ * Deletes users and their associated conversation history.
+ * @param userIds - Array of user IDs to delete.
+ */
+export const deleteUsers = (userIds: string[]): void => {
+  const targetIds = new Set(userIds);
+
+  // 1. Delete User Info
+  const users = getUsers();
+  const remainingUsers = users.filter(u => !targetIds.has(u.id));
+  saveUsers(remainingUsers);
+
+  // 2. Delete Conversation History
+  try {
+    const rawData = localStorage.getItem('careerConsultations');
+    if (rawData) {
+      const parsed = JSON.parse(rawData);
+      let conversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
+      
+      // Filter out conversations belonging to deleted users
+      const originalCount = conversations.length;
+      conversations = conversations.filter((c: any) => !targetIds.has(c.userId));
+      
+      // Save maintaining structure
+      const newData = { ...parsed, data: conversations };
+      
+      if (Array.isArray(parsed)) {
+          // Fallback for legacy array format
+          localStorage.setItem('careerConsultations', JSON.stringify({ version: 1, data: conversations }));
+      } else {
+          localStorage.setItem('careerConsultations', JSON.stringify(newData));
+      }
+      
+      console.log(`Deleted ${originalCount - conversations.length} conversations for ${userIds.length} users.`);
+    }
+  } catch (e) {
+    console.error("Failed to delete conversations", e);
+  }
+};

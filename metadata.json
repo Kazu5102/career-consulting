@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.10",
-  "description": "Protocol 2.0 Compliant. Feature: Career-Action Data Handover & Export.",
-  "version": "4.10",
+  "name": "Career Consulting_4.15",
+  "description": "Protocol 2.0 Compliant. Feature: Optimistic UI for User Deletion.",
+  "version": "4.15",
   "prompt": ""
 }

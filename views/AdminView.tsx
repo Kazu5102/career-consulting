@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.12 - Enhanced Report Export & User Analysis with Audit Logs
+// views/AdminView.tsx - v4.15 - Optimistic Deletion UI
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -24,6 +24,7 @@ import ShareIcon from '../components/icons/ShareIcon';
 import LockIcon from '../components/icons/LockIcon';
 import ChatIcon from '../components/icons/ChatIcon';
 import FileTextIcon from '../components/icons/FileTextIcon';
+import TrashIcon from '../components/icons/TrashIcon';
 
 type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
@@ -36,6 +37,9 @@ const AdminView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+    
+    // Checkbox State
+    const [checkedUserIds, setCheckedUserIds] = useState<Set<string>>(new Set());
     
     const [analyses, setAnalyses] = useState<AnalysesState>({
         trajectory: { status: 'idle', data: null, error: null },
@@ -126,6 +130,44 @@ const AdminView: React.FC = () => {
         return conversations.filter(c => c.userId === selectedUserId)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [conversations, selectedUserId]);
+
+    const toggleUserCheck = (id: string) => {
+        const newSet = new Set(checkedUserIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setCheckedUserIds(newSet);
+    };
+
+    const handleDeleteUsers = async (ids: string[]) => {
+        if (ids.length === 0) return;
+        
+        const message = ids.length === 1 
+            ? "このユーザーと関連する全てのデータを完全に削除しますか？\nこの操作は取り消せません。"
+            : `選択された ${ids.length} 件のユーザーと全データを完全に削除しますか？\nこの操作は取り消せません。`;
+
+        if (!window.confirm(message)) return;
+
+        // Optimistic UI Update: Remove from UI immediately
+        setUsers(prev => prev.filter(u => !ids.includes(u.id)));
+        if (selectedUserId && ids.includes(selectedUserId)) {
+            setSelectedUserId(null);
+        }
+        setCheckedUserIds(new Set()); // Clear selection immediately
+
+        // Perform actual deletion
+        userService.deleteUsers(ids);
+        
+        // Audit Log
+        addLogEntry({
+            type: 'audit',
+            level: 'critical',
+            action: 'Delete Users',
+            details: `Admin deleted ${ids.length} users: ${ids.join(', ')}`
+        });
+
+        // Reload data to ensure sync (background)
+        setTimeout(loadData, 500);
+    };
 
     const runAnalysis = async (type: AnalysisType) => {
         if (!selectedUserId) return;
@@ -226,6 +268,20 @@ const AdminView: React.FC = () => {
                             <p className="text-xs font-black">{stats.noHistory}</p>
                         </button>
                     </div>
+                    
+                    {/* Bulk Action Bar - Only visible when items are selected */}
+                    {checkedUserIds.size > 0 && (
+                        <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <button 
+                                onClick={() => handleDeleteUsers(Array.from(checkedUserIds))}
+                                className="w-full py-2.5 bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 active:scale-95 transition-all flex items-center justify-center gap-2 font-bold text-sm"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                選択した {checkedUserIds.size} 件を削除
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex gap-2">
                         <input type="text" placeholder="名前で検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
                     </div>
@@ -234,23 +290,65 @@ const AdminView: React.FC = () => {
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/30">
                     {filteredUsers.length > 0 ? filteredUsers.map(user => {
                         const meta = userMetadata[user.id];
+                        const isChecked = checkedUserIds.has(user.id);
                         return (
-                            <button key={user.id} onClick={() => handleUserSelect(user.id)} className={`w-full group relative flex items-center gap-4 p-4 rounded-2xl transition-all border ${selectedUserId === user.id ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'}`}>
+                            <div 
+                                key={user.id} 
+                                className={`w-full group relative flex items-center gap-3 p-3 rounded-2xl transition-all border ${
+                                    selectedUserId === user.id 
+                                    ? 'bg-white border-sky-400 shadow-lg ring-1 ring-sky-500/10' 
+                                    : isChecked 
+                                        ? 'bg-rose-50 border-rose-200' 
+                                        : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm'
+                                }`}
+                            >
                                 {meta.isHighRisk && (
-                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full animate-in fade-in duration-300">
+                                  <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 rounded-full animate-in fade-in duration-300 z-10 pointer-events-none">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                     <span className="text-[8px] font-black text-white uppercase tracking-tighter">Critical</span>
                                   </div>
                                 )}
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${selectedUserId === user.id ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}><UserIcon className="w-6 h-6" /></div>
-                                <div className="text-left overflow-hidden flex-1">
-                                    <p className="font-bold text-slate-800 truncate text-base">{user.nickname}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <p className="text-[10px] text-slate-400 font-mono truncate">{user.id}</p>
-                                        <p className="text-[9px] font-black text-slate-300 uppercase shrink-0">{meta.lastDate ? new Date(meta.lastDate).toLocaleDateString() : 'NO HISTORY'}</p>
+                                
+                                {/* Checkbox Area */}
+                                <div className="flex items-center justify-center pl-1 z-20 relative" onClick={(e) => e.stopPropagation()}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isChecked} 
+                                        onChange={() => toggleUserCheck(user.id)}
+                                        className="w-5 h-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                    />
+                                </div>
+
+                                {/* Main Clickable Area */}
+                                <div 
+                                    className="flex-1 flex items-center gap-3 cursor-pointer overflow-hidden relative z-10" 
+                                    onClick={() => handleUserSelect(user.id)}
+                                >
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0 shadow-inner ${selectedUserId === user.id ? 'bg-sky-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
+                                        <UserIcon className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left overflow-hidden flex-1">
+                                        <p className="font-bold text-slate-800 truncate text-sm">{user.nickname}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[9px] text-slate-400 font-mono truncate max-w-[60px]">{user.id}</p>
+                                            <p className="text-[8px] font-black text-slate-300 uppercase shrink-0">{meta.lastDate ? new Date(meta.lastDate).toLocaleDateString() : 'NO HISTORY'}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </button>
+
+                                {/* Quick Delete Action (Visible on Hover) - Improved z-index and clickability */}
+                                <button 
+                                    onClick={(e) => { 
+                                        e.preventDefault(); 
+                                        e.stopPropagation(); 
+                                        handleDeleteUsers([user.id]); 
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 relative z-30 p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-100 rounded-full transition-all duration-200"
+                                    title="このユーザーを削除"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
                         );
                     }) : (
                         <div className="text-center py-20 opacity-30">
@@ -299,7 +397,8 @@ const AdminView: React.FC = () => {
                             </div>
                         </header>
 
-                        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 md:py-12">
+                        {/* Force Remounting the Scroll Container by using key={selectedUserId} */}
+                        <div key={selectedUserId || 'dashboard-view'} className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 md:py-12">
                             <div className="max-w-5xl mx-auto space-y-12">
                                 <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} />
 
