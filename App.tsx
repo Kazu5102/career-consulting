@@ -1,5 +1,5 @@
 
-// App.tsx - v4.10 - Version Sync
+// App.tsx - v4.16 - Unified Versioning
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -8,12 +8,10 @@ import LegalConsentModal from './components/LegalConsentModal';
 import { checkPassword } from './services/authService';
 import { checkServerStatus, useMockService } from './services/index';
 import UserSelectionView from './views/UserSelectionView';
+import { APP_VERSION, STORAGE_KEYS } from './constants';
 
 type AppMode = 'user' | 'admin';
 type ServerStatus = 'checking' | 'ok' | 'error';
-
-const VERSION = "4.10";
-const CONSENT_KEY = `legal_consent_v${VERSION}`;
 
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>('user');
@@ -38,14 +36,14 @@ const App: React.FC = () => {
         verifyServer();
 
         // Protocol 2.0: Strict version-based consent check
-        const hasConsented = localStorage.getItem(CONSENT_KEY);
+        const hasConsented = localStorage.getItem(STORAGE_KEYS.CONSENT);
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
     }, []);
 
     const handleLegalConfirm = () => {
-        localStorage.setItem(CONSENT_KEY, 'true');
+        localStorage.setItem(STORAGE_KEYS.CONSENT, 'true');
         setIsLegalModalOpen(false);
     };
 
@@ -68,7 +66,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        const baseMsg = `【Protocol 2.0 Verified (v${VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`;
+        const baseMsg = `【Protocol 2.0 Verified (v${APP_VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`;
         const extraMsg = isFallbackMode ? "\n\n⚠️ 現在、オフライン/デモモードで動作しています。AI応答はシミュレーションです。" : "";
         alert(baseMsg + extraMsg);
     };
@@ -87,7 +85,7 @@ const App: React.FC = () => {
                                     <span>{isFallbackMode ? 'Demo Mode' : 'Protocol 2.0 Verified'}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </button>
-                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {VERSION}</span>
+                                <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {APP_VERSION}</span>
                             </div>
                         </div>
                     </div>

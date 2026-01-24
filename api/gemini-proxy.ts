@@ -1,3 +1,4 @@
+
 // api/gemini-proxy.ts - v4.08 - Suggestion Formatting Refined
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -78,14 +79,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 async function handleAnalyzeTrajectory(payload: { conversations: StoredConversation[], userId: string }) {
     const { conversations } = payload;
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
+    const isSingleSession = conversations.length === 1;
+
+    // 履歴の件数に応じて、AIへの指示（コンテキスト）を動的に切り替える
+    const contextInstruction = isSingleSession
+        ? `相談履歴は**1件のみ**です。
+長期的な変容は見えませんが、この1回のセッション内における「感情の微細な揺れ動き」や「発言の矛盾点」、「語られなかった空白」に着目し、【マイクロ・ナラティブ（微細な物語）】として深層心理を分析してください。
+「前回からの変化」等の項目については、今回のセッションでの気づきや変化の兆しを記述してください。`
+        : `相談履歴は**複数件**あります。
+初回から現在に至るまでの【時系列での内的変容プロセス（マクロ・ナラティブ）】を重視して分析してください。`;
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
 職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
+### 前提条件:
+${contextInstruction}
+
 ### 分析指示:
-1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を時方向に追う。
+1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を追う。
 2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
 3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
 4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。

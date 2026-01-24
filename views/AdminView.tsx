@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.15 - Optimistic Deletion UI
+// views/AdminView.tsx - v4.16 - Bulk Select & Optimistic Deletion
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -131,6 +131,22 @@ const AdminView: React.FC = () => {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [conversations, selectedUserId]);
 
+    const isAllSelected = useMemo(() => {
+        return filteredUsers.length > 0 && filteredUsers.every(u => checkedUserIds.has(u.id));
+    }, [filteredUsers, checkedUserIds]);
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            // Unselect All
+            setCheckedUserIds(new Set());
+        } else {
+            // Select All Visible
+            const newSet = new Set(checkedUserIds);
+            filteredUsers.forEach(u => newSet.add(u.id));
+            setCheckedUserIds(newSet);
+        }
+    };
+
     const toggleUserCheck = (id: string) => {
         const newSet = new Set(checkedUserIds);
         if (newSet.has(id)) newSet.delete(id);
@@ -177,11 +193,8 @@ const AdminView: React.FC = () => {
             return;
         }
 
-        if (type === 'trajectory' && selectedUserConversations.length < 2) {
-            setAnalyses(prev => ({ ...prev, trajectory: { status: 'error', data: null, error: "軌跡分析には、少なくとも2回以上の履歴が必要です。" } }));
-            return;
-        }
-
+        // 制限緩和: 1件からでも分析可能にするため、trajectoryの2件未満チェックを削除
+        
         setAnalyses({
             trajectory: type === 'trajectory' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
             skillMatching: type === 'skillMatching' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
@@ -283,6 +296,16 @@ const AdminView: React.FC = () => {
                     )}
 
                     <div className="flex gap-2">
+                        {/* Select All Checkbox */}
+                        <div className="flex items-center justify-center bg-white border border-slate-200 rounded-xl px-3" title="全て選択">
+                            <input 
+                                type="checkbox" 
+                                checked={isAllSelected}
+                                onChange={handleSelectAll}
+                                disabled={filteredUsers.length === 0}
+                                className="w-5 h-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
+                            />
+                        </div>
                         <input type="text" placeholder="名前で検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
                     </div>
                 </div>

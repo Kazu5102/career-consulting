@@ -1,6 +1,7 @@
 
-// components/AIAvatar.tsx - v4.02 - Refined Female Avatar 3
+// components/AIAvatar.tsx - v4.16 - Unified Versioning
 import React from 'react';
+import { APP_VERSION } from '../constants';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
 
@@ -358,7 +359,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 4.02
+        Ver {APP_VERSION}
       </div>
     </div>
   );
