@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.00 - Unbreakable Architecture (Direct Bypass)
+// views/UserView.tsx - v4.01 - Enhanced Hint Logic & Idle Detection
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
@@ -47,6 +47,13 @@ const LIFE_ROLES = [
 const CRISIS_KEYWORDS = [
     /死にたい/, /自殺/, /消えたい/, /死にたくなった/, /自死/, /終わりにしたい/, 
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
+];
+
+const FALLBACK_SUGGESTIONS = [
+    "もう少し詳しく話したい",
+    "ここまでの話を整理したい",
+    "どうすればいいと思う？",
+    "今の気持ちを聞いてほしい"
 ];
 
 const GREETINGS = {
@@ -152,8 +159,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsTyping(state.isTyping);
     if (state.isTyping) {
         setSuggestionsVisible(false);
+    } else if (state.isSilent && !isLoading && onboardingStep >= 6) {
+        // Hands-stopped Logic: Show hints when silent
+        if (suggestions.length === 0) {
+            setSuggestions(FALLBACK_SUGGESTIONS);
+        }
+        setSuggestionsVisible(true);
     }
-  }, []);
+  }, [isLoading, onboardingStep, suggestions.length]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -175,16 +188,22 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setIsConsultationReady(true);
       }
       
-      // サジェスト生成（エラー時は無視）
+      // Robust Suggestion Logic with Fallback
       if (onboardingStep >= 6) {
           generateSuggestions(currentMessages)
             .then(resp => {
                 if (resp && resp.suggestions && resp.suggestions.length > 0) {
                     setSuggestions(resp.suggestions);
-                    setSuggestionsVisible(true);
+                } else {
+                    setSuggestions(FALLBACK_SUGGESTIONS);
                 }
+                setSuggestionsVisible(true);
             })
-            .catch(() => console.debug('Suggestion skipped'));
+            .catch(() => {
+                console.debug('Suggestion generation skipped, using fallback');
+                setSuggestions(FALLBACK_SUGGESTIONS);
+                setSuggestionsVisible(true);
+            });
       }
   };
 
@@ -198,7 +217,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
       // 1. システムメッセージの挿入（ユーザーへのフィードバック）
       // すでに空のAIメッセージがあればそれをシステムメッセージに置換、なければ追加
-      const noticeText = "⚠️ 通信環境が不安定なため、オフラインモード(自動応答)で継続します。";
       
       setMessages(prev => {
           const updated = [...prev];
@@ -250,6 +268,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               return updated;
           });
           setIsLoading(false);
+          setSuggestions(FALLBACK_SUGGESTIONS);
+          setSuggestionsVisible(true);
       }
   };
 

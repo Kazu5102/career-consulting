@@ -1,5 +1,5 @@
 
-// components/AIAvatar.tsx - v3.90 - Anatomical Silhouettes & Organic Hair Textures
+// components/AIAvatar.tsx - v4.02 - Refined Female Avatar 3
 import React from 'react';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
@@ -183,19 +183,21 @@ export const FemaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral'
     <svg viewBox="0 0 200 200" className="w-full h-full">
         <HairGradient id="grad_f3" color1="#44403c" color2="#1c1917" />
         <HumanBase skin="#fef3c7" mood={mood as Mood}
-            body={<path d="M 35,200 Q 100,150 165,200" fill="#57534e" />}
+            body={<path d="M 30,200 Q 100,160 170,200 L 170,200 L 30,200 Z" fill="#78716c" />}
             backHair={
                 <g>
-                    <circle cx="100" cy="45" r="42" fill="url(#grad_f3)" />
-                    <path d="M 40,105 C 40,30 160,30 160,105 C 160,165 100,175 40,105" fill="url(#grad_f3)" />
+                    {/* Sophisticated Long Hair */}
+                    <path d="M 25,100 C 25,10 175,10 175,100 C 175,160 185,180 160,195 Q 100,210 40,195 C 15,180 25,160 25,100 Z" fill="url(#grad_f3)" />
                 </g>
             }>
             <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#27272a" />
             <DynamicBlush cx1={75} cx2={125} cy={130} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={110} mood={mood as Mood} />
             <DynamicMouth cx={100} cy={142} mood={mood as Mood} />
-            <path d="M 45,95 Q 100,45 155,95" fill="none" stroke="url(#grad_f3)" strokeWidth="14" strokeLinecap="round" />
-            <path d="M 100,45 L 100,75" fill="none" stroke="#ffffff11" strokeWidth="1" strokeLinecap="round" />
+            {/* Elegant Side-swept Bangs */}
+            <path d="M 30,120 Q 20,40 100,35 Q 180,40 170,120 L 165,120 Q 160,60 100,55 Q 40,60 35,120 Z" fill="url(#grad_f3)" />
+            {/* Hair Shine */}
+            <path d="M 40,70 Q 70,40 110,45" fill="none" stroke="#ffffff15" strokeWidth="3" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
@@ -356,7 +358,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.90
+        Ver 4.02
       </div>
     </div>
   );

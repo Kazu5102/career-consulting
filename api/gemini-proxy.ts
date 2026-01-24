@@ -1,5 +1,4 @@
-
-// api/gemini-proxy.ts - v3.97 - Closing Guidance Update
+// api/gemini-proxy.ts - v4.01 - Model Upgrade to Pro
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -198,7 +197,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3-pro-preview', // Upgraded to Pro
             contents,
             config: { systemInstruction, temperature: 0.7 },
         });
