@@ -1,4 +1,5 @@
-// services/mockGeminiService.ts - v2.72 - Mock Update
+
+// services/mockGeminiService.ts - v4.05 - Context-Aware Mock Suggestions
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -135,6 +136,72 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
 };
 
 export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {
-    await delay(800);
-    return { suggestions: ['自分の強みを知りたい', '今後のプランを整理したい']};
+    await delay(600); // 思考時間をシミュレート
+
+    // 1. ドラフトがある場合（入力中）: 入力内容に基づいた補完や展開を提案
+    if (currentDraft && currentDraft.trim().length > 0) {
+        const text = currentDraft.toLowerCase();
+        let dynamicSuggestions: string[] = [];
+
+        // 簡易キーワードマッチング
+        if (text.includes('転職') || text.includes('辞め')) {
+            dynamicSuggestions = ['転職のタイミングについて', '未経験の職種への挑戦', '今の職場に残るメリット', '退職を伝えるのが怖い'];
+        } else if (text.includes('人間関係') || text.includes('上司') || text.includes('同僚')) {
+            dynamicSuggestions = ['上司との距離感について', '伝え方を工夫したい', '環境を変えるべきか', 'ストレス発散の方法'];
+        } else if (text.includes('将来') || text.includes('不安') || text.includes('未来')) {
+            dynamicSuggestions = ['5年後のイメージがない', 'このままでいいのか不安', 'キャリアプランの作り方', 'まずは短期的な目標から'];
+        } else if (text.includes('強み') || text.includes('スキル') || text.includes('得意')) {
+            dynamicSuggestions = ['自分の強みが見つからない', 'ポータブルスキルの棚卸し', '客観的な評価が知りたい', '資格取得は必要？'];
+        } else if (text.includes('疲れ') || text.includes('辛い') || text.includes('しんどい')) {
+            dynamicSuggestions = ['少し休みたい気持ちがある', '誰かに聞いてほしかった', 'リフレッシュの方法', '仕事量の調整について'];
+        } else {
+            // マッチしない場合は入力を補完するようなフレーズ
+            dynamicSuggestions = [
+                `${currentDraft}ということについて`,
+                `${currentDraft}と感じる理由`,
+                `具体的には...`,
+                `話せてすっきりした`
+            ];
+        }
+        return { suggestions: dynamicSuggestions };
+    }
+
+    // 2. ドラフトがない場合（待機中）: 直前のAIメッセージ（文脈）に基づいて提案
+    const lastMessage = messages[messages.length - 1];
+    
+    // AIからの問いかけに対するリアクションを予測
+    if (lastMessage && lastMessage.author === MessageAuthor.AI) {
+        const aiText = lastMessage.text;
+
+        // 疑問形で終わっている場合
+        if (aiText.includes('？') || aiText.includes('?')) {
+            if (aiText.includes('状況') || aiText.includes('教えて')) {
+                return { suggestions: ['現状を詳しく話す', '特に変わりはない', '少し整理したい'] };
+            }
+            if (aiText.includes('どう') || aiText.includes('いかが')) {
+                return { suggestions: ['そう思う', '違う気がする', 'わからない', '考え中...'] };
+            }
+            return { suggestions: ['はい', 'いいえ', 'どちらとも言えない', '詳しく話したい'] };
+        }
+
+        // 共感・肯定系の場合
+        if (aiText.includes('ですね') || aiText.includes('ますよ') || aiText.includes('ワン！')) {
+            return { suggestions: ['聞いてくれてありがとう', '実はもっと話したいことが...', '次のステップに進みたい', '安心した'] };
+        }
+
+        // 提案系の場合
+        if (aiText.includes('整理') || aiText.includes('まとめ')) {
+            return { suggestions: ['お願いします', 'もう少し話してから', '今日はここで終わりたい'] };
+        }
+    }
+
+    // 3. デフォルト（会話開始時や汎用）
+    return { 
+        suggestions: [
+            '今の仕事の悩みを聞いて', 
+            '将来のキャリアが不安', 
+            '自分の強みを知りたい', 
+            '雑談したい'
+        ] 
+    };
 };

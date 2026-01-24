@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.03",
-  "description": "Protocol 2.0 Compliant. Feature: Draft-Aware Live Suggestions.",
-  "version": "4.03",
+  "name": "Career Consulting_4.05",
+  "description": "Protocol 2.0 Compliant. Feature: Context-Aware Mock Suggestions.",
+  "version": "4.05",
   "prompt": ""
 }
