@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.09 - Career-Action Handover Flow
+// components/SummaryModal.tsx - v4.18 - Career-Action Handover Flow Improved
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -127,6 +127,12 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   };
 
   const handleReferralAndExport = () => {
+    // 0. Copy to Clipboard (Auto) - User Summary is best for forms
+    const textToCopy = parsedSummary.user_summary || summary;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        console.debug('Summary copied to clipboard automatically.');
+    }).catch(e => console.warn('Auto-copy failed', e));
+
     // 1. Create Export Data
     const exportData = {
         meta: {
@@ -153,10 +159,11 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
 
     // 3. Confirm and Redirect (Dummy URL)
     setTimeout(() => {
-        if (window.confirm("引継ぎ用データを保存しました。\n\n開いたページのフォームやメールにて、\nこのファイルを担当コンサルタントにお渡しください。\n\n一般社団法人Career-Actionのサイトへ移動しますか？")) {
+        const confirmMsg = "【データ保存とコピー完了】\n\n1. 引継ぎ用ファイルを保存しました。\n2. 相談の要約テキストをクリップボードにコピーしました。\n\n一般社団法人Career-Actionの申し込みサイトへ移動しますか？\n（移動先のフォームで「貼り付け」て使用できます）";
+        if (window.confirm(confirmMsg)) {
             window.open("https://example.com/career-action-dummy", "_blank");
         }
-    }, 500);
+    }, 800);
   };
 
   const createMarkup = (markdownText: string) => {

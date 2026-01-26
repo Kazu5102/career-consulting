@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.17",
-  "description": "Protocol 2.0 Compliant. Fix: Suggestion stability & Single-session trajectory analysis.",
-  "version": "4.17",
+  "name": "Career Consulting_4.18",
+  "description": "Protocol 2.0 Compliant. Fix: Clipboard copy in handover flow.",
+  "version": "4.18",
   "prompt": ""
 }
