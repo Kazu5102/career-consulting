@@ -58,7 +58,15 @@ const App: React.FC = () => {
         return false;
     };
 
-    const handleSwitchMode = () => mode === 'user' ? setIsPasswordModalOpen(true) : setMode('user');
+    const handleSwitchMode = () => {
+        if (mode === 'user') {
+            setIsPasswordModalOpen(true);
+        } else {
+            // Exit Admin: Reset mode AND current user for security
+            setMode('user');
+            setCurrentUserId(null);
+        }
+    };
 
     const renderUserContent = () => {
         if (!currentUserId) return <UserSelectionView onUserSelect={handleUserSelect} />;

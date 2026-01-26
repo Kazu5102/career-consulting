@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.11 - Hybrid Instant Suggestions
+// views/UserView.tsx - v4.19 - Auto-Save & Restore
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
@@ -115,6 +115,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
+  const [restoredNotification, setRestoredNotification] = useState(false);
 
   useEffect(() => {
     if (isTyping && onboardingStep < 6) {
@@ -122,10 +123,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   }, [isTyping, onboardingStep]);
 
+  // Initial Data Load & Auto-Restore Logic
   useEffect(() => {
     const user = getUserById(userId);
     setNickname(user?.nickname || userId);
     setPin(user?.pin || '0000'); 
+    
+    // Load Conversations
     const allDataRaw = localStorage.getItem('careerConsultations');
     let convs: StoredConversation[] = [];
     if (allDataRaw) {
@@ -138,8 +142,61 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         } catch(e) { console.error(e); }
     }
     setUserConversations(convs);
-    setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
+
+    // Auto-Restore Check
+    const autoSaveKey = `career_autosave_${userId}`;
+    const autoSaveData = localStorage.getItem(autoSaveKey);
+    
+    if (autoSaveData) {
+        try {
+            const saved = JSON.parse(autoSaveData);
+            if (saved.messages && saved.messages.length > 0) {
+                setMessages(saved.messages);
+                setAiName(saved.aiName);
+                setAiType(saved.aiType);
+                setAiAvatarKey(saved.aiAvatarKey);
+                setOnboardingStep(saved.onboardingStep);
+                setUserProfile(saved.userProfile);
+                setAiMood(saved.aiMood);
+                setView('chatting');
+                setRestoredNotification(true);
+                // Notification timeout
+                setTimeout(() => setRestoredNotification(false), 5000);
+            } else {
+                // If empty or invalid, default behavior
+                setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
+            }
+        } catch (e) {
+            console.error("Failed to restore auto-save", e);
+            setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
+        }
+    } else {
+        setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
+    }
   }, [userId]);
+
+  // Auto-Save Logic
+  useEffect(() => {
+      const autoSaveKey = `career_autosave_${userId}`;
+      if (view === 'chatting' && messages.length > 0) {
+          const dataToSave = {
+              timestamp: Date.now(),
+              messages,
+              aiName,
+              aiType,
+              aiAvatarKey,
+              onboardingStep,
+              userProfile,
+              aiMood
+          };
+          localStorage.setItem(autoSaveKey, JSON.stringify(dataToSave));
+      }
+  }, [messages, aiName, aiType, aiAvatarKey, onboardingStep, userProfile, aiMood, view, userId]);
+
+  const clearAutoSave = () => {
+      const autoSaveKey = `career_autosave_${userId}`;
+      localStorage.removeItem(autoSaveKey);
+  };
 
   const handleAvatarSelected = useCallback((selection: { type: AIType, avatarKey: string }) => {
     const { type, avatarKey } = selection;
@@ -185,11 +242,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 break; // 最初のマッチを優先（速度重視）
             }
         }
-        // マッチしない場合は、既存の表示を消さない（チラつき防止）か、または消すか。
-        // ここでは「入力中かつマッチしない」場合は、AIの推論を待つために一時的に非表示にしない（前のサジェストを残す）
-        // ただしドラフトが大きく変わった場合は消したい... 
-        // シンプルにマッチしなければ非表示にすると、「入力された瞬間」感が損なわれる可能性があるが、
-        // 誤ったサジェストが出続けるよりは良い。
         if (!matched) {
             setSuggestionsVisible(false);
         }
@@ -212,8 +264,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             setSuggestionsVisible(true);
         }
     }
-    // 3. Reset Logic - REMOVED to prevent disappearance on empty input
-    // The previous logic that hid suggestions when draft was empty has been removed intentionally.
   }, [isLoading, onboardingStep, suggestions.length, messages]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
@@ -263,20 +313,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       console.warn("🚨 Unbreakable Protocol: Executing Emergency Bypass");
       useMockService(); // グローバル状態も一応更新
 
-      // 1. システムメッセージの挿入（ユーザーへのフィードバック）
-      // すでに空のAIメッセージがあればそれをシステムメッセージに置換、なければ追加
-      
       setMessages(prev => {
           const updated = [...prev];
           const lastMsg = updated[updated.length - 1];
           if (lastMsg && lastMsg.author === MessageAuthor.AI && !lastMsg.text) {
-              // プレースホルダーがあれば削除（この後、モックからの応答が入るため）
               return updated.slice(0, -1);
           }
           return updated;
       });
       
-      // 一瞬待ってからモック応答を開始
       await new Promise(r => setTimeout(r, 500));
 
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
@@ -305,7 +350,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           }
           await finalizeAiTurn([...currentHistory, { author: MessageAuthor.AI, text: aiResponseText }]);
       } catch (mockErr) {
-          // 万が一モックも死んだ場合の最終手段
           console.error("Critical Failure:", mockErr);
           setMessages(prev => {
               const updated = [...prev];
@@ -354,10 +398,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
     // Unbreakable Chat Logic
     try {
-        // まず通常のサービス（環境によってはすでにモック）を試行
         const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
         
-        if (!stream) throw new Error("No stream returned"); // 明示的にエラーを投げてcatchブロックへ
+        if (!stream) throw new Error("No stream returned");
         
         let aiResponseText = '';
         setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
@@ -377,22 +420,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     if (lastMsg.author === MessageAuthor.AI) lastMsg.text = aiResponseText;
                     return updated;
                 });
-                // 応答があればムード更新
                 if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
                 else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
             }
         }
         
-        // ストリームが空だった場合（APIエラーでここに来る可能性もある）のガード
         if (!aiResponseText) throw new Error("Empty response");
 
         await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
 
     } catch (error) {
-        // ここが修正の核心：エラーの種類や状態を問わず、必ず「直接モック」を実行する
         console.error("Primary chat failed, switching to unbreakable backup.", error);
         
-        // 直前の空メッセージ（もしあれば）を一度クリーンアップ
         setMessages(prev => {
             const last = prev[prev.length - 1];
             if (last && last.author === MessageAuthor.AI && !last.text) {
@@ -401,7 +440,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             return prev;
         });
 
-        // 強制バイパス実行
         await executeEmergencyBypass(newMessages);
     }
   };
@@ -463,7 +501,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
-    // 初回メッセージも同様に保護
     try {
       const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
       if (!stream) throw new Error("Stream failed");
@@ -507,6 +544,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   };
 
   const resetOnboarding = (isManualReset: boolean = true) => {
+    clearAutoSave(); // Clear auto-save on reset
     if (isManualReset) setResetCount(prev => prev + 1);
     const greetingText = GREETINGS[aiType](aiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
@@ -530,7 +568,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             setSummary(result);
         } catch (e) {
             console.error("Summary Generation Error", e);
-            // 要約も直接モックを使用
             try {
                 const mockResult = await directMockService.generateSummary(messages, aiType, aiName, userProfile);
                 setSummary(mockResult);
@@ -549,6 +586,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setIsInterruptModalOpen(false); 
       setIsFinalizing(true);
       
+      clearAutoSave(); // Clear auto-save on successful save
+
       await new Promise(r => setTimeout(r, 1000));
       
       const storedDataRaw = localStorage.getItem('careerConsultations');
@@ -649,6 +688,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
       
+      {/* Restored Notification */}
+      {restoredNotification && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-sky-600 text-white px-6 py-3 rounded-full shadow-xl z-[150] animate-in slide-in-from-top-4 duration-500 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="font-bold text-sm">前回の続きから再開しました</span>
+          </div>
+      )}
+
       {view === 'chatting' && (
         <div className="fixed top-20 right-4 lg:right-[calc(50vw-480px)] z-[100] transition-all duration-500">
            <div className={`
@@ -722,7 +769,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       <InterruptModal 
         isOpen={isInterruptModalOpen} 
         onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} 
-        onExitWithoutSaving={() => { setIsInterruptModalOpen(false); setView('dashboard'); }} 
+        onExitWithoutSaving={() => { 
+            clearAutoSave(); // Explicitly clear auto-save if exiting without saving
+            setIsInterruptModalOpen(false); 
+            setView('dashboard'); 
+        }} 
         onContinue={() => setIsInterruptModalOpen(false)} 
       />
 
