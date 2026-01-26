@@ -212,10 +212,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             setSuggestionsVisible(true);
         }
     }
-    // 3. Reset
-    else if (!state.isTyping && draft.trim().length === 0 && !state.isSilent) {
-         setSuggestionsVisible(false);
-    }
+    // 3. Reset Logic - REMOVED to prevent disappearance on empty input
+    // The previous logic that hid suggestions when draft was empty has been removed intentionally.
   }, [isLoading, onboardingStep, suggestions.length, messages]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {

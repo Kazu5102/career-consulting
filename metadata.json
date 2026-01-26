@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.16",
-  "description": "Protocol 2.0 Compliant. Feature: Bulk Selection & Unified Versioning.",
-  "version": "4.16",
+  "name": "Career Consulting_4.17",
+  "description": "Protocol 2.0 Compliant. Fix: Suggestion stability & Single-session trajectory analysis.",
+  "version": "4.17",
   "prompt": ""
 }
