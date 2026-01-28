@@ -1,10 +1,9 @@
-
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.19",
-  "description": "Protocol 2.0 Compliant. Fix: Admin exit reset & Auto-save restore.",
-  "version": "4.19",
+  "name": "Career Consulting_4.20",
+  "description": "Protocol 2.0 Compliant. Future-proofed Async Architecture for DB Migration Readiness.",
+  "version": "4.20",
   "prompt": ""
 }

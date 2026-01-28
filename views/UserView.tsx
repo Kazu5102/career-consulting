@@ -1,10 +1,10 @@
 
-// views/UserView.tsx - v4.19 - Auto-Save & Restore
+// views/UserView.tsx - v4.20 - Future-looking Design Refactor
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
-import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService, isMockMode } from '../services/index';
-// Import mock service directly for emergency bypass guarantees
+import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService } from '../services/index';
 import * as directMockService from '../services/mockGeminiService';
+import * as conversationService from '../services/conversationService';
 import { getUserById } from '../services/userService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
@@ -49,7 +49,6 @@ const CRISIS_KEYWORDS = [
     /首をつる/, /飛び降りる/, /殺して/, /生きていたくない/
 ];
 
-// Client-Side Dictionary for Instant Feedback (Zero Latency)
 const INSTANT_KEYWORDS: Record<string, string[]> = {
     '仕事': ['仕事の悩みについて', '業務内容の話', '職場の人間関係', 'キャリアの方向性'],
     '転職': ['転職を考えている', '今の仕事を辞めたい', '未経験分野への挑戦', 'スキルアップ'],
@@ -59,7 +58,7 @@ const INSTANT_KEYWORDS: Record<string, string[]> = {
     '将来': ['将来が不安', 'キャリアプラン', '5年後の自分', 'ロールモデルがない'],
     '給料': ['給与への不満', '評価制度について', '年収アップ', '待遇改善'],
     'スキル': ['スキル不足を感じる', '新しい技術', '資格取得', '学習方法'],
-    '疲れ': ['仕事に疲れた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
+    '疲れ': ['仕事に疲れれた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
     '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング']
 };
 
@@ -90,7 +89,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionsVisible, setSuggestionsVisible] = useState<boolean>(false); 
-  const [hasError, setHasError] = useState<boolean>(false);
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
@@ -123,61 +121,35 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   }, [isTyping, onboardingStep]);
 
-  // Initial Data Load & Auto-Restore Logic
   useEffect(() => {
-    const user = getUserById(userId);
-    setNickname(user?.nickname || userId);
-    setPin(user?.pin || '0000'); 
-    
-    // Load Conversations
-    const allDataRaw = localStorage.getItem('careerConsultations');
-    let convs: StoredConversation[] = [];
-    if (allDataRaw) {
-        try {
-            const parsed = JSON.parse(allDataRaw);
-            let allConversations: StoredConversation[] = [];
-            if (parsed && parsed.data && Array.isArray(parsed.data)) allConversations = parsed.data;
-            else if (Array.isArray(parsed)) allConversations = parsed;
-            if (allConversations.length > 0) convs = allConversations.filter(c => c.userId === userId);
-        } catch(e) { console.error(e); }
-    }
-    setUserConversations(convs);
+    const initData = async () => {
+      const user = await getUserById(userId);
+      setNickname(user?.nickname || userId);
+      setPin(user?.pin || '0000'); 
+      
+      const convs = await conversationService.getConversationsByUserId(userId);
+      setUserConversations(convs);
 
-    // Auto-Restore Check
-    const autoSaveKey = `career_autosave_${userId}`;
-    const autoSaveData = localStorage.getItem(autoSaveKey);
-    
-    if (autoSaveData) {
-        try {
-            const saved = JSON.parse(autoSaveData);
-            if (saved.messages && saved.messages.length > 0) {
-                setMessages(saved.messages);
-                setAiName(saved.aiName);
-                setAiType(saved.aiType);
-                setAiAvatarKey(saved.aiAvatarKey);
-                setOnboardingStep(saved.onboardingStep);
-                setUserProfile(saved.userProfile);
-                setAiMood(saved.aiMood);
-                setView('chatting');
-                setRestoredNotification(true);
-                // Notification timeout
-                setTimeout(() => setRestoredNotification(false), 5000);
-            } else {
-                // If empty or invalid, default behavior
-                setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
-            }
-        } catch (e) {
-            console.error("Failed to restore auto-save", e);
-            setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
-        }
-    } else {
-        setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
-    }
+      const saved = await conversationService.getAutoSave(userId);
+      if (saved && saved.messages && saved.messages.length > 0) {
+          setMessages(saved.messages);
+          setAiName(saved.aiName);
+          setAiType(saved.aiType);
+          setAiAvatarKey(saved.aiAvatarKey);
+          setOnboardingStep(saved.onboardingStep);
+          setUserProfile(saved.userProfile);
+          setAiMood(saved.aiMood);
+          setView('chatting');
+          setRestoredNotification(true);
+          setTimeout(() => setRestoredNotification(false), 5000);
+      } else {
+          setView(convs.length > 0 ? 'dashboard' : 'avatarSelection');
+      }
+    };
+    initData();
   }, [userId]);
 
-  // Auto-Save Logic
   useEffect(() => {
-      const autoSaveKey = `career_autosave_${userId}`;
       if (view === 'chatting' && messages.length > 0) {
           const dataToSave = {
               timestamp: Date.now(),
@@ -189,14 +161,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
               userProfile,
               aiMood
           };
-          localStorage.setItem(autoSaveKey, JSON.stringify(dataToSave));
+          conversationService.saveAutoSave(userId, dataToSave);
       }
   }, [messages, aiName, aiType, aiAvatarKey, onboardingStep, userProfile, aiMood, view, userId]);
-
-  const clearAutoSave = () => {
-      const autoSaveKey = `career_autosave_${userId}`;
-      localStorage.removeItem(autoSaveKey);
-  };
 
   const handleAvatarSelected = useCallback((selection: { type: AIType, avatarKey: string }) => {
     const { type, avatarKey } = selection;
@@ -219,7 +186,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setUserProfile({ lifeRoles: [] });
     setOnboardingHistory([]);
     setSelectedRoles([]);
-    setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
     
@@ -230,8 +196,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setIsTyping(state.isTyping);
     const draft = state.currentDraft;
 
-    // 1. Instant Client-Side Suggestion (Hybrid Mode)
-    // AIの推論を待たず、入力中のテキストに特定のキーワードが含まれていれば即座に候補を更新・表示する
     if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {
         let matched = false;
         for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
@@ -239,15 +203,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 setSuggestions(list);
                 setSuggestionsVisible(true);
                 matched = true;
-                break; // 最初のマッチを優先（速度重視）
+                break;
             }
         }
-        if (!matched) {
-            setSuggestionsVisible(false);
-        }
+        if (!matched) setSuggestionsVisible(false);
     }
-    // 2. AI-Powered Suggestion (On Silence)
-    // 静止判定（ChatInput側で600msに短縮済）後にAPIを叩いてより高度なサジェストを取得
     else if (state.isSilent && !isLoading && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
             generateSuggestions(messages, draft)
@@ -257,9 +217,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                         setSuggestionsVisible(true);
                     }
                 })
-                .catch(err => console.debug('Draft suggestion update failed', err));
+                .catch(() => {});
         } else if (suggestions.length === 0) {
-            // ドラフトが空で、かつサジェストも空ならフォールバックを表示
             setSuggestions(FALLBACK_SUGGESTIONS);
             setSuggestionsVisible(true);
         }
@@ -282,57 +241,36 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           else setAiMood('neutral');
       }
 
-      if (currentMessages.length >= 4) {
-          setIsConsultationReady(true);
-      }
+      if (currentMessages.length >= 4) setIsConsultationReady(true);
       
-      // Robust Suggestion Logic with Fallback
       if (onboardingStep >= 6) {
           generateSuggestions(currentMessages)
             .then(resp => {
-                if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                    setSuggestions(resp.suggestions);
-                } else {
-                    setSuggestions(FALLBACK_SUGGESTIONS);
-                }
+                setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
                 setSuggestionsVisible(true);
             })
             .catch(() => {
-                console.debug('Suggestion generation skipped, using fallback');
                 setSuggestions(FALLBACK_SUGGESTIONS);
                 setSuggestionsVisible(true);
             });
       }
   };
 
-  /**
-   * 究極の安全策: 直接モックサービスを叩いて強制的に応答を生成する
-   * サービス層の状態や環境設定に一切依存しない
-   */
   const executeEmergencyBypass = async (currentHistory: ChatMessage[]) => {
-      console.warn("🚨 Unbreakable Protocol: Executing Emergency Bypass");
-      useMockService(); // グローバル状態も一応更新
-
+      useMockService(); 
       setMessages(prev => {
           const updated = [...prev];
           const lastMsg = updated[updated.length - 1];
-          if (lastMsg && lastMsg.author === MessageAuthor.AI && !lastMsg.text) {
-              return updated.slice(0, -1);
-          }
+          if (lastMsg && lastMsg.author === MessageAuthor.AI && !lastMsg.text) return updated.slice(0, -1);
           return updated;
       });
-      
       await new Promise(r => setTimeout(r, 500));
-
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-
       try {
           const stream = await directMockService.getStreamingChatResponse(currentHistory, aiType, aiName, userProfile);
           if (!stream) throw new Error("Mock stream failed");
-
           let aiResponseText = '';
           const reader = stream.getReader();
-          
           while (true) {
               const { done, value } = await reader.read();
               if (done) break;
@@ -341,22 +279,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                   setMessages(prev => {
                       const updated = [...prev];
                       const last = updated[updated.length - 1];
-                      if (last && last.author === MessageAuthor.AI) {
-                          last.text = aiResponseText;
-                      }
+                      if (last && last.author === MessageAuthor.AI) last.text = aiResponseText;
                       return updated;
                   });
               }
           }
           await finalizeAiTurn([...currentHistory, { author: MessageAuthor.AI, text: aiResponseText }]);
       } catch (mockErr) {
-          console.error("Critical Failure:", mockErr);
           setMessages(prev => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
-              if (last && last.author === MessageAuthor.AI) {
-                  last.text = "申し訳ありません。少し休憩してから、もう一度お話ししましょうか。";
-              }
+              if (last && last.author === MessageAuthor.AI) last.text = "申し訳ありません。少し休憩してから、もう一度お話ししましょうか。";
               return updated;
           });
           setIsLoading(false);
@@ -367,14 +300,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
-    
     setInputClearSignal(prev => prev + 1);
-
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
         return;
     }
-
     const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
     if (hasCrisisWord) {
         setCrisisCount(prev => prev + 1);
@@ -382,36 +312,26 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
         return;
     }
-
-    setHasError(false);
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setSuggestionsVisible(false); 
     setIsLoading(true);
     setAiMood('thinking');
-
     if (onboardingStep >= 1 && onboardingStep <= 5) {
         await processOnboarding(text, newMessages);
         return;
     }
-
-    // Unbreakable Chat Logic
     try {
         const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
-        
         if (!stream) throw new Error("No stream returned");
-        
         let aiResponseText = '';
         setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-        
         const reader = stream.getReader();
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
             if (value.error) throw new Error(value.error.message);
-
             if (value.text) {
                 aiResponseText += value.text;
                 setMessages(prev => {
@@ -420,26 +340,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     if (lastMsg.author === MessageAuthor.AI) lastMsg.text = aiResponseText;
                     return updated;
                 });
-                if (aiResponseText.includes('[HAPPY]')) setAiMood('happy');
-                else if (aiResponseText.includes('[CURIOUS]')) setAiMood('curious');
             }
         }
-        
         if (!aiResponseText) throw new Error("Empty response");
-
         await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
-
     } catch (error) {
-        console.error("Primary chat failed, switching to unbreakable backup.", error);
-        
-        setMessages(prev => {
-            const last = prev[prev.length - 1];
-            if (last && last.author === MessageAuthor.AI && !last.text) {
-                return prev.slice(0, -1);
-            }
-            return prev;
-        });
-
         await executeEmergencyBypass(newMessages);
     }
   };
@@ -449,53 +354,36 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     await new Promise(r => setTimeout(r, 400));
     let nextText = '';
     let nextStep = onboardingStep + 1;
-
     const isDog = aiType === 'dog';
-
     if (onboardingStep === 1) {
         setUserProfile(prev => ({ ...prev, stage: choice }));
-        nextText = isDog 
-            ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` 
-            : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
+        nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
     } 
     else if (onboardingStep === 2) {
         setUserProfile(prev => ({ ...prev, age: choice }));
-        nextText = isDog 
-            ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！`
-            : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
+        nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
     }
     else if (onboardingStep === 3) {
         setUserProfile(prev => ({ ...prev, gender: choice }));
-        nextText = isDog
-            ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）`
-            : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
+        nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
     }
     else if (onboardingStep === 4) {
         const roles = choice.split('、');
         setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
-        nextText = isDog
-            ? `[HAPPY] 準備OKだワン！今日はどんなことをお話ししてみたいかな？自由に話してほしいワン！`
-            : `[HAPPY] 対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで結構ですよ。`;
+        nextText = isDog ? `[HAPPY] 準備OKだワン！今日はどんなことをお話ししてみたいかな？自由に話してほしいワン！` : `[HAPPY] 対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで結構ですよ。`;
     }
     else if (onboardingStep === 5) {
         const totalTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        const finalProfile = { 
-          ...userProfile, 
-          complaint: choice,
-          interactionStats: { backCount, resetCount, totalTimeSeconds: totalTime }
-        };
+        const finalProfile = { ...userProfile, complaint: choice, interactionStats: { backCount, resetCount, totalTimeSeconds: totalTime } };
         setUserProfile(finalProfile);
         setOnboardingStep(6);
         await startActualConsultation(history, finalProfile);
         return;
     }
-
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
-    
     if (nextText.includes('[HAPPY]')) setAiMood('happy');
     else if (nextText.includes('[REASSURE]')) setAiMood('reassure');
     else if (nextText.includes('[CURIOUS]')) setAiMood('curious');
-    
     setOnboardingStep(nextStep);
     setIsLoading(false);
   };
@@ -520,11 +408,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             });
           }
       }
-      if (!aiResponseText) throw new Error("Empty start");
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (e) {
-        console.error("Start consultation failed, bypassing.", e);
-        setMessages(prev => prev.filter(m => m.text !== ''));
         await executeEmergencyBypass(history);
     }
   };
@@ -538,22 +423,20 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setOnboardingStep(prev => prev - 1);
     setUserProfile(prevProfile);
     setOnboardingHistory(prevHistory);
-    setHasError(false);
     setSuggestionsVisible(false);
     setAiMood('neutral');
   };
 
   const resetOnboarding = (isManualReset: boolean = true) => {
-    clearAutoSave(); // Clear auto-save on reset
+    conversationService.clearAutoSave(userId);
     if (isManualReset) setResetCount(prev => prev + 1);
     const greetingText = GREETINGS[aiType](aiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
-    if (greetingText.includes('[HAPPY]')) setAiMood('happy');
+    setAiMood(greetingText.includes('[HAPPY]') ? 'happy' : 'neutral');
     setOnboardingStep(1);
     setUserProfile({ lifeRoles: [] });
     setOnboardingHistory([]);
     setSelectedRoles([]);
-    setHasError(false);
     setSuggestionsVisible(false);
     setCrisisCount(0);
   };
@@ -561,22 +444,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleGenerateSummary = () => {
     setIsSummaryModalOpen(true);
     setIsSummaryLoading(true);
-    
     const performSummary = async () => {
         try {
             const result = await generateSummary(messages, aiType, aiName, userProfile);
             setSummary(result);
         } catch (e) {
-            console.error("Summary Generation Error", e);
             try {
-                const mockResult = await directMockService.generateSummary(messages, aiType, aiName, userProfile);
-                setSummary(mockResult);
-            } catch (retryErr) {
+                setSummary(await directMockService.generateSummary(messages, aiType, aiName, userProfile));
+            } catch {
                 setSummary("申し訳ありません。通信環境の影響で要約を作成できませんでした。");
             }
-        } finally {
-            setIsSummaryLoading(false);
-        }
+        } finally { setIsSummaryLoading(false); }
     };
     performSummary();
   };
@@ -585,26 +463,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setIsSummaryModalOpen(false);
       setIsInterruptModalOpen(false); 
       setIsFinalizing(true);
-      
-      clearAutoSave(); // Clear auto-save on successful save
-
+      await conversationService.clearAutoSave(userId);
       await new Promise(r => setTimeout(r, 1000));
-      
-      const storedDataRaw = localStorage.getItem('careerConsultations');
-      let currentAllConversations = [];
-      if (storedDataRaw) {
-          try {
-              const parsed = JSON.parse(storedDataRaw);
-              currentAllConversations = parsed.data || (Array.isArray(parsed) ? parsed : []);
-          } catch(e) {
-              console.error("Save error: failed to parse local storage", e);
-          }
-      }
-      
-      let updated = [...currentAllConversations, conversation];
-      localStorage.setItem('careerConsultations', JSON.stringify({ version: STORAGE_VERSION, data: updated }));
-      
-      setUserConversations(updated.filter((c:any) => c.userId === userId));
+      await conversationService.saveConversation(conversation);
+      const updated = await conversationService.getConversationsByUserId(userId);
+      setUserConversations(updated);
       setIsFinalizing(false);
       setView('dashboard'); 
       setMessages([]); 
@@ -613,82 +476,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setAiMood('neutral');
   };
 
-  const renderOnboardingUI = () => {
-    if (isLoading) return null;
-    return (
-      <div className="flex flex-col">
-        {onboardingStep === 1 && (
-          <div className="grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500">
-            {STAGES.map(s => (
-              <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all shadow-sm active:scale-[0.98]">
-                <p className="font-bold text-slate-800">{s.label}</p>
-                <p className="text-xs text-slate-500 mt-1">{s.sub}</p>
-              </button>
-            ))}
-          </div>
-        )}
-        {onboardingStep === 2 && (
-          <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500">
-            {AGES.map(a => (
-              <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
-                {a}
-              </button>
-            ))}
-          </div>
-        )}
-        {onboardingStep === 3 && (
-          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
-            {['男性', '女性', 'その他', '回答しない'].map(g => (
-              <button key={g} onClick={() => handleSendMessage(g)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
-                {g}
-              </button>
-            ))}
-          </div>
-        )}
-        {onboardingStep === 4 && (
-          <div className="p-4 flex flex-col gap-5 animate-in fade-in duration-500">
-            <div className="flex flex-wrap gap-3">
-              {LIFE_ROLES.map(r => (
-                <button 
-                  key={r.id} 
-                  onClick={() => setSelectedRoles(prev => prev.includes(r.label) ? prev.filter(x => x !== r.label) : [...prev, r.label])}
-                  className={`px-5 py-2.5 rounded-full border transition-all flex items-center gap-2.5 font-bold shadow-sm active:scale-[0.98] ${
-                    selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white shadow-sky-100' : 'bg-white border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span className="text-lg">{r.icon}</span><span>{r.label}</span>
-                </button>
-              ))}
-            </div>
-            <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-[0.98]">これで決定する</button>
-          </div>
-        )}
-        {onboardingStep === 5 && (
-          <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
-            {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
-              <button key={c} onClick={() => handleSendMessage(c)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
-        {onboardingStep >= 1 && onboardingStep <= 5 && (
-          <div className="flex justify-center gap-8 pb-4 text-xs font-bold text-slate-400">
-            {onboardingStep > 1 && (
-              <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>
-            )}
-            <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className={`flex flex-col bg-slate-100 ${view === 'chatting' ? 'h-full overflow-hidden' : 'min-h-[100dvh]'} relative`}>
       {view === 'chatting' && <Header showBackButton={true} onBackClick={() => setIsInterruptModalOpen(true)} />}
       
-      {/* Restored Notification */}
       {restoredNotification && (
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-sky-600 text-white px-6 py-3 rounded-full shadow-xl z-[150] animate-in slide-in-from-top-4 duration-500 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -698,17 +489,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
       {view === 'chatting' && (
         <div className="fixed top-20 right-4 lg:right-[calc(50vw-480px)] z-[100] transition-all duration-500">
-           <div className={`
-             rounded-full border-4 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all
-             ${isLoading ? 'animate-pulse ring-sky-500 ring-opacity-100 shadow-[0_0_30px_rgba(14,165,233,0.4)]' : ''}
-             w-16 h-16 sm:w-20 sm:h-20 lg:w-32 lg:h-32
-           `}>
+           <div className={`rounded-full border-4 border-white shadow-2xl bg-slate-800 overflow-hidden ring-4 ring-sky-500/20 active:scale-95 transition-all ${isLoading ? 'animate-pulse ring-sky-500 ring-opacity-100 shadow-[0_0_30px_rgba(14,165,233,0.4)]' : ''} w-16 h-16 sm:w-20 sm:h-20 lg:w-32 lg:h-32`}>
              <AIAvatar avatarKey={aiAvatarKey} aiName={aiName} isLoading={isLoading} mood={aiMood} isCompact={true} />
            </div>
            <div className="mt-2 text-center">
-              <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter shadow-md">
-                {aiName}
-              </span>
+              <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter shadow-md">{aiName}</span>
            </div>
         </div>
       )}
@@ -719,21 +504,56 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
-              
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-10">
-                  {renderOnboardingUI()}
-                  <ChatInput 
-                    onSubmit={handleSendMessage} 
-                    isLoading={isLoading} 
-                    isEditing={false} 
-                    initialText="" 
-                    clearSignal={inputClearSignal}
-                    onCancelEdit={() => {}} 
-                    onStateChange={handleInputStateChange}
-                  />
-                  {onboardingStep >= 6 && (
-                    <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />
+                  {onboardingStep === 1 && (
+                    <div className="grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500">
+                      {STAGES.map(s => (
+                        <button key={s.id} onClick={() => handleSendMessage(s.label)} className="text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-500 hover:bg-sky-50 transition-all shadow-sm active:scale-[0.98]">
+                          <p className="font-bold text-slate-800">{s.label}</p>
+                          <p className="text-xs text-slate-500 mt-1">{s.sub}</p>
+                        </button>
+                      ))}
+                    </div>
                   )}
+                  {onboardingStep === 2 && (
+                    <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500">
+                      {AGES.map(a => (
+                        <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">{a}</button>
+                      ))}
+                    </div>
+                  )}
+                  {onboardingStep === 3 && (
+                    <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
+                      {['男性', '女性', 'その他', '回答しない'].map(g => (
+                        <button key={g} onClick={() => handleSendMessage(g)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">{g}</button>
+                      ))}
+                    </div>
+                  )}
+                  {onboardingStep === 4 && (
+                    <div className="p-4 flex flex-col gap-5 animate-in fade-in duration-500">
+                      <div className="flex flex-wrap gap-3">
+                        {LIFE_ROLES.map(r => (
+                          <button key={r.id} onClick={() => setSelectedRoles(prev => prev.includes(r.label) ? prev.filter(x => x !== r.label) : [...prev, r.label])} className={`px-5 py-2.5 rounded-full border transition-all flex items-center gap-2.5 font-bold shadow-sm active:scale-[0.98] ${selectedRoles.includes(r.label) ? 'bg-sky-600 border-sky-600 text-white shadow-sky-100' : 'bg-white border-slate-200 text-slate-700'}`}><span className="text-lg">{r.icon}</span><span>{r.label}</span></button>
+                        ))}
+                      </div>
+                      <button disabled={selectedRoles.length === 0} onClick={() => handleSendMessage(selectedRoles.join('、'))} className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-100 disabled:bg-slate-300 transition-all active:scale-[0.98]">これで決定する</button>
+                    </div>
+                  )}
+                  {onboardingStep === 5 && (
+                    <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
+                      {['方向性の迷い', '適性を知りたい', '現状を変えたい', '不安を聞いてほしい'].map(c => (
+                        <button key={c} onClick={() => handleSendMessage(c)} className="px-7 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">{c}</button>
+                      ))}
+                    </div>
+                  )}
+                  {onboardingStep >= 1 && onboardingStep <= 5 && (
+                    <div className="flex justify-center gap-8 pb-4 text-xs font-bold text-slate-400">
+                      {onboardingStep > 1 && <button onClick={handleGoBack} className="hover:text-sky-600 transition-colors uppercase tracking-wider">← 戻る</button>}
+                      <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
+                    </div>
+                  )}
+                  <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText="" clearSignal={inputClearSignal} onCancelEdit={() => {}} onStateChange={handleInputStateChange} />
+                  {onboardingStep >= 6 && <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />}
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>
@@ -742,52 +562,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
       {isFinalizing && (
         <div className="fixed inset-0 bg-slate-900/60 z-[300] flex flex-col items-center justify-center p-6 backdrop-blur-lg animate-in fade-in duration-500">
-          <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full text-center scale-up-center">
-             <div className="relative mb-8">
-               <div className="w-16 h-16 border-4 border-emerald-100 rounded-full"></div>
-               <div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-             </div>
+          <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full text-center">
+             <div className="relative mb-8"><div className="w-16 h-16 border-4 border-emerald-100 rounded-full"></div><div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
              <h3 className="text-2xl font-bold text-slate-800">相談データを保存しています</h3>
              <p className="text-slate-500 mt-4 leading-relaxed font-medium">整理した内容を安全に保存しました。<br/>ダッシュボードへ戻ります。</p>
           </div>
         </div>
       )}
 
-      <SummaryModal 
-        isOpen={isSummaryModalOpen} 
-        onClose={() => setIsSummaryModalOpen(false)} 
-        summary={summary} 
-        isLoading={isSummaryLoading} 
-        onRevise={() => {}} 
-        onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })}
-        // Pass necessary data for handover export
-        messages={messages}
-        userId={userId}
-        aiName={aiName}
-      />
-      
-      <InterruptModal 
-        isOpen={isInterruptModalOpen} 
-        onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} 
-        onExitWithoutSaving={() => { 
-            clearAutoSave(); // Explicitly clear auto-save if exiting without saving
-            setIsInterruptModalOpen(false); 
-            setView('dashboard'); 
-        }} 
-        onContinue={() => setIsInterruptModalOpen(false)} 
-      />
-
-      <CrisisNoticeModal 
-        isOpen={isCrisisModalOpen} 
-        onClose={() => setIsCrisisModalOpen(false)} 
-        intensity={crisisCount >= 2 ? 'high' : 'normal'}
-      />
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes progress { from { width: 0%; } to { width: 100%; } }
-        .scale-up-center { animation: scale-up-center 0.4s cubic-bezier(0.390, 0.575, 0.565, 1.000) both; }
-        @keyframes scale-up-center { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-      `}} />
+      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} />
+      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => { conversationService.clearAutoSave(userId); setIsInterruptModalOpen(false); setView('dashboard'); }} onContinue={() => setIsInterruptModalOpen(false)} />
+      <CrisisNoticeModal isOpen={isCrisisModalOpen} onClose={() => setIsCrisisModalOpen(false)} intensity={crisisCount >= 2 ? 'high' : 'normal'} />
     </div>
   );
 };

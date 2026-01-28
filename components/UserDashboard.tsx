@@ -1,9 +1,10 @@
 
-// components/UserDashboard.tsx - v4.12 - Erasure Right with Audit Logging
-import React, { useState, useRef, useMemo } from 'react';
+// components/UserDashboard.tsx - v4.20 - Service Pattern Migration
+import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
+import * as conversationService from '../services/conversationService';
+import * as userService from '../services/userService';
 import ConversationDetailModal from './ConversationDetailModal';
-import PlayIcon from './icons/PlayIcon';
 import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -45,28 +46,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
       } catch (err) { alert("エラーが発生しました"); } finally { setIsExporting(false); }
   };
 
-  const handleErasureRequest = () => {
-      if (window.confirm("【忘れられる権利（抹消権）の行使】\n\nあなたのすべての相談履歴と個人設定をサーバーおよびブラウザから完全に削除します。この操作は取り消せません。本当によろしいですか？")) {
-          // 1. Audit Logging (Before deletion)
-          addLogEntry({
-              type: 'audit',
-              level: 'critical',
-              action: 'Right to Erasure Executed',
-              details: `User ${userId} requested full data deletion.`
-          });
-
-          // 2. Perform Deletion
-          const currentAllRaw = localStorage.getItem('careerConsultations');
-          if (currentAllRaw) {
-              const parsed = JSON.parse(currentAllRaw);
-              const remaining = (parsed.data || []).filter((c: any) => c.userId !== userId);
-              localStorage.setItem('careerConsultations', JSON.stringify({ ...parsed, data: remaining }));
-          }
-          const users = JSON.parse(localStorage.getItem('careerConsultingUsers_v1') || '[]');
-          const remainingUsers = users.filter((u: any) => u.id !== userId);
-          localStorage.setItem('careerConsultingUsers_v1', JSON.stringify(remainingUsers));
-          
-          alert("すべてのデータが抹消されました。");
+  const handleErasureRequest = async () => {
+      if (window.confirm("【忘れられる権利の行使】全てのデータを完全に削除します。本当によろしいですか？")) {
+          addLogEntry({ type: 'audit', level: 'critical', action: 'Right to Erasure Executed', details: `User ${userId} requested full data deletion.` });
+          await userService.deleteUsers([userId]);
+          await conversationService.deleteConversationsByUserIds([userId]);
+          await conversationService.clearAutoSave(userId);
+          alert("抹消されました。");
           window.location.reload();
       }
   };
@@ -86,38 +72,29 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
                 </div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
-                 <button onClick={onNewChat} className="px-4 py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all text-center">新規相談を開始</button>
+                 <button onClick={onNewChat} className="px-4 py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all">新規相談を開始</button>
                  <button onClick={handleExportUserData} className="flex items-center justify-center gap-2 px-4 py-4 bg-white border-2 border-slate-200 text-slate-800 font-bold rounded-2xl hover:bg-slate-50 transition-all"><ExportIcon />データ出力</button>
                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 px-4 py-4 bg-white border-2 border-slate-200 text-slate-800 font-bold rounded-2xl hover:bg-slate-50 transition-all"><ImportIcon />データ復元</button>
                  <input type="file" ref={fileInputRef} onChange={() => {}} accept=".json" className="hidden" />
              </div>
              <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl mb-6 flex gap-4 items-center">
-                <div className="w-10 h-10 bg-sky-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-sky-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                </div>
-                <p className="text-[11px] text-sky-800 font-bold leading-relaxed">
-                  本システムは Protocol 2.0 に基づき、あなたの情報を適切に保護しています。右上の「抹消」ボタンから、いつでも全てのデータを削除し、システムから退会することが可能です。
-                </p>
+                <div className="w-10 h-10 bg-sky-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-lg"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg></div>
+                <p className="text-[11px] text-sky-800 font-bold leading-relaxed">本システムは Protocol 2.0 に基づきデータを保護しています。いつでも全てのデータを削除することが可能です。</p>
              </div>
           </header>
-          
           <div className="flex-1 overflow-y-auto pr-2 space-y-3">
             <h2 className="text-lg font-black text-slate-800 px-1">過去のセッション ({conversations.length}件)</h2>
-            {conversations.length > 0 ? (
-                conversations.map(conv => (
-                    <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-sky-300 hover:shadow-md transition-all group">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <div className="text-xs font-black text-slate-400 font-mono mb-1 uppercase tracking-widest">{new Date(conv.date).toLocaleDateString()}</div>
-                                <div className="font-bold text-slate-800 group-hover:text-sky-700 transition-colors">担当: {conv.aiName}</div>
-                            </div>
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{conv.status.toUpperCase()}</span>
+            {conversations.map(conv => (
+                <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-sky-300 transition-all group">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <div className="text-xs font-black text-slate-400 font-mono mb-1 uppercase tracking-widest">{new Date(conv.date).toLocaleDateString()}</div>
+                            <div className="font-bold text-slate-800 group-hover:text-sky-700">担当: {conv.aiName}</div>
                         </div>
-                    </button>
-                ))
-            ) : (
-              <div className="text-center py-20 opacity-30 italic font-bold">相談履歴がありません</div>
-            )}
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{conv.status.toUpperCase()}</span>
+                    </div>
+                </button>
+            ))}
           </div>
       </div>
       {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
