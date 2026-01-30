@@ -1,7 +1,13 @@
 
-// api/gemini-proxy.ts - v4.09 - Flash Model Optimization
+// api/gemini-proxy.ts - v4.22 - Zero-Thinking Latency Optimization
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
+
+// Vercel Serverless Function Configuration
+// Increase execution time limit to the maximum allowed (usually 10s-60s depending on plan) to reduce timeouts.
+export const config = {
+  maxDuration: 60,
+};
 
 enum MessageAuthor { USER = 'user', AI = 'ai' }
 interface ChatMessage { author: MessageAuthor; text: string; }
@@ -107,6 +113,7 @@ ${contextInstruction}
 ${historyText}`,
         config: {
             responseMimeType: "application/json",
+            // Analysis tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
@@ -144,6 +151,7 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
 ${historyText}`,
         config: {
             responseMimeType: "application/json",
+            // Matching tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
@@ -215,9 +223,16 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
-            model: 'gemini-3-flash-preview', // Speed optimized with 3-flash
+            model: 'gemini-3-flash-preview', 
             contents,
-            config: { systemInstruction, temperature: 0.7 },
+            config: { 
+                systemInstruction, 
+                temperature: 0.7,
+                // [CRITICAL OPTIMIZATION]
+                // Disable thinking process for real-time chat to prevent Vercel server timeouts.
+                // Chat interactions prioritize empathy and speed over deep logic.
+                thinkingConfig: { thinkingBudget: 0 } 
+            },
         });
         for await (const chunk of stream) {
             if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
@@ -292,6 +307,8 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
         contents: prompt,
         config: {
             responseMimeType: "application/json",
+            // [OPTIMIZATION] Suggestions need to be snappy. Zero thinking budget.
+            thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },

@@ -2,7 +2,7 @@
 // constants.ts
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.21";
+export const APP_VERSION = "4.22";
 
 // Storage Keys
 export const STORAGE_KEYS = {
