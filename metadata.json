@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.32",
-  "description": "Resume capability & Session Persistence logic update (中断データの再開とID維持機能). Protocol 2.0 Compliant.",
-  "version": "4.32",
+  "name": "Career Consulting_4.33",
+  "description": "UI text alignment improvements for loading screens (待機画面のテキスト表示位置改善). Resume capability & Session Persistence logic update. Protocol 2.0 Compliant.",
+  "version": "4.33",
   "prompt": ""
 }

@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.30 - Hide Pro Notes from User
+// components/SummaryModal.tsx - v4.33 - Enhanced UX & Reassurance
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -26,9 +26,15 @@ interface SummaryModalProps {
 const REASSURANCE_MESSAGES = [
   "今日のお話を、客観的な事実として整理しています...",
   "あなたの感情の揺れを丁寧に言葉にしています...",
+  "絡まった糸をほどくように、文脈を整理しています...",
   "専門家（キャリコン）へ繋ぐための情報をまとめています...",
+  "言葉にならない想いも、大切に拾い上げています...",
   "この対話が、あなたの一歩に変わりますように...",
   "アドバイスではなく、あなたの「ありのまま」を抽出中です...",
+  "あなたのペースで歩んだ軌跡を、地図に描いています...",
+  "沈黙の中にあった意味も、しっかりと受け止めています...",
+  "小さな気づきの種が、芽吹く準備をしています...",
+  "この時間が、未来への確かな手応えになりますように...",
   "まもなく、対話の振り返りシートが完成します..."
 ];
 
@@ -226,9 +232,12 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                  <div className="w-20 h-20 border-4 border-sky-100 rounded-full"></div>
                  <div className="absolute top-0 left-0 w-20 h-20 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
                </div>
-              <p className="font-bold text-xl text-center text-slate-800 min-h-[3rem] px-4 animate-in fade-in slide-in-from-bottom-2 duration-1000" key={messageIndex}>
-                {REASSURANCE_MESSAGES[messageIndex]}
-              </p>
+               {/* Updated Layout: Centered container, Left-aligned text for multi-line support */}
+              <div className="w-full flex justify-center px-4">
+                 <p className="inline-block text-left font-bold text-xl text-slate-800 min-h-[3rem] animate-in fade-in slide-in-from-bottom-2 duration-1000 leading-relaxed" key={messageIndex}>
+                    {REASSURANCE_MESSAGES[messageIndex]}
+                 </p>
+              </div>
             </div>
           ) : currentStep === 'referral' ? (
              <div className="flex flex-col items-center justify-center h-full space-y-8 py-6 animate-in fade-in zoom-in duration-500">
