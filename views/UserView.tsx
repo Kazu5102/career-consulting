@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.31 - Resume & Context Serialization
+// views/UserView.tsx - v4.32 - Single ID Session Persistence
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -80,9 +80,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [nickname, setNickname] = useState<string>('');
   const [pin, setPin] = useState<string>(''); 
   
+  // Conversation State
+  const [currentConversationId, setCurrentConversationId] = useState<number>(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [hasError, setHasError] = useState<boolean>(false); // New Error State
+  const [hasError, setHasError] = useState<boolean>(false); 
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
   const [aiName, setAiName] = useState<string>('');
@@ -140,6 +142,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           setOnboardingStep(saved.onboardingStep);
           setUserProfile(saved.userProfile);
           setAiMood(saved.aiMood);
+          // Restore ID if available, otherwise generate new to prevent overwriting undefined
+          setCurrentConversationId(saved.currentConversationId || Date.now());
+          
           setView('chatting');
           setRestoredNotification(true);
           setTimeout(() => setRestoredNotification(false), 5000);
@@ -154,6 +159,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (view === 'chatting' && messages.length > 0) {
           const dataToSave = {
               timestamp: Date.now(),
+              currentConversationId, // Persist ID
               messages,
               aiName,
               aiType,
@@ -164,7 +170,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           };
           conversationService.saveAutoSave(userId, dataToSave);
       }
-  }, [messages, aiName, aiType, aiAvatarKey, onboardingStep, userProfile, aiMood, view, userId]);
+  }, [messages, aiName, aiType, aiAvatarKey, onboardingStep, userProfile, aiMood, view, userId, currentConversationId]);
 
   const handleAvatarSelected = useCallback((selection: { type: AIType, avatarKey: string }) => {
     const { type, avatarKey } = selection;
@@ -177,6 +183,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setAiName(selectedAiName);
     
     startTimeRef.current = Date.now();
+    // New Session = New ID
+    setCurrentConversationId(Date.now());
     
     const greetingText = GREETINGS[type](selectedAiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
@@ -315,7 +323,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           console.error("Chat Execution Error:", error);
           setIsLoading(false);
           setHasError(true);
-          setAiMood('thinking'); // Keep thinking face or switch to neutral? Thinking might imply "trouble".
+          setAiMood('thinking'); 
           
           // Remove the failed AI placeholder so the chat log stays clean
           setMessages(prev => prev.filter(m => m.text !== ''));
@@ -427,7 +435,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const resetOnboarding = (isManualReset: boolean = true) => {
     conversationService.clearAutoSave(userId);
-    if (isManualReset) setResetCount(prev => prev + 1);
+    if (isManualReset) {
+        setResetCount(prev => prev + 1);
+        // On strict reset, generate new ID
+        setCurrentConversationId(Date.now());
+    }
     const greetingText = GREETINGS[aiType](aiName);
     setMessages([{ author: MessageAuthor.AI, text: greetingText }]);
     setAiMood(greetingText.includes('[HAPPY]') ? 'happy' : 'neutral');
@@ -474,6 +486,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setIsConsultationReady(false);
       setHasError(false);
       setAiMood('neutral');
+      setCurrentConversationId(0); // Reset after saving
   };
 
   return (
@@ -507,6 +520,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 setAiName(c.aiName); 
                 setAiType(c.aiType); 
                 setAiAvatarKey(c.aiAvatar); 
+                setCurrentConversationId(c.id); // Capture existing session ID
                 
                 // Restore Context from serialized summary if available
                 try {
@@ -612,9 +626,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         </div>
       )}
 
-      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} />
+      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: currentConversationId || Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} />
       <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ 
-          id: Date.now(), 
+          id: currentConversationId || Date.now(), 
           userId, 
           aiName, 
           aiType, 
