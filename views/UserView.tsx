@@ -495,7 +495,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     </div>
                   )}
                   {onboardingStep === 2 && (
-                    <div className="flex gap-2 overflow-x-auto p-4 pb-2 scrollbar-hide animate-in fade-in duration-500">
+                    <div className="flex flex-wrap gap-2 p-4 animate-in fade-in duration-500">
                       {AGES.map(a => (
                         <button key={a} onClick={() => handleSendMessage(a)} className="flex-shrink-0 px-5 py-2.5 rounded-full border border-slate-200 bg-white hover:bg-sky-50 text-sm font-semibold text-slate-700 shadow-sm transition-all active:scale-[0.98]">{a}</button>
                       ))}

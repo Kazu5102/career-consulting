@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.24",
-  "description": "Protocol 2.0 Compliant. Added navigation back button to avatar selection screen.",
-  "version": "4.24",
+  "name": "Career Consulting_4.25",
+  "description": "Protocol 2.0 Compliant. Improved mobile layout for age selection screen (wrapping instead of scrolling).",
+  "version": "4.25",
   "prompt": ""
 }
