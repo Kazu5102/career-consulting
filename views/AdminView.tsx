@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.20 - Future-proofed Persistence Logic
+// views/AdminView.tsx - v4.29 - Fix Stale Header Display
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState } from '../types';
@@ -123,6 +123,9 @@ const AdminView: React.FC = () => {
 
     const isAllSelected = useMemo(() => filteredUsers.length > 0 && filteredUsers.every(u => checkedUserIds.has(u.id)), [filteredUsers, checkedUserIds]);
 
+    // Active User Object for Header Display
+    const activeUser = users.find(u => u.id === selectedUserId);
+
     const handleSelectAll = () => {
         if (isAllSelected) setCheckedUserIds(new Set());
         else {
@@ -237,7 +240,10 @@ const AdminView: React.FC = () => {
                         <header className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 px-4 md:px-8 py-4 border-b border-slate-100 shadow-sm">
                             <div className="flex items-center gap-4 w-full md:w-auto">
                                 <button onClick={() => setSelectedUserId(null)} className="md:hidden p-2.5 rounded-xl bg-slate-100"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg></button>
-                                <div className="overflow-hidden"><h1 className="text-xl md:text-2xl font-black text-slate-800 truncate">{users.find(u => u.id === selectedUserId)?.nickname} さんの分析</h1><p className="text-[10px] text-slate-400 font-mono">{selectedUserId}</p></div>
+                                <div className="overflow-hidden" key={selectedUserId}>
+                                    <h1 className="text-xl md:text-2xl font-black text-slate-800 truncate">{activeUser?.nickname} さんの分析</h1>
+                                    <p className="text-[10px] text-slate-400 font-mono">{selectedUserId}</p>
+                                </div>
                             </div>
                             <div className="flex gap-2 w-full md:w-auto">
                                 <button onClick={() => runAnalysis('trajectory')} className="flex-1 md:flex-none px-4 py-2.5 bg-sky-600 text-white font-bold rounded-xl text-sm"><TrajectoryIcon className="w-4 h-4" />軌跡分析</button>

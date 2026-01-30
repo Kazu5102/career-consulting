@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.24 - Added Navigation Logic for Avatar Selection
+// views/UserView.tsx - v4.28 - Robust Retry Mechanism
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -82,6 +82,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [hasError, setHasError] = useState<boolean>(false); // New Error State
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
   const [aiName, setAiName] = useState<string>('');
@@ -188,13 +189,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setSelectedRoles([]);
     setSuggestionsVisible(false);
     setCrisisCount(0);
+    setHasError(false);
     
     setView('chatting');
   }, []);
 
   const handleBackFromAvatarSelection = () => {
-    // If there are existing conversations, go back to dashboard.
-    // Otherwise, this is a new user flow, so go back to user selection (logout).
     if (userConversations.length > 0) {
       setView('dashboard');
     } else {
@@ -218,7 +218,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         }
         if (!matched) setSuggestionsVisible(false);
     }
-    else if (state.isSilent && !isLoading && onboardingStep >= 6) {
+    else if (state.isSilent && !isLoading && !hasError && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
             generateSuggestions(messages, draft)
                 .then(resp => {
@@ -233,7 +233,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             setSuggestionsVisible(true);
         }
     }
-  }, [isLoading, onboardingStep, suggestions.length, messages]);
+  }, [isLoading, onboardingStep, suggestions.length, messages, hasError]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -266,6 +266,62 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
   };
 
+  /**
+   * Executes a chat turn:
+   * 1. Appends AI placeholder.
+   * 2. Calls streaming API.
+   * 3. Updates UI on stream updates.
+   * 4. Handles errors by cleaning up and setting error state.
+   */
+  const executeAiTurn = async (history: ChatMessage[], overrideProfile?: UserProfile) => {
+      setIsLoading(true);
+      setHasError(false);
+      setAiMood('thinking');
+      
+      const profileToUse = overrideProfile || userProfile;
+
+      // Add placeholder message for AI
+      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
+
+      try {
+        const stream = await getStreamingChatResponse(history, aiType, aiName, profileToUse);
+        if (!stream) throw new Error("Connection failed: No stream returned");
+        
+        let aiResponseText = '';
+        const reader = stream.getReader();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value.error) throw new Error(value.error.message);
+            if (value.text) {
+                aiResponseText += value.text;
+                setMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsg = updated[updated.length - 1];
+                    // Ensure we are updating the AI message
+                    if (lastMsg.author === MessageAuthor.AI) {
+                        lastMsg.text = aiResponseText;
+                    }
+                    return updated;
+                });
+            }
+        }
+        
+        if (!aiResponseText) throw new Error("Empty response received");
+        await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+
+      } catch (error) {
+          console.error("Chat Execution Error:", error);
+          setIsLoading(false);
+          setHasError(true);
+          setAiMood('thinking'); // Keep thinking face or switch to neutral? Thinking might imply "trouble".
+          
+          // Remove the failed AI placeholder so the chat log stays clean
+          setMessages(prev => prev.filter(m => m.text !== ''));
+      }
+  };
+
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setInputClearSignal(prev => prev + 1);
@@ -280,47 +336,28 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
         return;
     }
+    
+    // Optimistic Update: Add user message immediately
     const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const newHistory = [...messages, userMessage];
+    setMessages(newHistory);
+    
     setSuggestionsVisible(false); 
-    setIsLoading(true);
-    setAiMood('thinking');
+    setHasError(false);
+
     if (onboardingStep >= 1 && onboardingStep <= 5) {
-        await processOnboarding(text, newMessages);
+        await processOnboarding(text, newHistory);
         return;
     }
-    try {
-        const stream = await getStreamingChatResponse(newMessages, aiType, aiName, userProfile);
-        if (!stream) throw new Error("No stream returned");
-        let aiResponseText = '';
-        setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-        const reader = stream.getReader();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value.error) throw new Error(value.error.message);
-            if (value.text) {
-                aiResponseText += value.text;
-                setMessages(prev => {
-                    const updated = [...prev];
-                    const lastMsg = updated[updated.length - 1];
-                    if (lastMsg.author === MessageAuthor.AI) lastMsg.text = aiResponseText;
-                    return updated;
-                });
-            }
-        }
-        if (!aiResponseText) throw new Error("Empty response");
-        await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
-    } catch (error) {
-        console.error("Chat Error:", error);
-        setIsLoading(false);
-        setAiMood('thinking');
-        setMessages(prev => {
-             const clean = prev.filter(m => m.text !== '');
-             return [...clean, { author: MessageAuthor.AI, text: "⚠️ 申し訳ありません。応答に時間がかかりすぎてしまいました。通信環境をご確認の上、もう一度お試しください。" }];
-        });
-    }
+    
+    // Normal chat flow
+    await executeAiTurn(newHistory);
+  };
+
+  const handleRetry = () => {
+      // Retry using the existing message history (which already contains the user's last message)
+      if (messages.length === 0) return;
+      executeAiTurn(messages);
   };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
@@ -329,20 +366,29 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     let nextText = '';
     let nextStep = onboardingStep + 1;
     const isDog = aiType === 'dog';
+    
+    // Onboarding logic updates profile in state
+    // We calculate the *next* state locally to pass to executeAiTurn if needed
+    let updatedProfile = { ...userProfile };
+
     if (onboardingStep === 1) {
+        updatedProfile.stage = choice;
         setUserProfile(prev => ({ ...prev, stage: choice }));
         nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
     } 
     else if (onboardingStep === 2) {
+        updatedProfile.age = choice;
         setUserProfile(prev => ({ ...prev, age: choice }));
         nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
     }
     else if (onboardingStep === 3) {
+        updatedProfile.gender = choice;
         setUserProfile(prev => ({ ...prev, gender: choice }));
         nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
     }
     else if (onboardingStep === 4) {
         const roles = choice.split('、');
+        updatedProfile.lifeRoles = roles;
         setUserProfile(prev => ({ ...prev, lifeRoles: roles }));
         nextText = isDog ? `[HAPPY] 準備OKだワン！今日はどんなことをお話ししてみたいかな？自由に話してほしいワン！` : `[HAPPY] 対話の準備が整いました。今日は、どのようなことをお話ししてみたいですか？ 答えやすいところからで結構ですよ。`;
     }
@@ -351,46 +397,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         const finalProfile = { ...userProfile, complaint: choice, interactionStats: { backCount, resetCount, totalTimeSeconds: totalTime } };
         setUserProfile(finalProfile);
         setOnboardingStep(6);
-        await startActualConsultation(history, finalProfile);
+        // Step 5 -> 6 triggers the first REAL API call
+        await executeAiTurn(history, finalProfile);
         return;
     }
+    
+    // For steps 1-4, it's scripted, no API call
     setMessages([...history, { author: MessageAuthor.AI, text: nextText }]);
     if (nextText.includes('[HAPPY]')) setAiMood('happy');
     else if (nextText.includes('[REASSURE]')) setAiMood('reassure');
     else if (nextText.includes('[CURIOUS]')) setAiMood('curious');
     setOnboardingStep(nextStep);
     setIsLoading(false);
-  };
-
-  const startActualConsultation = async (history: ChatMessage[], profile: UserProfile) => {
-    try {
-      const stream = await getStreamingChatResponse(history, aiType, aiName, profile);
-      if (!stream) throw new Error("Stream failed");
-      let aiResponseText = '';
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-      const reader = stream.getReader();
-      while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value.text) {
-            aiResponseText += value.text;
-            setMessages(prev => {
-                const updated = [...prev];
-                const lastMsg = updated[updated.length - 1];
-                if (lastMsg.author === MessageAuthor.AI) lastMsg.text = aiResponseText;
-                return updated;
-            });
-          }
-      }
-      await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
-    } catch (e) {
-        console.error("Consultation Start Error:", e);
-        setIsLoading(false);
-        setMessages(prev => {
-             const clean = prev.filter(m => m.text !== '');
-             return [...clean, { author: MessageAuthor.AI, text: "⚠️ 申し訳ありません。応答に時間がかかりすぎてしまいました。通信環境をご確認の上、もう一度お試しください。" }];
-        });
-    }
   };
 
   const handleGoBack = () => {
@@ -403,6 +421,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setUserProfile(prevProfile);
     setOnboardingHistory(prevHistory);
     setSuggestionsVisible(false);
+    setHasError(false);
     setAiMood('neutral');
   };
 
@@ -417,6 +436,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     setOnboardingHistory([]);
     setSelectedRoles([]);
     setSuggestionsVisible(false);
+    setHasError(false);
     setCrisisCount(0);
   };
 
@@ -452,6 +472,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setMessages([]); 
       setOnboardingStep(0);
       setIsConsultationReady(false);
+      setHasError(false);
       setAiMood('neutral');
   };
 
@@ -531,8 +552,24 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                       <button onClick={() => resetOnboarding(true)} className="hover:text-sky-600 transition-colors uppercase tracking-wider">最初からやり直す</button>
                     </div>
                   )}
+                  
+                  {/* Retry Button Logic */}
+                  {hasError && (
+                    <div className="px-4 pb-2">
+                        <button 
+                            onClick={handleRetry}
+                            className="w-full py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center justify-center gap-2 font-bold animate-in fade-in slide-in-from-bottom-2 shadow-sm hover:bg-red-100 transition-colors active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            通信エラーが発生しました。タップして再生成
+                        </button>
+                    </div>
+                  )}
+
                   <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText="" clearSignal={inputClearSignal} onCancelEdit={() => {}} onStateChange={handleInputStateChange} />
-                  {onboardingStep >= 6 && <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible} />}
+                  {onboardingStep >= 6 && <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !hasError} />}
                   {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
               </div>
             </div>

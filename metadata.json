@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.27",
-  "description": "Protocol 2.0 Compliant. Fixed issue where AI persona suffixes appeared in user suggestion chips.",
-  "version": "4.27",
+  "name": "Career Consulting_4.29",
+  "description": "Protocol 2.0 Compliant. Fixed UI stale data issue in Admin View.",
+  "version": "4.29",
   "prompt": ""
 }
