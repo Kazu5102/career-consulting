@@ -1,8 +1,8 @@
 
-// views/UserView.tsx - v4.20 - Future-looking Design Refactor
+// views/UserView.tsx - v4.21 - Removed Emergency Bypass
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { ChatMessage, MessageAuthor, StoredConversation, STORAGE_VERSION, AIType, UserProfile } from '../types';
-import { getStreamingChatResponse, generateSummary, generateSuggestions, useMockService } from '../services/index';
+import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
+import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
 import * as directMockService from '../services/mockGeminiService';
 import * as conversationService from '../services/conversationService';
 import { getUserById } from '../services/userService';
@@ -256,48 +256,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
   };
 
-  const executeEmergencyBypass = async (currentHistory: ChatMessage[]) => {
-      useMockService(); 
-      setMessages(prev => {
-          const updated = [...prev];
-          const lastMsg = updated[updated.length - 1];
-          if (lastMsg && lastMsg.author === MessageAuthor.AI && !lastMsg.text) return updated.slice(0, -1);
-          return updated;
-      });
-      await new Promise(r => setTimeout(r, 500));
-      setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
-      try {
-          const stream = await directMockService.getStreamingChatResponse(currentHistory, aiType, aiName, userProfile);
-          if (!stream) throw new Error("Mock stream failed");
-          let aiResponseText = '';
-          const reader = stream.getReader();
-          while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              if (value.text) {
-                  aiResponseText += value.text;
-                  setMessages(prev => {
-                      const updated = [...prev];
-                      const last = updated[updated.length - 1];
-                      if (last && last.author === MessageAuthor.AI) last.text = aiResponseText;
-                      return updated;
-                  });
-              }
-          }
-          await finalizeAiTurn([...currentHistory, { author: MessageAuthor.AI, text: aiResponseText }]);
-      } catch (mockErr) {
-          setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last && last.author === MessageAuthor.AI) last.text = "申し訳ありません。少し休憩してから、もう一度お話ししましょうか。";
-              return updated;
-          });
-          setIsLoading(false);
-          setSuggestions(FALLBACK_SUGGESTIONS);
-          setSuggestionsVisible(true);
-      }
-  };
-
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setInputClearSignal(prev => prev + 1);
@@ -345,7 +303,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         if (!aiResponseText) throw new Error("Empty response");
         await finalizeAiTurn([...newMessages, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (error) {
-        await executeEmergencyBypass(newMessages);
+        console.error("Chat Error:", error);
+        setIsLoading(false);
+        setAiMood('thinking');
+        setMessages(prev => {
+             const clean = prev.filter(m => m.text !== '');
+             return [...clean, { author: MessageAuthor.AI, text: "⚠️ 申し訳ありません。応答に時間がかかりすぎてしまいました。通信環境をご確認の上、もう一度お試しください。" }];
+        });
     }
   };
 
@@ -410,7 +374,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       }
       await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
     } catch (e) {
-        await executeEmergencyBypass(history);
+        console.error("Consultation Start Error:", e);
+        setIsLoading(false);
+        setMessages(prev => {
+             const clean = prev.filter(m => m.text !== '');
+             return [...clean, { author: MessageAuthor.AI, text: "⚠️ 申し訳ありません。応答に時間がかかりすぎてしまいました。通信環境をご確認の上、もう一度お試しください。" }];
+        });
     }
   };
 

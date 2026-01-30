@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.08 - Suggestion Formatting Refined
+// api/gemini-proxy.ts - v4.09 - Flash Model Optimization
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -190,6 +190,11 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 思考: ${roleDefinition.mindset}
 相談者プロファイル: ${JSON.stringify(profile)}
 
+### 共感・傾聴の強化指示:
+1. ユーザーの発言に対し、単なる情報提供ではなく、まず感情を受け止める「共感の言葉」を挟んでください。
+2. 「それは大変でしたね」「頑張ってこられたのですね」といった労いの言葉を積極的に使用し、温かみのある対話を心がけてください。
+3. 解決策を急がず、ユーザーが話しやすい雰囲気を作ることを最優先してください。
+
 ### 重要指示（危機介入プロトコル）:
 1. 相談者が「死にたい」「消えたい」といった自傷・自殺をほのめかすネガティブワードを発した場合、キャリア相談を一時中断し、深い共感と受容を示してください。
 2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
@@ -210,7 +215,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
-            model: 'gemini-3-pro-preview', // Upgraded to Pro
+            model: 'gemini-3-flash-preview', // Speed optimized with 3-flash
             contents,
             config: { systemInstruction, temperature: 0.7 },
         });

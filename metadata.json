@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.20",
+  "name": "Career Consulting_4.21",
   "description": "Protocol 2.0 Compliant. Future-proofed Async Architecture for DB Migration Readiness.",
-  "version": "4.20",
+  "version": "4.21",
   "prompt": ""
 }

@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.03 - Draft Support
+// services/geminiService.ts - v4.21 - Extended Timeout Support
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
@@ -67,7 +67,8 @@ export interface StreamUpdate {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
-        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, 60000);
+        // Extended timeout to 180 seconds (3 minutes) to accommodate model thinking time
+        const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, 180000);
         const rawStream = response.body;
         if (!rawStream) return null;
 
