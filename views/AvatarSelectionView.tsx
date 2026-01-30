@@ -1,5 +1,5 @@
 
-// views/AvatarSelectionView.tsx - v4.24 - Added Back Navigation
+// views/AvatarSelectionView.tsx - v4.26 - Text Alignment Refinement
 import React, { useMemo } from 'react';
 import { AIType } from '../types';
 import { ASSISTANTS } from '../config/aiAssistants';
@@ -40,12 +40,12 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect, onB
         </button>
       </div>
 
-      <div className="text-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700 mt-4 md:mt-0">
+      <div className="flex flex-col items-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700 mt-4 md:mt-0">
         <div className="inline-block px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full mb-4 shadow-sm">
            Consultation Partner
         </div>
-        <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight">対話のパートナーを1名選んでください</h1>
-        <p className="mt-4 text-slate-500 font-medium max-w-xl mx-auto leading-relaxed text-left">
+        <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight text-left w-fit">対話のパートナーを1名選んでください</h1>
+        <p className="mt-4 text-slate-500 font-medium max-w-xl leading-relaxed text-left w-fit">
           今日の気分に合わせて、プロフェッショナルな「人間」か、癒やしの「わんこ」かをお選びいただけます。
         </p>
       </div>

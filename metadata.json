@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.25",
-  "description": "Protocol 2.0 Compliant. Improved mobile layout for age selection screen (wrapping instead of scrolling).",
-  "version": "4.25",
+  "name": "Career Consulting_4.26",
+  "description": "Protocol 2.0 Compliant. Adjusted text alignment in avatar selection to be left-aligned within a centered block for better readability on mobile.",
+  "version": "4.26",
   "prompt": ""
 }
