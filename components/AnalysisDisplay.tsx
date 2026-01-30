@@ -1,6 +1,6 @@
 
-// components/AnalysisDisplay.tsx - v3.68 - Consultant Guidelines Integration
-import React, { useState } from 'react';
+// components/AnalysisDisplay.tsx - v4.23 - Realistic Loading Visualization
+import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { TrajectoryAnalysisData, AnalysisStateItem, SkillMatchingResult } from '../types';
 import SparklesIcon from './icons/SparklesIcon';
@@ -17,6 +17,20 @@ interface AnalysisDisplayProps {
     skillMatchingState?: AnalysisStateItem<SkillMatchingResult>;
     comprehensiveState?: AnalysisStateItem<any>;
 }
+
+const TRAJECTORY_PHASES = [
+    { threshold: 15, label: "コンテキストの初期化...", detail: "相談履歴データの構造化と時系列ソートを実行中" },
+    { threshold: 40, label: "マイクロ・ナラティブ解析...", detail: "発言の揺れ、感情価の変動、未言及の空白を検出" },
+    { threshold: 70, label: "心理的発達段階の推定...", detail: "キャリア構築理論に基づくライフテーマの同定" },
+    { threshold: 90, label: "臨床的インサイトの生成...", detail: "介入戦略と次回セッションへの示唆を策定中" }
+];
+
+const SKILL_MATCHING_PHASES = [
+    { threshold: 15, label: "スキルセットの抽出...", detail: "業務経験からのコンピテンシー分解と強みの特定" },
+    { threshold: 45, label: "ギャップ分析の実行...", detail: "希望職種と現状スキルの乖離度を定量的評価" },
+    { threshold: 75, label: "学習リソースの照合...", detail: "市場価値向上に必要な具体的アクションの選定" },
+    { threshold: 90, label: "適合度スコアリング...", detail: "キャリアパスシナリオの適合率を算出中" }
+];
 
 const createMarkup = (markdownText: string | undefined | null) => {
     if (!markdownText) return { __html: '' };
@@ -44,14 +58,76 @@ const AnalysisErrorFallback: React.FC<{ type: string; error: string }> = ({ type
     );
 };
 
-const DeepAnalysisLoader: React.FC<{ type: 'trajectory' | 'skillMatching' }> = ({ type }) => {
+const ProgressiveAnalysisLoader: React.FC<{ type: 'trajectory' | 'skillMatching' }> = ({ type }) => {
+    const [progress, setProgress] = useState(0);
+    const [phaseIndex, setPhaseIndex] = useState(0);
+    const phases = type === 'trajectory' ? TRAJECTORY_PHASES : SKILL_MATCHING_PHASES;
+    const accentColor = type === 'trajectory' ? 'sky' : 'emerald';
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev < 99) {
+                    // Slow down as we approach the end to simulate heavy computation waiting for API
+                    const increment = prev < 30 ? 1.5 : prev < 70 ? 0.8 : 0.2;
+                    const next = Math.min(prev + increment, 99);
+                    
+                    const nextPhaseIndex = phases.findIndex(p => next < p.threshold);
+                    if (nextPhaseIndex !== -1 && nextPhaseIndex !== phaseIndex) {
+                        setPhaseIndex(nextPhaseIndex);
+                    } else if (next >= phases[phases.length - 1].threshold) {
+                        setPhaseIndex(phases.length - 1);
+                    }
+                    
+                    return next;
+                }
+                return prev;
+            });
+        }, 80);
+        return () => clearInterval(interval);
+    }, [phaseIndex, phases]);
+
+    const currentPhase = phases[phaseIndex] || phases[phases.length - 1];
+
     return (
-        <div className="p-12 flex flex-col items-center justify-center bg-white rounded-[3rem] border border-slate-200 min-h-[400px] animate-in fade-in duration-500">
-            <div className="w-24 h-24 border-4 border-slate-100 rounded-full mb-8 relative">
-                <div className="absolute inset-0 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="p-12 flex flex-col items-center justify-center bg-white rounded-[3rem] border border-slate-200 shadow-xl min-h-[450px] animate-in fade-in duration-500">
+            <div className="w-full max-w-lg">
+                <div className="flex justify-between items-end mb-5">
+                    <div className="space-y-1.5">
+                        <p className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${type === 'trajectory' ? 'text-sky-600' : 'text-emerald-600'}`}>
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${type === 'trajectory' ? 'bg-sky-400' : 'bg-emerald-400'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${type === 'trajectory' ? 'bg-sky-500' : 'bg-emerald-500'}`}></span>
+                            </span>
+                            AI Processing: Phase {phaseIndex + 1} / 4
+                        </p>
+                        <h3 className="font-black text-slate-800 text-xl">{currentPhase.label}</h3>
+                    </div>
+                    <span className="text-4xl font-black text-slate-200 tabular-nums">{Math.floor(progress)}%</span>
+                </div>
+                
+                <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden shadow-inner mb-8 relative">
+                    <div 
+                        className={`h-full transition-all duration-300 ease-out relative ${type === 'trajectory' ? 'bg-gradient-to-r from-sky-400 to-indigo-500' : 'bg-gradient-to-r from-emerald-400 to-teal-500'}`}
+                        style={{ width: `${progress}%` }}
+                    >
+                        <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                </div>
+
+                <div className={`p-8 rounded-3xl border shadow-sm ${type === 'trajectory' ? 'bg-sky-50/50 border-sky-100' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                    <p className={`text-sm font-bold leading-relaxed ${type === 'trajectory' ? 'text-sky-900' : 'text-emerald-900'}`}>
+                        {currentPhase.detail}
+                    </p>
+                    <div className={`flex items-center gap-3 mt-4 pt-4 border-t ${type === 'trajectory' ? 'border-sky-100' : 'border-emerald-100'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${type === 'trajectory' ? 'bg-sky-400' : 'bg-emerald-400'}`}></div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocol 2.0 Analysis Engine</p>
+                    </div>
+                </div>
             </div>
-            <h3 className="text-xl font-black text-slate-800 mb-2">精密解析を実行中...</h3>
-            <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Protocol 2.0 Compliance Scan</p>
+            <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+            `}} />
         </div>
     );
 };
@@ -186,8 +262,9 @@ const SkillMatchingContent: React.FC<{ data: SkillMatchingResult }> = ({ data })
 };
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ trajectoryState, skillMatchingState }) => {
-    if (trajectoryState?.status === 'loading') return <DeepAnalysisLoader type="trajectory" />;
-    if (skillMatchingState?.status === 'loading') return <DeepAnalysisLoader type="skillMatching" />;
+    // Determine which loader to show based on loading state
+    if (trajectoryState?.status === 'loading') return <ProgressiveAnalysisLoader type="trajectory" />;
+    if (skillMatchingState?.status === 'loading') return <ProgressiveAnalysisLoader type="skillMatching" />;
 
     if (trajectoryState?.status === 'error' && trajectoryState.error) {
         return <AnalysisErrorFallback type="軌跡分析" error={trajectoryState.error} />;

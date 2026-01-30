@@ -155,16 +155,27 @@ const AdminView: React.FC = () => {
             setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "履歴がありません。" } }));
             return;
         }
-        setAnalyses({
-            trajectory: type === 'trajectory' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
-            skillMatching: type === 'skillMatching' ? { status: 'loading', data: null, error: null } : { status: 'idle', data: null, error: null },
+        
+        // Reset states to loading for the selected type
+        setAnalyses(prev => ({
+            ...prev,
+            trajectory: type === 'trajectory' ? { status: 'loading', data: null, error: null } : prev.trajectory,
+            skillMatching: type === 'skillMatching' ? { status: 'loading', data: null, error: null } : prev.skillMatching,
             hiddenPotential: { status: 'idle', data: null, error: null }
-        });
+        }));
+
         try {
-            if (type === 'trajectory') setAnalyses(prev => ({ ...prev, trajectory: { status: 'success', data: null, error: null } })); // Placeholder for actual API call
-            const data = type === 'trajectory' ? await analyzeTrajectory(selectedUserConversations, selectedUserId) : await performSkillMatching(selectedUserConversations);
+            // Execute the appropriate analysis function
+            const data = type === 'trajectory' 
+                ? await analyzeTrajectory(selectedUserConversations, selectedUserId) 
+                : await performSkillMatching(selectedUserConversations);
+            
+            // Update state with success data
             setAnalyses(prev => ({ ...prev, [type]: { status: 'success', data, error: null } }));
-        } catch (err: any) { setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: err.message } })); }
+        } catch (err: any) { 
+            // Handle errors
+            setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: err.message } })); 
+        }
     };
 
     const handleUserSelect = (userId: string) => {

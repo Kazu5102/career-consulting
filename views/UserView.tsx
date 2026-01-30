@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.21 - Removed Emergency Bypass
+// views/UserView.tsx - v4.24 - Added Navigation Logic for Avatar Selection
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -191,6 +191,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     
     setView('chatting');
   }, []);
+
+  const handleBackFromAvatarSelection = () => {
+    // If there are existing conversations, go back to dashboard.
+    // Otherwise, this is a new user flow, so go back to user selection (logout).
+    if (userConversations.length > 0) {
+      setView('dashboard');
+    } else {
+      onSwitchUser();
+    }
+  };
 
   const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
@@ -469,7 +479,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
       <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
         {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
-         view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} /> :
+         view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} onBack={handleBackFromAvatarSelection} /> :
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
               <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
