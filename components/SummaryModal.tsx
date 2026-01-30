@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.18 - Career-Action Handover Flow Improved
+// components/SummaryModal.tsx - v4.30 - Hide Pro Notes from User
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -55,7 +55,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [correctionRequest, setCorrectionRequest] = useState('');
-  const [activeTab, setActiveTab] = useState<'user' | 'pro'>('user');
+  // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
 
@@ -75,7 +75,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       setIsCopied(false);
       setIsEditing(false);
       setCorrectionRequest('');
-      setActiveTab('user');
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
@@ -99,7 +98,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [isLoading]);
   
-  const currentContent = activeTab === 'user' ? parsedSummary.user_summary : parsedSummary.pro_notes;
+  // Always show user_summary
+  const currentContent = parsedSummary.user_summary;
 
   const handleCopy = () => {
     if (currentContent && !isLoading) {
@@ -188,22 +188,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
           </button>
         </header>
         
-        {currentStep === 'result' && !isEditing && (
-          <div className="flex bg-slate-100 p-1 mx-6 mt-4 rounded-xl border border-slate-200">
-            <button 
-              onClick={() => setActiveTab('user')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'user' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              相談の振り返り
-            </button>
-            <button 
-              onClick={() => setActiveTab('pro')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'pro' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              専門家への引継ぎ用
-            </button>
-          </div>
-        )}
+        {/* Tab Selection Removed */}
 
         <div className="p-6 flex-1 overflow-y-auto">
           {currentStep === 'survey' ? (
@@ -302,17 +287,9 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
             </div>
           ) : (
             <>
-              <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 ${activeTab === 'user' ? 'bg-amber-50/40 border-amber-100 shadow-inner' : 'bg-emerald-50/40 border-emerald-100 shadow-inner'}`}>
-                  {activeTab === 'pro' && (
-                    <p className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-3 py-1.5 rounded-md mb-8 inline-block shadow-sm">
-                      ※プロのキャリアコンサルタントが分析する際に参照する情報です
-                    </p>
-                  )}
+              <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 bg-amber-50/40 border-amber-100 shadow-inner`}>
                   <article 
-                      className={`prose max-w-none 
-                                 ${activeTab === 'user' 
-                                   ? 'prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800' 
-                                   : 'prose-slate prose-h2:text-emerald-800 prose-h2:border-emerald-200 prose-h3:text-emerald-700'}
+                      className={`prose max-w-none prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800
                                  prose-h2:font-bold prose-h2:border-b-2 prose-h2:pb-3 prose-h2:mb-8
                                  prose-p:leading-relaxed prose-p:text-slate-700`}
                       dangerouslySetInnerHTML={createMarkup(currentContent)} 

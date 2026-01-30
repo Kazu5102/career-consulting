@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.28 - Robust Retry Mechanism
+// views/UserView.tsx - v4.31 - Resume & Context Serialization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -499,7 +499,33 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       )}
 
       <main className={`flex-1 flex flex-col items-center ${view === 'chatting' ? 'p-4 md:p-6 overflow-hidden h-full' : 'p-0 sm:p-4 md:p-6'}`}>
-        {view === 'dashboard' ? <UserDashboard conversations={userConversations} onNewChat={() => setView('avatarSelection')} onResume={(c) => { setMessages(c.messages); setAiName(c.aiName); setAiType(c.aiType); setAiAvatarKey(c.aiAvatar); setView('chatting'); setOnboardingStep(6); }} userId={userId} nickname={nickname} pin={pin} onSwitchUser={onSwitchUser} /> :
+        {view === 'dashboard' ? <UserDashboard 
+            conversations={userConversations} 
+            onNewChat={() => setView('avatarSelection')} 
+            onResume={(c) => { 
+                setMessages(c.messages); 
+                setAiName(c.aiName); 
+                setAiType(c.aiType); 
+                setAiAvatarKey(c.aiAvatar); 
+                
+                // Restore Context from serialized summary if available
+                try {
+                    const parsed = JSON.parse(c.summary);
+                    if (parsed.userProfile) setUserProfile(parsed.userProfile);
+                    if (parsed.aiMood) setAiMood(parsed.aiMood);
+                } catch(e) {
+                    console.log("Resuming legacy session or simple summary");
+                }
+                
+                setView('chatting'); 
+                setOnboardingStep(6); 
+                setIsConsultationReady(c.messages.length >= 4);
+            }} 
+            userId={userId} 
+            nickname={nickname} 
+            pin={pin} 
+            onSwitchUser={onSwitchUser} 
+        /> :
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} onBack={handleBackFromAvatarSelection} /> :
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
@@ -587,7 +613,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       )}
 
       <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onRevise={() => {}} onFinalize={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} />
-      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ id: Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary: '中断', date: new Date().toISOString(), status: 'interrupted' })} onExitWithoutSaving={() => { conversationService.clearAutoSave(userId); setIsInterruptModalOpen(false); setView('dashboard'); }} onContinue={() => setIsInterruptModalOpen(false)} />
+      <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ 
+          id: Date.now(), 
+          userId, 
+          aiName, 
+          aiType, 
+          aiAvatar: aiAvatarKey, 
+          messages, 
+          summary: JSON.stringify({
+            user_summary: '中断されたセッション',
+            userProfile,
+            aiMood
+          }), 
+          date: new Date().toISOString(), 
+          status: 'interrupted' 
+      })} onExitWithoutSaving={() => { conversationService.clearAutoSave(userId); setIsInterruptModalOpen(false); setView('dashboard'); }} onContinue={() => setIsInterruptModalOpen(false)} />
       <CrisisNoticeModal isOpen={isCrisisModalOpen} onClose={() => setIsCrisisModalOpen(false)} intensity={crisisCount >= 2 ? 'high' : 'normal'} />
     </div>
   );

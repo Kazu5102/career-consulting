@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v4.20 - Service Pattern Migration
+// components/UserDashboard.tsx - v4.31 - Resume Capability
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -8,6 +8,7 @@ import ConversationDetailModal from './ConversationDetailModal';
 import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
 import TrashIcon from './icons/TrashIcon';
+import PlayIcon from './icons/PlayIcon';
 import ExportSuccessModal from './ExportSuccessModal';
 import { addLogEntry } from '../services/devLogService';
 
@@ -84,17 +85,48 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
           </header>
           <div className="flex-1 overflow-y-auto pr-2 space-y-3">
             <h2 className="text-lg font-black text-slate-800 px-1">過去のセッション ({conversations.length}件)</h2>
-            {conversations.map(conv => (
-                <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-sky-300 transition-all group">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <div className="text-xs font-black text-slate-400 font-mono mb-1 uppercase tracking-widest">{new Date(conv.date).toLocaleDateString()}</div>
-                            <div className="font-bold text-slate-800 group-hover:text-sky-700">担当: {conv.aiName}</div>
+            {conversations.map(conv => {
+                // Interrupted Session: Show Resume Card
+                if (conv.status === 'interrupted') {
+                    return (
+                        <div key={conv.id} className="w-full p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition-all group flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-400"></div>
+                            <div className="pl-3">
+                                <div className="text-xs font-black text-slate-400 font-mono mb-1 uppercase tracking-widest">{new Date(conv.date).toLocaleDateString()}</div>
+                                <div className="font-bold text-slate-800 text-lg">担当: {conv.aiName}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PAUSED</span>
+                                    <span className="text-xs text-slate-500 font-medium">中断されたセッション</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onResume(conv);
+                                }}
+                                className="flex items-center gap-2 px-6 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg shadow-amber-200 hover:bg-amber-600 hover:scale-105 active:scale-95 transition-all w-full sm:w-auto justify-center"
+                            >
+                                <PlayIcon className="w-5 h-5" />
+                                <span>相談を再開する</span>
+                            </button>
                         </div>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{conv.status.toUpperCase()}</span>
-                    </div>
-                </button>
-            ))}
+                    );
+                }
+                
+                // Completed Session: Show Detail Button
+                return (
+                    <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-sky-300 transition-all group relative overflow-hidden pl-7">
+                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-400"></div>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <div className="text-xs font-black text-slate-400 font-mono mb-1 uppercase tracking-widest">{new Date(conv.date).toLocaleDateString()}</div>
+                                <div className="font-bold text-slate-800 group-hover:text-sky-700">担当: {conv.aiName}</div>
+                            </div>
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-600">COMPLETED</span>
+                        </div>
+                    </button>
+                );
+            })}
           </div>
       </div>
       {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
