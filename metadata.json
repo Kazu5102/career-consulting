@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.26",
-  "description": "Protocol 2.0 Compliant. Adjusted text alignment in avatar selection to be left-aligned within a centered block for better readability on mobile.",
-  "version": "4.26",
+  "name": "Career Consulting_4.27",
+  "description": "Protocol 2.0 Compliant. Fixed issue where AI persona suffixes appeared in user suggestion chips.",
+  "version": "4.27",
   "prompt": ""
 }
