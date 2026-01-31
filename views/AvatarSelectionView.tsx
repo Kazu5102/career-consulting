@@ -1,5 +1,5 @@
 
-// views/AvatarSelectionView.tsx - v3.22 - Typography Alignment Refinement
+// views/AvatarSelectionView.tsx - v4.26 - Text Alignment Refinement
 import React, { useMemo } from 'react';
 import { AIType } from '../types';
 import { ASSISTANTS } from '../config/aiAssistants';
@@ -11,9 +11,10 @@ interface AvatarSelection {
 
 interface AvatarSelectionViewProps {
   onSelect: (selection: AvatarSelection) => void;
+  onBack: () => void;
 }
 
-const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect }) => {
+const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect, onBack }) => {
   const selectedAssistants = useMemo(() => {
     // それぞれのカテゴリからランダムに1名のみを抽出
     const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
@@ -25,13 +26,26 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect }) =
   }, []);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-center p-6 py-8 md:py-16">
-      <div className="text-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
+    <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-center p-6 py-8 md:py-16 relative">
+      {/* Back Button */}
+      <div className="w-full flex justify-start mb-2 md:mb-0 md:absolute md:top-10 md:left-6 z-10">
+        <button 
+            onClick={onBack} 
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors font-bold text-sm px-3 py-2 rounded-xl hover:bg-slate-100"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            戻る
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center mb-10 md:mb-16 animate-in fade-in slide-in-from-top-4 duration-700 mt-4 md:mt-0">
         <div className="inline-block px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full mb-4 shadow-sm">
            Consultation Partner
         </div>
-        <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight">対話のパートナーを1名選んでください</h1>
-        <p className="mt-4 text-slate-500 font-medium max-w-xl mx-auto leading-relaxed text-left">
+        <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight text-left w-fit">対話のパートナーを1名選んでください</h1>
+        <p className="mt-4 text-slate-500 font-medium max-w-xl leading-relaxed text-left w-fit">
           今日の気分に合わせて、プロフェッショナルな「人間」か、癒やしの「わんこ」かをお選びいただけます。
         </p>
       </div>

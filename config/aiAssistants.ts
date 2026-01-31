@@ -7,12 +7,12 @@ import {
 } from '../components/AIAvatar';
 
 export const ASSISTANTS: AIAssistant[] = [
-  // Human Avatars - Japanese Professional Names
+  // Human Avatars - Fixed Gender-Name Alignment
   { 
     id: 'human_female_1',
     type: 'human', 
     title: "シニア・ストラテジスト",
-    nameOptions: ['サクラ', 'ミズキ', 'アカリ'],
+    nameOptions: ['サクラ', 'ミズキ', 'アカリ', 'サオリ'],
     description: "冷静沈着な分析力を持ち、キャリアの構造的課題を解き明かす戦略的パートナーです。",
     avatarComponent: React.createElement(FemaleAvatar1)
   },
@@ -20,7 +20,7 @@ export const ASSISTANTS: AIAssistant[] = [
     id: 'human_male_1',
     type: 'human', 
     title: "インサイト・アーキテクト",
-    nameOptions: ['カイト', 'タイガ', 'ソウタ'],
+    nameOptions: ['カイト', 'タイガ', 'ソウタ', 'ハヤト'],
     description: "あなたの内なる声と言語化されない強みを繋ぎ合わせ、新しいキャリアの設計図を描きます。",
     avatarComponent: React.createElement(MaleAvatar1)
   },
@@ -28,7 +28,7 @@ export const ASSISTANTS: AIAssistant[] = [
     id: 'human_female_2',
     type: 'human', 
     title: "グロース・カタリスト",
-    nameOptions: ['ハルカ', 'ナナミ', 'ユイ'],
+    nameOptions: ['ハルカ', 'ナナミ', 'ユイ', 'ミサキ'],
     description: "ポジティブな視座の転換を促し、挑戦への不安を確信へと変える対話を得意とします。",
     avatarComponent: React.createElement(FemaleAvatar2)
   },
@@ -36,7 +36,7 @@ export const ASSISTANTS: AIAssistant[] = [
     id: 'human_male_2',
     type: 'human', 
     title: "マーケット・アナリスト",
-    nameOptions: ['レン', 'ハルト', 'ユウキ'],
+    nameOptions: ['レン', 'ハルト', 'ユウキ', 'タクミ'],
     description: "市場の動向と個人のポテンシャルを掛け合わせ、最も合理的なキャリアパスを提案します。",
     avatarComponent: React.createElement(MaleAvatar2)
   },
@@ -44,7 +44,7 @@ export const ASSISTANTS: AIAssistant[] = [
     id: 'human_female_3',
     type: 'human', 
     title: "リード・メンター",
-    nameOptions: ['シオリ', 'マドカ', 'トモコ'],
+    nameOptions: ['シオリ', 'マドカ', 'トモコ', 'キョウコ'],
     description: "数多くの事例を経験した叡智に基づき、長期的な視点からあなたの人生の航路を照らします。",
     avatarComponent: React.createElement(FemaleAvatar3)
   },
@@ -52,11 +52,11 @@ export const ASSISTANTS: AIAssistant[] = [
     id: 'human_male_3',
     type: 'human', 
     title: "テック・スペシャリスト",
-    nameOptions: ['ケンジ', 'タクミ', 'リョウ'],
+    nameOptions: ['ケンジ', 'シンジ', 'リョウ', 'ダイスケ'],
     description: "専門職やIT業界の潮流に精通し、具体的で実用的なスキルセットの構築を支援します。",
     avatarComponent: React.createElement(MaleAvatar3)
   },
-  // Dog Avatars
+  // Dog Avatars - RESTRICTED FROM CHANGES
   {
     id: 'dog_shiba_1',
     type: 'dog',

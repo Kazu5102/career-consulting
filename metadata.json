@@ -3,7 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_3.21",
-  "description": "管理者画面のステータス表示を改善。「未対話」カテゴリの導入により、アプローチが必要なユーザーをより明確に識別可能にしました。",
+  "name": "Career Consulting_4.33",
+  "description": "UI text alignment improvements for loading screens (待機画面のテキスト表示位置改善). Resume capability & Session Persistence logic update. Protocol 2.0 Compliant.",
+  "version": "4.33",
   "prompt": ""
 }

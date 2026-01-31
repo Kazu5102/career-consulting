@@ -1,13 +1,12 @@
 
+// services/userService.ts - v4.20 - Future-proofed Async Interfaces
 import { UserInfo } from '../types';
+// Fix: Import STORAGE_KEYS from constants.ts instead of types.ts
+import { STORAGE_KEYS } from '../constants';
 import { ADJECTIVES, ANIMALS } from '../data/nicknames';
 
-const USERS_STORAGE_KEY = 'careerConsultingUsers_v1';
-
 /**
- * Generates a unique, memorable nickname from predefined lists.
- * @param existingNicknames - An array of nicknames already in use.
- * @returns A new, unique nickname.
+ * Generates a unique, memorable nickname.
  */
 export const generateNickname = (existingNicknames: string[]): string => {
   let nickname;
@@ -17,25 +16,20 @@ export const generateNickname = (existingNicknames: string[]): string => {
     const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
     nickname = `${adj}${animal}`;
     attempts++;
-  } while (existingNicknames.includes(nickname) && attempts < 50); // Avoid infinite loops
+  } while (existingNicknames.includes(nickname) && attempts < 50);
   return nickname;
 };
 
-/**
- * Generates a random 4-digit PIN as a string.
- * @returns A 4-digit PIN string.
- */
 export const generatePin = (): string => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
 /**
- * Retrieves all user info from localStorage.
- * @returns An array of UserInfo objects.
+ * Retrieves all users. Now async-ready.
  */
-export const getUsers = (): UserInfo[] => {
+export const getUsers = async (): Promise<UserInfo[]> => {
   try {
-    const data = localStorage.getItem(USERS_STORAGE_KEY);
+    const data = localStorage.getItem(STORAGE_KEYS.USERS);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error("Failed to get users from localStorage", error);
@@ -44,32 +38,23 @@ export const getUsers = (): UserInfo[] => {
 };
 
 /**
- * Saves an array of user info to localStorage.
- * @param users - The array of UserInfo objects to save.
+ * Saves all users.
  */
-export const saveUsers = (users: UserInfo[]): void => {
+export const saveUsers = async (users: UserInfo[]): Promise<void> => {
   try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   } catch (error) {
     console.error("Failed to save users to localStorage", error);
   }
 };
 
-/**
- * Finds a user by their unique ID.
- * @param userId - The ID of the user to find.
- * @returns The UserInfo object if found, otherwise undefined.
- */
-export const getUserById = (userId: string): UserInfo | undefined => {
-  return getUsers().find(u => u.id === userId);
+export const getUserById = async (userId: string): Promise<UserInfo | undefined> => {
+  const users = await getUsers();
+  return users.find(u => u.id === userId);
 }
 
-/**
- * Creates a new user with a unique ID, nickname, and PIN, and saves them.
- * @returns The newly created UserInfo object.
- */
-export const addNewUser = (): UserInfo => {
-    const users = getUsers();
+export const addNewUser = async (): Promise<UserInfo> => {
+    const users = await getUsers();
     const existingNicknames = users.map(u => u.nickname);
     
     const newUser: UserInfo = {
@@ -78,6 +63,16 @@ export const addNewUser = (): UserInfo => {
         pin: generatePin(),
     };
     
-    saveUsers([...users, newUser]);
+    await saveUsers([...users, newUser]);
     return newUser;
 }
+
+/**
+ * Optimized user deletion with clear separation of concerns.
+ */
+export const deleteUsers = async (userIds: string[]): Promise<void> => {
+  const targetIds = new Set(userIds);
+  const users = await getUsers();
+  const remainingUsers = users.filter(u => !targetIds.has(u.id));
+  await saveUsers(remainingUsers);
+};

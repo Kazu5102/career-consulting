@@ -1,6 +1,7 @@
 
-// components/AIAvatar.tsx - v3.26 - Human Avatar Visual Overhaul
+// components/AIAvatar.tsx - v4.16 - Unified Versioning
 import React from 'react';
+import { APP_VERSION } from '../constants';
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'reassure';
 
@@ -18,27 +19,27 @@ const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; 
   if (mood === 'happy') {
     return (
       <g stroke={color} strokeWidth="4" fill="none" strokeLinecap="round">
-        <path d={`M ${cx1-12},${cy+4} Q ${cx1},${cy-8} ${cx1+12},${cy+4}`} />
-        <path d={`M ${cx2-12},${cy+4} Q ${cx2},${cy-8} ${cx2+12},${cy+4}`} />
+        <path d={`M ${cx1-12},${cy+4} Q ${cx1},${cy-7} ${cx1+12},${cy+4}`} />
+        <path d={`M ${cx2-13},${cy+5} Q ${cx2},${cy-10} ${cx2+13},${cy+5}`} />
       </g>
     );
   }
   if (mood === 'reassure') {
     return (
       <g stroke={color} strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.8">
-        <path d={`M ${cx1-12},${cy} Q ${cx1},${cy+6} ${cx1+12},${cy}`} />
-        <path d={`M ${cx2-12},${cy} Q ${cx2},${cy+6} ${cx2+12},${cy}`} />
+        <path d={`M ${cx1-12},${cy} Q ${cx1},${cy+5} ${cx1+12},${cy}`} />
+        <path d={`M ${cx2-11},${cy+1} Q ${cx2},${cy+8} ${cx2+11},${cy+1}`} />
       </g>
     );
   }
   return (
     <g>
       <circle cx={cx1} cy={cy} r="9" fill={color}/>
-      <circle cx={cx2} cy={cy} r="9" fill={color}/>
-      <circle cx={cx1-3} cy={cy-3} r="3.5" fill="#fff"/>
-      <circle cx={cx2-3} cy={cy-3} r="3.5" fill="#fff"/>
-      <circle cx={cx1+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
-      <circle cx={cx2+3} cy={cy+3} r="1.5" fill="#fff" opacity="0.5"/>
+      <circle cx={cx2} cy={cy} r="9.3" fill={color}/>
+      <circle cx={cx1-3.2} cy={cy-3.2} r="3.5" fill="#fff"/>
+      <circle cx={cx2-1.2} cy={cy-4.2} r="4" fill="#fff"/>
+      <circle cx={cx1+3.8} cy={cy+3.2} r="1.6" fill="#fff" opacity="0.3"/>
+      <circle cx={cx2-1} cy={cy+4} r="1.2" fill="#fff" opacity="0.5"/>
     </g>
   );
 };
@@ -46,19 +47,19 @@ const DynamicEyes: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; 
 const DynamicEyebrows: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood; color?: string }> = ({ cx1, cx2, cy, mood, color = "#4b2c20" }) => {
   const tilt = mood === 'curious' ? -10 : mood === 'thinking' ? 10 : 0;
   return (
-    <g stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6">
-      <path d={`M ${cx1-12},${cy} Q ${cx1},${cy-3} ${cx1+12},${cy}`} transform={`rotate(${tilt}, ${cx1}, ${cy})`} />
-      <path d={`M ${cx2-12},${cy} Q ${cx2},${cy-3} ${cx2+12},${cy}`} transform={`rotate(${-tilt}, ${cx2}, ${cy})`} />
+    <g stroke={color} strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.75">
+      <path d={`M ${cx1-13},${cy} Q ${cx1},${cy-4} ${cx1+13},${cy}`} transform={`rotate(${tilt}, ${cx1}, ${cy})`} />
+      <path d={`M ${cx2-13},${cy-1} Q ${cx2},${cy-5} ${cx2+13},${cy-1}`} transform={`rotate(${-tilt}, ${cx2}, ${cy})`} />
     </g>
   );
 };
 
 const DynamicMouth: React.FC<{ cx: number; cy: number; mood: Mood; color?: string }> = ({ cx, cy, mood, color = "#27272a" }) => {
   if (mood === 'happy') {
-    return <path d={`M ${cx-15},${cy} Q ${cx},${cy+18} ${cx+15},${cy}`} fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" />;
+    return <path d={`M ${cx-15},${cy} Q ${cx},${cy+18} ${cx+15},${cy}`} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
   }
   if (mood === 'thinking') {
-    return <path d={`M ${cx-10},${cy+6} Q ${cx},${cy+4} ${cx+10},${cy+6}`} fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" />;
+    return <path d={`M ${cx-10},${cy+6} Q ${cx},${cy+4} ${cx+10},${cy+6}`} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
   }
   return <path d={`M ${cx-12},${cy+6} Q ${cx},${cy+12} ${cx+12},${cy+6}`} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />;
 };
@@ -70,116 +71,152 @@ const DynamicBlush: React.FC<{ cx1: number; cx2: number; cy: number; mood: Mood 
   </g>
 );
 
-const HumanBase: React.FC<{ skin: string; mood: Mood; children: React.ReactNode }> = ({ skin, mood, children }) => (
-    <g style={{ transform: getHeadTransform(mood), transformOrigin: 'center 105px', transition: 'all 0.5s ease-out' }}>
-        <path d="M 92,145 L 92,175 Q 100,180 108,175 L 108,145 Z" fill={skin} />
+const HumanBase: React.FC<{ skin: string; mood: Mood; backHair?: React.ReactNode; body?: React.ReactNode; children: React.ReactNode }> = ({ skin, mood, backHair, body, children }) => (
+    <g style={{ transform: getHeadTransform(mood), transformOrigin: '100px 110px', transition: 'all 0.5s ease-out' }}>
+        {/* Layer 1: Body/Shoulders (Deeper than neck) */}
+        {body}
+        {/* Layer 2: Back Hair */}
+        {backHair}
+        {/* Layer 3: Neck (Tapered) */}
+        <path d="M 88,145 L 82,185 Q 100,195 118,185 L 112,145 Z" fill={skin} opacity="0.9" />
+        <path d="M 88,145 L 82,155 Q 100,165 118,155 L 112,145" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.1" />
+        {/* Layer 4: Face (Tapered Anatomical Contour) */}
+        <path d="M 52,90 C 52,55 74,40 100,40 C 126,40 148,55 148,90 C 148,125 125,155 100,155 C 75,155 52,125 52,90" fill={skin} />
         {children}
     </g>
 );
 
+const HairGradient: React.FC<{ id: string; color1: string; color2: string }> = ({ id, color1, color2 }) => (
+    <defs>
+        <linearGradient id={id} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={color1} />
+            <stop offset="100%" stopColor={color2} />
+        </linearGradient>
+    </defs>
+);
+
 export const FemaleAvatar1: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        {/* Simple professional outfit */}
-        <path d="M 35,200 Q 100,150 165,200 Z" fill="#64748b" />
-        <HumanBase skin="#ffedd5" mood={mood as Mood}>
-            {/* Main Hair Silhouette - Neat and Modern */}
-            <path d="M 35,100 C 35,25 165,25 165,100 C 165,130 155,160 100,160 C 45,160 35,130 35,100" fill="#2d1d1d" />
-            <circle cx="100" cy="100" r="58" fill="#ffedd5" />
+        <HairGradient id="grad_f1" color1="#3d2b1f" color2="#1e140d" />
+        <HumanBase skin="#ffedd5" mood={mood as Mood} 
+            body={<path d="M 40,200 Q 100,155 160,200 Z" fill="#475569" />}
+            backHair={
+                <path d="M 35,90 C 35,20 165,20 165,90 L 165,160 Q 100,185 35,160 Z" fill="url(#grad_f1)" />
+            }>
             <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#2d1d1d" />
-            <DynamicBlush cx1={72} cx2={128} cy={122} mood={mood as Mood} />
+            <DynamicBlush cx1={75} cx2={125} cy={122} mood={mood as Mood} />
             <DynamicEyes cx1={82} cx2={118} cy={102} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={130} mood={mood as Mood} color="#2d1d1d" />
-            {/* Natural bangs/fringe without accessory */}
-            <path d="M 40,80 Q 70,35 120,45 Q 155,55 160,85 L 160,75 Q 150,40 100,40 Q 50,40 40,75 Z" fill="#2d1d1d" />
+            <DynamicMouth cx={100} cy={135} mood={mood as Mood} />
+            {/* Front Fringe with strands */}
+            <path d="M 40,95 Q 65,35 110,55 Q 155,75 160,105 L 160,85 Q 140,30 100,30 Q 60,30 40,85 Z" fill="url(#grad_f1)" />
+            <path d="M 42,90 Q 55,50 85,55" fill="none" stroke="#ffffff22" strokeWidth="2" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
 
 export const MaleAvatar1: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        <path d="M 30,200 C 30,165 60,150 100,150 S 170,165 170,200 Z" fill="#334155" />
-        <HumanBase skin="#fef3c7" mood={mood as Mood}>
-            {/* Modern standard short haircut */}
-            <path d="M 38,90 C 38,15 162,15 162,90 L 162,110 L 38,110 Z" fill="#1e293b" />
-            <circle cx="100" cy="105" r="58" fill="#fef3c7" />
-            <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e293b" />
-            <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
-            <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#1e293b" />
-            {/* Hair details */}
-            <path d="M 40,85 Q 70,50 100,60 Q 130,50 160,85" fill="none" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" opacity="0.4" />
+        <HairGradient id="grad_m1" color1="#27272a" color2="#09090b" />
+        <HumanBase skin="#fef3c7" mood={mood as Mood}
+            body={<path d="M 30,200 C 30,165 60,155 100,155 S 170,165 170,200 Z" fill="#1e293b" />}
+            backHair={
+                <path d="M 45,90 C 45,30 155,30 155,90 L 155,120 Q 100,110 45,120 Z" fill="url(#grad_m1)" />
+            }>
+            <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#1e293b" />
+            <DynamicBlush cx1={75} cx2={125} cy={125} mood={mood as Mood} />
+            <DynamicEyes cx1={82} cx2={118} cy={105} mood={mood as Mood} />
+            <DynamicMouth cx={100} cy={138} mood={mood as Mood} />
+            {/* Spiky professional top */}
+            <path d="M 48,85 Q 100,15 152,85" fill="none" stroke="url(#grad_m1)" strokeWidth="18" strokeLinecap="round" />
+            <path d="M 60,65 Q 100,25 140,65" fill="none" stroke="#ffffff11" strokeWidth="4" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
 
 export const FemaleAvatar2: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        <path d="M 30,200 Q 100,155 170,200" fill="#fbcfe8" />
-        <HumanBase skin="#fff7ed" mood={mood as Mood}>
-            {/* Soft medium hair */}
-            <path d="M 35,100 C 35,20 165,20 165,100 L 165,155 Q 100,165 35,155 Z" fill="#4c1d95" />
-            <circle cx="100" cy="105" r="58" fill="#fff7ed" />
-            <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#4c1d95" />
-            <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
-            <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#4c1d95" />
-            {/* Soft side bangs */}
-            <path d="M 38,85 Q 85,35 140,80 Q 110,65 38,85 Z" fill="#4c1d95" />
+        {/* Growth Catalyst: Professional Voluminous Waves */}
+        <HairGradient id="grad_f2" color1="#5b21b6" color2="#2e1065" />
+        <HumanBase skin="#fff7ed" mood={mood as Mood}
+            body={<path d="M 25,200 Q 100,150 175,200" fill="#be185d" opacity="0.8" />}
+            backHair={
+                <g fill="url(#grad_f2)">
+                    <path d="M 30,100 C 30,20 170,20 170,100 C 170,140 185,185 150,190 Q 100,200 50,190 C 15,185 30,140 30,100 Z" />
+                    {/* Wavy accents */}
+                    <path d="M 35,120 Q 10,150 25,185" fill="none" stroke="url(#grad_f2)" strokeWidth="14" strokeLinecap="round" />
+                    <path d="M 165,120 Q 190,150 175,185" fill="none" stroke="url(#grad_f2)" strokeWidth="14" strokeLinecap="round" />
+                </g>
+            }>
+            <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#4c1d95" />
+            <DynamicBlush cx1={75} cx2={125} cy={125} mood={mood as Mood} />
+            <DynamicEyes cx1={82} cx2={118} cy={105} mood={mood as Mood} />
+            <DynamicMouth cx={100} cy={138} mood={mood as Mood} />
+            {/* Elegant front wave */}
+            <path d="M 45,90 Q 75,30 120,60 Q 165,90 175,85" fill="none" stroke="url(#grad_f2)" strokeWidth="18" strokeLinecap="round" />
+            <path d="M 172,90 Q 145,55 90,45 Q 45,55 35,100" fill="none" stroke="url(#grad_f2)" strokeWidth="10" strokeLinecap="round" opacity="0.6" />
         </HumanBase>
     </svg>
 );
 
 export const MaleAvatar2: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        <path d="M 25,200 C 25,170 55,160 100,160 S 175,170 175,200 Z" fill="#0284c7" />
-        <HumanBase skin="#ffedd5" mood={mood as Mood}>
-            <path d="M 40,95 Q 100,20 160,95 L 160,115 Q 100,105 40,115 Z" fill="#1e1b4b" />
-            <circle cx="100" cy="105" r="58" fill="#ffedd5" />
-            <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e1b4b" />
-            <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
-            <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
-            {/* Sleek modern glasses */}
-            <g stroke="#1e1b4b" strokeWidth="1.5" fill="none" opacity="0.5">
-                <rect x="68" y="100" width="28" height="18" rx="2" />
-                <rect x="104" y="100" width="28" height="18" rx="2" />
-                <path d="M 96,108 H 104" />
+        <HairGradient id="grad_m2" color1="#1e1b4b" color2="#020617" />
+        <HumanBase skin="#ffedd5" mood={mood as Mood}
+            body={<path d="M 35,200 C 35,165 65,155 100,155 S 165,165 165,200 Z" fill="#0369a1" />}
+            backHair={
+                <path d="M 48,95 Q 100,20 152,95 L 152,130 Q 100,115 48,130 Z" fill="url(#grad_m2)" />
+            }>
+            <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#1e1b4b" />
+            <DynamicBlush cx1={75} cx2={125} cy={125} mood={mood as Mood} />
+            <DynamicEyes cx1={82} cx2={118} cy={105} mood={mood as Mood} />
+            <g stroke="#1e1b4b" strokeWidth="2" fill="none" opacity="0.6">
+                <rect x="68" y="102" width="28" height="18" rx="3" />
+                <rect x="104" y="102" width="28" height="18" rx="3" />
+                <path d="M 96,111 H 104" />
             </g>
-            <DynamicMouth cx={100} cy={138} mood={mood as Mood} color="#1e1b4b" />
+            <DynamicMouth cx={100} cy={140} mood={mood as Mood} />
+            <path d="M 52,80 Q 100,15 148,80" fill="none" stroke="url(#grad_m2)" strokeWidth="18" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
 
 export const FemaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        <path d="M 25,200 Q 100,165 175,200" fill="#44403c" />
-        <HumanBase skin="#fef3c7" mood={mood as Mood}>
-            {/* Sophisticated bun / updo style */}
-            <circle cx="100" cy="50" r="30" fill="#44403c" />
-            <path d="M 38,105 C 38,30 162,30 162,105 C 162,150 100,155 38,105" fill="#44403c" />
-            <circle cx="100" cy="105" r="58" fill="#fef3c7" />
-            <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#44403c" />
-            <DynamicBlush cx1={72} cx2={128} cy={130} mood={mood as Mood} />
-            <DynamicEyes cx1={82} cx2={118} cy={112} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={142} mood={mood as Mood} color="#27272a" />
-            {/* Elegant forehead detail */}
-            <path d="M 45,90 Q 100,60 155,90" fill="none" stroke="#44403c" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
+        <HairGradient id="grad_f3" color1="#44403c" color2="#1c1917" />
+        <HumanBase skin="#fef3c7" mood={mood as Mood}
+            body={<path d="M 30,200 Q 100,160 170,200 L 170,200 L 30,200 Z" fill="#78716c" />}
+            backHair={
+                <g>
+                    {/* Sophisticated Long Hair */}
+                    <path d="M 25,100 C 25,10 175,10 175,100 C 175,160 185,180 160,195 Q 100,210 40,195 C 15,180 25,160 25,100 Z" fill="url(#grad_f3)" />
+                </g>
+            }>
+            <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#27272a" />
+            <DynamicBlush cx1={75} cx2={125} cy={130} mood={mood as Mood} />
+            <DynamicEyes cx1={82} cx2={118} cy={110} mood={mood as Mood} />
+            <DynamicMouth cx={100} cy={142} mood={mood as Mood} />
+            {/* Elegant Side-swept Bangs */}
+            <path d="M 30,120 Q 20,40 100,35 Q 180,40 170,120 L 165,120 Q 160,60 100,55 Q 40,60 35,120 Z" fill="url(#grad_f3)" />
+            {/* Hair Shine */}
+            <path d="M 40,70 Q 70,40 110,45" fill="none" stroke="#ffffff15" strokeWidth="3" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
 
 export const MaleAvatar3: React.FC<AvatarComponentProps> = ({ mood = 'neutral' }) => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-        <path d="M 25,200 L 175,200 L 100,160 Z" fill="#1e293b" />
-        <HumanBase skin="#fffbeb" mood={mood as Mood}>
-            {/* Intellectual short style */}
-            <path d="M 42,100 C 42,35 158,35 158,100 L 158,120 Q 100,110 42,120 Z" fill="#334155" />
-            <circle cx="100" cy="105" r="58" fill="#fffbeb" />
-            <DynamicEyebrows cx1={80} cx2={120} cy={88} mood={mood as Mood} color="#1e293b" />
-            <DynamicBlush cx1={72} cx2={128} cy={128} mood={mood as Mood} />
-            <DynamicEyes cx1={82} cx2={118} cy={108} mood={mood as Mood} />
-            <DynamicMouth cx={100} cy={140} mood={mood as Mood} color="#1e293b" />
-            {/* Forehead hair detail */}
-            <path d="M 60,75 Q 100,50 140,75" fill="none" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
+        <HairGradient id="grad_m3" color1="#334155" color2="#0f172a" />
+        <HumanBase skin="#fffbeb" mood={mood as Mood}
+            body={<path d="M 30,200 L 170,200 L 100,155 Z" fill="#334155" />}
+            backHair={
+                <path d="M 48,100 C 48,30 152,30 152,100 L 152,135 Q 100,120 48,135 Z" fill="url(#grad_m3)" />
+            }>
+            <DynamicEyebrows cx1={80} cx2={120} cy={82} mood={mood as Mood} color="#0f172a" />
+            <DynamicBlush cx1={75} cx2={125} cy={125} mood={mood as Mood} />
+            <DynamicEyes cx1={82} cx2={118} cy={105} mood={mood as Mood} />
+            <DynamicMouth cx={100} cy={140} mood={mood as Mood} />
+            <path d="M 55,80 Q 100,30 145,80" fill="none" stroke="url(#grad_m3)" strokeWidth="22" strokeLinecap="round" />
+            <path d="M 65,70 Q 100,40 135,70" fill="none" stroke="#ffffff11" strokeWidth="6" strokeLinecap="round" />
         </HumanBase>
     </svg>
 );
@@ -322,7 +359,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ avatarKey, aiName, isLoading, mood 
       </div>
 
       <div className="absolute bottom-6 right-6 text-sm font-mono font-bold text-slate-300 select-none bg-white px-2 py-1 rounded border border-slate-100">
-        Ver 3.26
+        Ver {APP_VERSION}
       </div>
     </div>
   );

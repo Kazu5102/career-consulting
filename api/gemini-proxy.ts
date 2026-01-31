@@ -1,7 +1,13 @@
 
-// api/gemini-proxy.ts - v3.14 - Specialized Expert Insight Logic
+// api/gemini-proxy.ts - v4.22 - Zero-Thinking Latency Optimization
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
+
+// Vercel Serverless Function Configuration
+// Increase execution time limit to the maximum allowed (usually 10s-60s depending on plan) to reduce timeouts.
+export const config = {
+  maxDuration: 60,
+};
 
 enum MessageAuthor { USER = 'user', AI = 'ai' }
 interface ChatMessage { author: MessageAuthor; text: string; }
@@ -79,14 +85,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 async function handleAnalyzeTrajectory(payload: { conversations: StoredConversation[], userId: string }) {
     const { conversations } = payload;
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
+    const isSingleSession = conversations.length === 1;
+
+    // 履歴の件数に応じて、AIへの指示（コンテキスト）を動的に切り替える
+    const contextInstruction = isSingleSession
+        ? `相談履歴は**1件のみ**です。
+長期的な変容は見えませんが、この1回のセッション内における「感情の微細な揺れ動き」や「発言の矛盾点」、「語られなかった空白」に着目し、【マイクロ・ナラティブ（微細な物語）】として深層心理を分析してください。
+「前回からの変化」等の項目については、今回のセッションでの気づきや変化の兆しを記述してください。`
+        : `相談履歴は**複数件**あります。
+初回から現在に至るまでの【時系列での内的変容プロセス（マクロ・ナラティブ）】を重視して分析してください。`;
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
 職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
+### 前提条件:
+${contextInstruction}
+
 ### 分析指示:
-1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を時系列で追う。
+1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を追う。
 2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
 3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
 4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。
@@ -95,6 +113,7 @@ async function handleAnalyzeTrajectory(payload: { conversations: StoredConversat
 ${historyText}`,
         config: {
             responseMimeType: "application/json",
+            // Analysis tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
@@ -119,31 +138,32 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
     
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `あなたは戦略的な「キャリア・アーキテクト（市場価値アナリスト）」です。
-相談者の心理状態の解説は最小限に留め、その人の経験を【市場価値の高い専門スキル】へと論理的に翻訳し、適職を診断してください。
+        contents: `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
+相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
 
-### 分析指示:
-1. 相談者が無自覚な「再現性のある強み」を専門用語でリフレーミング（再定義）する。
-2. 労働市場のトレンドと照らし合わせ、最もポテンシャルを発揮できる「具体的職種」を提示する。
-3. 提案職種への適合度を、履歴に基づいた論理的根拠と共に説明する。
-4. 理想のキャリアに到達するために「今すぐ学習すべき項目」を特定する。
+### 診断のガイドライン:
+1. **地続きの提案**: 相談者が明日からでも目指せる、または現在の職種の延長線上にある「現実的な一歩（ネクストステップ）」を優先すること。
+2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
+3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
+4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
 
 履歴:
 ${historyText}`,
         config: {
             responseMimeType: "application/json",
+            // Matching tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    analysisSummary: { type: Type.STRING, description: "市場価値の再定義レポート（強みの言語化）" },
+                    analysisSummary: { type: Type.STRING, description: "現在の経験をベースとした、現実的な強みの再定義レポート" },
                     recommendedRoles: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                role: { type: Type.STRING, description: "推奨職種名" },
-                                reason: { type: Type.STRING, description: "市場的・論理的観点からの推奨根拠" },
-                                matchScore: { type: Type.NUMBER, description: "適合度(0-100)" }
+                                role: { type: Type.STRING, description: "推奨職種名（現状に即したもの）" },
+                                reason: { type: Type.STRING, description: "現在のどの経験がどのように活かせるかという具体的な接続根拠" },
+                                matchScore: { type: Type.NUMBER, description: "現在のスキルセットでの即戦力適合度(0-100)" }
                             }
                         }
                     },
@@ -152,8 +172,8 @@ ${historyText}`,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                skill: { type: Type.STRING, description: "習得すべき専門スキル" },
-                                reason: { type: Type.STRING, description: "なぜそのスキルが市場で必要か" }
+                                skill: { type: Type.STRING, description: "次に習得すべき具体的スキル" },
+                                reason: { type: Type.STRING, description: "なぜそのスキルが今のキャリアを広げるために必要か" }
                             }
                         }
                     }
@@ -178,6 +198,20 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 思考: ${roleDefinition.mindset}
 相談者プロファイル: ${JSON.stringify(profile)}
 
+### 共感・傾聴の強化指示:
+1. ユーザーの発言に対し、単なる情報提供ではなく、まず感情を受け止める「共感の言葉」を挟んでください。
+2. 「それは大変でしたね」「頑張ってこられたのですね」といった労いの言葉を積極的に使用し、温かみのある対話を心がけてください。
+3. 解決策を急がず、ユーザーが話しやすい雰囲気を作ることを最優先してください。
+
+### 重要指示（危機介入プロトコル）:
+1. 相談者が「死にたい」「消えたい」といった自傷・自殺をほのめかすネガティブワードを発した場合、キャリア相談を一時中断し、深い共感と受容を示してください。
+2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
+3. その上で、専門の相談機関があることを「一緒に考えましょう」というトーンで伝えてください。
+4. 否定したり、無理に元気づけようとするアドバイスは避けてください。
+
+### 進行・クロージング指示:
+- 相談者の悩み・希望・強みなどの主要な情報が出揃ったと判断したタイミング、または会話が一定量（10往復程度）続いたタイミングで、「ここまでの内容で一度情報を整理し、専門家への引継ぎシートを作成してみませんか？画面下の【相談を終了して整理する】ボタンを押してください」と、自然に完了を促してください。
+
 回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
 `.trim();
 
@@ -189,9 +223,16 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     try {
         const stream = await getAIClient().models.generateContentStream({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3-flash-preview', 
             contents,
-            config: { systemInstruction, temperature: 0.7 },
+            config: { 
+                systemInstruction, 
+                temperature: 0.7,
+                // [CRITICAL OPTIMIZATION]
+                // Disable thinking process for real-time chat to prevent Vercel server timeouts.
+                // Chat interactions prioritize empathy and speed over deep logic.
+                thinkingConfig: { thinkingBudget: 0 } 
+            },
         });
         for await (const chunk of stream) {
             if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
@@ -226,14 +267,49 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     return { text: result.text || "{}" };
 }
 
-async function handleGenerateSuggestions(payload: { messages: ChatMessage[] }) {
-    const { messages } = payload;
+async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
+    const { messages, currentDraft } = payload;
+    const recentMessages = messages.slice(-4);
+    
+    // Formatting instructions to prevent numbering issues (e.g., "1の...", "2. ...")
+    // Explicitly updated to adhere to Protocol 2.0 approval
+    const formattingInstruction = `
+出力ルール:
+1. JSON形式 { suggestions: string[] } で返してください。
+2. 各suggestionはユーザーがそのまま発言できる自然な短い口語文（30文字以内）にしてください。
+3. **絶対厳守: 出力される各提案の文頭に、数字、連番、箇条書き記号（例: 1, 1., 1の, -, ・, その1）を一切含めないでください。**
+4. 提案は「～について」のような名詞止めではなく、ユーザーの「一人称のセリフ」として完結させてください。
+5. **重要: 直前のAIの発言の口調（語尾の『ワン』や特徴的な言い回し）を絶対に模倣しないでください。あくまで『ユーザー（人間）』が使う自然な標準語や丁寧語で生成してください。**
+`;
+
+    let prompt = "";
+    if (currentDraft && currentDraft.trim().length > 0) {
+        prompt = `
+文脈と、ユーザーが現在入力中のテキスト（ドラフト）に基づき、ユーザーが言おうとしていること、またはそれに続く言葉を3〜4つ予測してください。
+${formattingInstruction}
+
+履歴:
+${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
+現在入力中のドラフト: "${currentDraft}"
+`;
+    } else {
+        prompt = `
+文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。
+${formattingInstruction}
+
+履歴:
+${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
+`;
+    }
+
+    // Use flash model for speed
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `候補を3つ提案してください。JSONで返してください。
-履歴: ${messages.map(m => m.text).join('\n')}`,
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
+            // [OPTIMIZATION] Suggestions need to be snappy. Zero thinking budget.
+            thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },

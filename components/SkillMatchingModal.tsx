@@ -1,5 +1,5 @@
 
-// components/SkillMatchingModal.tsx - v2.21 - Deep Analysis Reassurance UX
+// components/SkillMatchingModal.tsx - v4.33 - Text Alignment Fix
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { SkillMatchingResult, AnalysisStateItem } from '../types';
@@ -59,9 +59,12 @@ const SkillMatchingModal: React.FC<SkillMatchingModalProps> = ({ isOpen, onClose
                 <div className="w-3 h-3 bg-sky-500 rounded-full animate-ping"></div>
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-800 min-h-[4rem] px-4 animate-in fade-in slide-in-from-bottom-3 duration-1000" key={messageIndex}>
-            {ANALYSIS_MESSAGES[messageIndex]}
-          </p>
+          {/* Updated Layout: Centered container, Left-aligned text for multi-line support */}
+          <div className="w-full flex justify-center px-4">
+            <p className="inline-block text-left text-2xl font-bold text-slate-800 min-h-[4rem] animate-in fade-in slide-in-from-bottom-3 duration-1000 leading-relaxed" key={messageIndex}>
+              {ANALYSIS_MESSAGES[messageIndex]}
+            </p>
+          </div>
           <div className="flex gap-2 mt-8">
             {ANALYSIS_MESSAGES.map((_, i) => (
               <div key={i} className={`h-1 rounded-full transition-all duration-700 ${i === messageIndex ? 'bg-sky-500 w-8' : 'bg-slate-100 w-3'}`}></div>
