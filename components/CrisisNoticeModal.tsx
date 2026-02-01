@@ -1,5 +1,5 @@
 
-// components/CrisisNoticeModal.tsx - v4.37 - Fixed Compassionate Message & Strict Alignment
+// components/CrisisNoticeModal.tsx - v4.38 - Fixed Compassionate Message & Strict Alignment
 import React, { useEffect } from 'react';
 import { addLogEntry } from '../services/devLogService';
 
@@ -36,7 +36,6 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
                   </svg>
               </div>
               <h2 className="text-3xl font-black tracking-tight">大切に思っている、あなたへ</h2>
-              <p className="mt-2 text-rose-50 font-bold opacity-90 uppercase tracking-widest text-xs">Emergency Compassion Support</p>
           </div>
           
           <div className="p-8 sm:p-10 space-y-8">

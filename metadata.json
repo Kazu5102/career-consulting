@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.37",
-  "description": "Crisis Modal Fixes: Fixed Compassionate Message & Strict Left Alignment. Protocol 2.0 Compliant.",
-  "version": "4.37",
+  "name": "Career Consulting_4.38",
+  "description": "Crisis Modal Fixes: Removed unauthorized English decoration text. Strict adherence to approved Japanese text.",
+  "version": "4.38",
   "prompt": ""
 }
