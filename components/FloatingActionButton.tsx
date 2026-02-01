@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import SummarizeIcon from './icons/SummarizeIcon';
 import InterruptIcon from './icons/InterruptIcon';
@@ -39,13 +38,13 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ isReady, on
         {/* Summarize Button */}
         <div className="flex items-center gap-3">
           <span className={`bg-white/95 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-md backdrop-blur-sm ${!isReady ? 'text-slate-400' : 'text-slate-700'}`}>
-            相談内容を要約する
+            相談を終了して整理する
           </span>
           <button
             onClick={() => { if (isReady) { onSummarize(); setIsOpen(false); } }}
             disabled={!isReady}
             className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg hover:bg-emerald-600 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
-            aria-label="相談内容を要約する"
+            aria-label="相談を終了して整理する"
           >
             <SummarizeIcon />
           </button>

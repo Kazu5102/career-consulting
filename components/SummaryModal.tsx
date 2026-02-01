@@ -142,8 +142,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     // 1. Create Export Data
     const exportData = {
         meta: {
-            title: "Career-Action 引継ぎ用データ",
-            description: "一般社団法人Career-Action所属コンサルタントへの提供用ファイル",
+            title: "キャリア相談 引継ぎ用データ",
+            description: "支援専門家への提供用ファイル",
             generatedAt: new Date().toISOString(),
             userId,
             aiAgent: aiName
@@ -157,17 +157,17 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `career_action_handoff_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // 3. Confirm and Redirect (Dummy URL)
+    // 3. Confirm and Redirect
     setTimeout(() => {
-        const confirmMsg = "【データ保存とコピー完了】\n\n1. 引継ぎ用ファイルを保存しました。\n2. 相談の要約テキストをクリップボードにコピーしました。\n\n一般社団法人Career-Actionの申し込みサイトへ移動しますか？\n（移動先のフォームで「貼り付け」て使用できます）";
+        const confirmMsg = "【データ保存とコピー完了】\n\n1. 引継ぎ用ファイルを保存しました。\n2. 相談の要約テキストをクリップボードにコピーしました。\n\n一般社団法人C-Ai 結びの庭サイトに移動しますか？\n（移動先のフォームで「貼り付け」て使用できます）";
         if (window.confirm(confirmMsg)) {
-            window.open("https://example.com/career-action-dummy", "_blank");
+            window.open("https://www.c-ai.org", "_blank");
         }
     }, 800);
   };
@@ -248,8 +248,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                     <h3 className="text-2xl font-black text-slate-800 tracking-tight">専門家への相談を推奨します</h3>
                     <p className="text-slate-600 leading-relaxed font-medium text-sm">
                         AIとの対話データを引き継ぐことで、よりスムーズな支援が受けられます。<br/>
-                        <strong className="text-sky-700">一般社団法人Career-Action</strong>に所属する<br/>
-                        キャリアコンサルタントへデータを渡して相談しましょう。
+                        <strong className="text-sky-700">支援の専門家</strong>へデータを渡して相談しましょう。
                     </p>
                 </div>
                 <div className="w-full max-w-sm space-y-3">
@@ -324,7 +323,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
               </div>
               <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
                 <div className="flex items-center gap-2">
-                    <span>整理を完了し、専門家に相談する</span>
+                    <span>整理を完了して次へ</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </div>
               </button>

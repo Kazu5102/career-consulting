@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.38",
-  "description": "Crisis Modal Fixes: Removed unauthorized English decoration text. Strict adherence to approved Japanese text.",
-  "version": "4.38",
+  "name": "Career Consulting_4.40",
+  "description": "Text update: Generalized referral messages and updated external link to C-Ai.",
+  "version": "4.40",
   "prompt": ""
 }
