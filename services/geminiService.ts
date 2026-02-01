@@ -1,9 +1,9 @@
 
-// services/geminiService.ts - v4.21 - Extended Timeout Support
+// services/geminiService.ts - v4.43 - Robust Streaming Support for Analysis
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
-const ANALYSIS_TIMEOUT = 300000;
+const ANALYSIS_TIMEOUT = 300000; // 5 minutes
 
 async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 20000): Promise<any> {
     const controller = new AbortController();
@@ -23,7 +23,7 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.details || errorData.error || `サーバーエラー: ${response.status}`;
             const error: any = new Error(errorMessage);
-            error.code = errorData.code; // Propagation of safety codes
+            error.code = errorData.code;
             throw error;
         }
         
@@ -35,6 +35,52 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
             throw new Error('タイムアウトしました。');
         }
         throw error;
+    }
+}
+
+// Helper to fetch stream and accumulate text until done, then parse as JSON.
+async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promise<any> {
+    // Longer timeout for streaming initial connection
+    const response = await fetchFromProxy(action, payload, true, 60000);
+    
+    if (!response.body) throw new Error("No response body");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        
+        // Parse SSE format: data: {...}
+        const lines = chunk.split('\n\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data: ')) {
+                const dataStr = trimmed.slice(6);
+                if (dataStr === '[DONE]') break;
+                try {
+                    const data = JSON.parse(dataStr);
+                    if (data.text) fullText += data.text;
+                    if (data.error) throw new Error(data.error);
+                } catch (e) {
+                    // ignore incomplete JSON chunks in SSE data, though we expect valid JSON per line usually
+                    if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
+                       // Only log legitimate errors, not parsing of partials if that were to happen
+                    }
+                }
+            }
+        }
+    }
+    
+    try {
+        return JSON.parse(fullText);
+    } catch (e) {
+        // Fallback: try to extract JSON if markdown fencing was included
+        const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        throw new Error("AIからの応答を解析できませんでした (Invalid JSON)");
     }
 }
 
@@ -67,7 +113,6 @@ export interface StreamUpdate {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     try {
-        // Extended timeout to 180 seconds (3 minutes) to accommodate model thinking time
         const response = await fetchFromProxy('getStreamingChatResponse', { messages, aiType, aiName, profile }, true, 180000);
         const rawStream = response.body;
         if (!rawStream) return null;
@@ -103,15 +148,16 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 
                         try {
                             const parsed = JSON.parse(jsonStr);
-                            if (parsed.type === 'text') {
-                                controller.enqueue({ text: parsed.content });
+                            if (parsed.type === 'text' || parsed.text) {
+                                controller.enqueue({ text: parsed.text || parsed.content }); // Compat with both formats
                             } else if (parsed.type === 'grounding') {
                                 controller.enqueue({ groundingMetadata: parsed.content });
-                            } else if (parsed.type === 'error') {
-                                controller.enqueue({ error: { message: parsed.content, code: parsed.code } });
+                            } else if (parsed.type === 'error' || parsed.error) {
+                                const msg = parsed.error?.message || parsed.content || parsed.error;
+                                controller.enqueue({ error: { message: msg, code: parsed.code } });
                             }
                         } catch (e) {
-                            console.warn("JSON Parse Error", jsonStr);
+                            // Ignore
                         }
                     }
                 } catch (e) {
@@ -123,7 +169,6 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
             }
         });
     } catch (error: any) {
-        // Handle immediate fetch errors
         return new ReadableStream({
             start(controller) {
                 controller.enqueue({ error: { message: error.message, code: error.code } });
@@ -148,7 +193,8 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
-    return await fetchFromProxy('analyzeTrajectory', { conversations, userId }, false, ANALYSIS_TIMEOUT);
+    // Use streaming accumulator
+    return await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId });
 };
 
 export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
@@ -161,7 +207,8 @@ export const generateSummaryFromText = async (textToAnalyze: string): Promise<st
 };
 
 export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
-    return await fetchFromProxy('performSkillMatching', { conversations }, false, ANALYSIS_TIMEOUT);
+    // Use streaming accumulator
+    return await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations });
 };
 
 export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {

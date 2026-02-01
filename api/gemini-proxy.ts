@@ -1,12 +1,11 @@
 
-// api/gemini-proxy.ts - v4.22 - Zero-Thinking Latency Optimization
+// api/gemini-proxy.ts - v4.43 - Streaming Analysis for PRO Model
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Vercel Serverless Function Configuration
-// Increase execution time limit to the maximum allowed (usually 10s-60s depending on plan) to reduce timeouts.
 export const config = {
-  maxDuration: 60,
+  maxDuration: 60, // Maximum allowed duration
 };
 
 enum MessageAuthor { USER = 'user', AI = 'ai' }
@@ -50,6 +49,32 @@ function robustParseJSON(text: string) {
     }
 }
 
+// Helper to stream JSON chunks back to client to keep connection alive
+async function streamGeminiResponse(res: VercelResponse, modelCall: () => Promise<any>) {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    // Initial keep-alive message to establish connection immediately
+    res.write(': start\n\n');
+
+    try {
+        const stream = await modelCall();
+        for await (const chunk of stream) {
+            const text = chunk.text;
+            if (text) {
+                res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            }
+        }
+        res.write('data: [DONE]\n\n');
+    } catch (error: any) {
+        console.error("Streaming Error:", error);
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    } finally {
+        res.end();
+    }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
     
@@ -68,26 +93,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 res.status(200).json(await handleGenerateSuggestions(payload)); 
                 break;
             case 'analyzeTrajectory':
-                res.status(200).json(await handleAnalyzeTrajectory(payload));
+                // Changed to Streaming Handler
+                await handleAnalyzeTrajectoryStream(payload, res);
                 break;
             case 'performSkillMatching':
-                res.status(200).json(await handlePerformSkillMatching(payload));
+                // Changed to Streaming Handler
+                await handlePerformSkillMatchingStream(payload, res);
                 break;
             default: 
                 res.status(400).json({ error: `Invalid action received: '${action}'.` });
         }
     } catch (error: any) {
         console.error(`[Proxy Error] ${error.message}`);
-        res.status(500).json({ error: error.message });
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        } else {
+            res.end();
+        }
     }
 }
 
-async function handleAnalyzeTrajectory(payload: { conversations: StoredConversation[], userId: string }) {
+async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string }, res: VercelResponse) {
     const { conversations } = payload;
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
     const isSingleSession = conversations.length === 1;
 
-    // 履歴の件数に応じて、AIへの指示（コンテキスト）を動的に切り替える
     const contextInstruction = isSingleSession
         ? `相談履歴は**1件のみ**です。
 長期的な変容は見えませんが、この1回のセッション内における「感情の微細な揺れ動き」や「発言の矛盾点」、「語られなかった空白」に着目し、【マイクロ・ナラティブ（微細な物語）】として深層心理を分析してください。
@@ -95,9 +125,7 @@ async function handleAnalyzeTrajectory(payload: { conversations: StoredConversat
         : `相談履歴は**複数件**あります。
 初回から現在に至るまでの【時系列での内的変容プロセス（マクロ・ナラティブ）】を重視して分析してください。`;
     
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
+    const prompt = `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
 職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
 
 ### 前提条件:
@@ -110,10 +138,13 @@ ${contextInstruction}
 4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。
 
 履歴:
-${historyText}`,
+${historyText}`;
+
+    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
-            // Analysis tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
@@ -128,17 +159,14 @@ ${historyText}`,
                 required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter"]
             }
         }
-    });
-    return robustParseJSON(result.text || "{}");
+    }));
 }
 
-async function handlePerformSkillMatching(payload: { conversations: StoredConversation[] }) {
+async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
     const historyText = conversations.map(c => c.summary).join('\n');
     
-    const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
+    const prompt = `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
 相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
 
 ### 診断のガイドライン:
@@ -148,10 +176,13 @@ async function handlePerformSkillMatching(payload: { conversations: StoredConver
 4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
 
 履歴:
-${historyText}`,
+${historyText}`;
+
+    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
         config: {
             responseMimeType: "application/json",
-            // Matching tasks prioritize depth over speed, so we allow default thinking budget.
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
@@ -176,13 +207,23 @@ ${historyText}`,
                                 reason: { type: Type.STRING, description: "なぜそのスキルが今のキャリアを広げるために必要か" }
                             }
                         }
+                    },
+                    learningResources: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING, description: "学習リソースのタイトル" },
+                                type: { type: Type.STRING, enum: ["course", "book", "article", "video"], description: "リソースの種類" },
+                                provider: { type: Type.STRING, description: "提供元（Udemy, Coursera, Amazon, etc.）" }
+                            }
+                        }
                     }
                 },
-                required: ["analysisSummary", "recommendedRoles", "skillsToDevelop"]
+                required: ["analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
             }
         }
-    });
-    return robustParseJSON(result.text || "{}");
+    }));
 }
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
@@ -220,29 +261,15 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         parts: [{ text: msg.text }],
     }));
 
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    try {
-        const stream = await getAIClient().models.generateContentStream({
-            model: 'gemini-3-flash-preview', 
-            contents,
-            config: { 
-                systemInstruction, 
-                temperature: 0.7,
-                // [CRITICAL OPTIMIZATION]
-                // Disable thinking process for real-time chat to prevent Vercel server timeouts.
-                // Chat interactions prioritize empathy and speed over deep logic.
-                thinkingConfig: { thinkingBudget: 0 } 
-            },
-        });
-        for await (const chunk of stream) {
-            if (chunk.text) res.write(`data: ${JSON.stringify({ type: 'text', content: chunk.text })}\n\n`);
-        }
-    } catch (e: any) {
-        res.write(`data: ${JSON.stringify({ type: 'error', content: e.message })}\n\n`);
-    } finally {
-        res.write('data: [DONE]\n\n');
-        res.end();
-    }
+    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
+        model: 'gemini-3-flash-preview', 
+        contents,
+        config: { 
+            systemInstruction, 
+            temperature: 0.7,
+            thinkingConfig: { thinkingBudget: 0 } 
+        },
+    }));
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
@@ -271,8 +298,6 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[], cur
     const { messages, currentDraft } = payload;
     const recentMessages = messages.slice(-4);
     
-    // Formatting instructions to prevent numbering issues (e.g., "1の...", "2. ...")
-    // Explicitly updated to adhere to Protocol 2.0 approval
     const formattingInstruction = `
 出力ルール:
 1. JSON形式 { suggestions: string[] } で返してください。
@@ -302,13 +327,11 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
 `;
     }
 
-    // Use flash model for speed
     const result = await getAIClient().models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            // [OPTIMIZATION] Suggestions need to be snappy. Zero thinking budget.
             thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
                 type: Type.OBJECT,

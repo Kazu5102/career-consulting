@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.42",
-  "description": "Detailed Analysis History & Full Report Output.",
-  "version": "4.42",
+  "name": "Career Consulting_4.46",
+  "description": "UI Improvement: Highlight latest item in Analysis Timeline (Newest First).",
+  "version": "4.46",
   "prompt": ""
 }

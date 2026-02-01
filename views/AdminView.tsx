@@ -1,6 +1,6 @@
 
-// views/AdminView.tsx - v4.42 - History Viewing & Full Restoration
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// views/AdminView.tsx - v4.46 - Timeline Sorted Newest First with Highlight
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
 import * as userService from '../services/userService';
@@ -27,6 +27,7 @@ import FileTextIcon from '../components/icons/FileTextIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import LockIcon from '../components/icons/LockIcon';
 import CalendarIcon from '../components/icons/CalendarIcon';
+import ChevronDownIcon from '../components/icons/ChevronDownIcon';
 
 type FilterStatus = 'all' | 'completed' | 'interrupted' | 'high_risk' | 'no_history';
 type SortOrder = 'desc' | 'asc';
@@ -35,6 +36,10 @@ const AdminView: React.FC = () => {
     const [users, setUsers] = useState<UserInfo[]>([]);
     const [conversations, setConversations] = useState<StoredConversation[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    
+    // Ref to track the current selected user ID for async operations (Race Condition Fix)
+    const selectedUserIdRef = useRef<string | null>(null);
+
     const [selectedConvForDetail, setSelectedConvForDetail] = useState<StoredConversation | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -51,6 +56,7 @@ const AdminView: React.FC = () => {
     // History Data
     const [analysisHistoryList, setAnalysisHistoryList] = useState<AnalysisHistoryEntry[]>([]);
     const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
+    const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
 
     // Display counts of historical analyses for the selected user
     const [historyCounts, setHistoryCounts] = useState({ trajectory: 0, skillMatching: 0 });
@@ -69,6 +75,11 @@ const AdminView: React.FC = () => {
     }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // Update ref whenever selectedUserId changes
+    useEffect(() => {
+        selectedUserIdRef.current = selectedUserId;
+    }, [selectedUserId]);
 
     const userMetadata = useMemo<Record<string, { lastDate: string, status: string, isHighRisk: boolean, count: number }>>(() => {
         const meta: Record<string, { lastDate: string, status: string, isHighRisk: boolean, count: number }> = {};
@@ -140,6 +151,7 @@ const AdminView: React.FC = () => {
             setAnalysisHistoryList([]);
             return;
         }
+        // service already returns sorted descending (newest first)
         const history = analysisService.getAnalysisHistory(selectedUserId);
         setAnalysisHistoryList(history);
         setHistoryCounts({
@@ -183,6 +195,10 @@ const AdminView: React.FC = () => {
 
     const runAnalysis = async (type: AnalysisType) => {
         if (!selectedUserId) return;
+        
+        // Capture the ID for race condition check
+        const targetUserId = selectedUserId;
+
         if (selectedUserConversations.length === 0) {
             setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: "履歴がありません。" } }));
             return;
@@ -198,15 +214,24 @@ const AdminView: React.FC = () => {
 
         try {
             const data = type === 'trajectory' 
-                ? await analyzeTrajectory(selectedUserConversations, selectedUserId) 
+                ? await analyzeTrajectory(selectedUserConversations, targetUserId) 
                 : await performSkillMatching(selectedUserConversations);
             
+            // RACE CONDITION CHECK:
+            // Ensure the user hasn't changed while analysis was running
+            if (selectedUserIdRef.current !== targetUserId) {
+                console.log(`Analysis result ignored: User changed from ${targetUserId} to ${selectedUserIdRef.current}`);
+                return;
+            }
+
             // Auto-save the result to history
-            analysisService.saveAnalysisResult(selectedUserId, type, data);
+            analysisService.saveAnalysisResult(targetUserId, type, data);
             refreshHistoryCounts();
 
             setAnalyses(prev => ({ ...prev, [type]: { status: 'success', data, error: null } }));
         } catch (err: any) { 
+            // Also check on error to prevent showing error for wrong user
+            if (selectedUserIdRef.current !== targetUserId) return;
             setAnalyses(prev => ({ ...prev, [type]: { status: 'error', data: null, error: err.message } })); 
         }
     };
@@ -215,6 +240,7 @@ const AdminView: React.FC = () => {
         setSelectedUserId(userId);
         setViewingHistoryId(null);
         setAnalyses({ trajectory: { status: 'idle', data: null, error: null }, skillMatching: { status: 'idle', data: null, error: null }, hiddenPotential: { status: 'idle', data: null, error: null } });
+        setIsMobileHistoryOpen(false);
     };
 
     const restoreHistory = (entry: AnalysisHistoryEntry) => {
@@ -232,11 +258,57 @@ const AdminView: React.FC = () => {
                 trajectory: { status: 'idle', data: null, error: null }
             }));
         }
+        // Scroll to top on mobile to see the content
+        if (window.innerWidth < 1024) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setIsMobileHistoryOpen(false);
+        }
+    };
+
+    const renderHistoryItem = (entry: AnalysisHistoryEntry, isTimeline: boolean = false, isLatest: boolean = false) => {
+        const isSelected = viewingHistoryId === entry.id;
+        return (
+            <button
+                key={entry.id}
+                onClick={() => restoreHistory(entry)}
+                className={`relative group w-full text-left transition-all ${
+                    isTimeline 
+                    ? 'pl-8 py-3 border-l-2' 
+                    : 'p-4 rounded-xl border mb-2'
+                } ${
+                    isSelected
+                    ? (isTimeline ? 'border-sky-500 bg-sky-50/50' : 'bg-amber-50 border-amber-400 shadow-sm')
+                    : (isTimeline ? 'border-slate-200 hover:border-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50')
+                }`}
+            >
+                {isTimeline && (
+                    <div className={`absolute left-[-5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm transition-colors ${
+                        isSelected ? 'bg-sky-500 scale-125' : (isLatest ? 'bg-emerald-400' : 'bg-slate-300 group-hover:bg-slate-400')
+                    } ${isLatest && !isSelected ? 'animate-pulse' : ''}`}></div>
+                )}
+                
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-black uppercase tracking-widest w-fit px-1.5 py-0.5 rounded ${
+                            entry.type === 'trajectory' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                            {entry.type === 'trajectory' ? 'Trajectory' : 'Skill Match'}
+                        </span>
+                        {isLatest && (
+                            <span className="text-[8px] font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-full shadow-sm">LATEST</span>
+                        )}
+                    </div>
+                    <span className={`text-xs font-bold font-mono ${isSelected ? 'text-slate-900' : 'text-slate-500'}`}>
+                        {new Date(entry.timestamp).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+            </button>
+        );
     };
 
     return (
         <div className="flex h-full w-full bg-slate-50 overflow-hidden relative">
-            <aside className={`${selectedUserId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10`}>
+            <aside className={`${selectedUserId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-full shadow-sm z-10 flex-shrink-0`}>
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50">
                     <h2 className="text-xl font-black text-slate-800 mb-4 px-1">相談者リスト</h2>
                     <div className="grid grid-cols-4 gap-1 mb-4">
@@ -302,11 +374,12 @@ const AdminView: React.FC = () => {
                                 <button onClick={() => setIsShareModalOpen(true)} className="px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-black transition-colors"><FileTextIcon className="w-4 h-4"/>レポート出力</button>
                             </div>
                         </header>
+                        
                         <div key={selectedUserId} className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 md:py-12">
-                            <div className="max-w-5xl mx-auto space-y-12">
+                            <div className="max-w-[1600px] mx-auto w-full">
                                 {/* Viewing History Notification */}
                                 {viewingHistoryId && (
-                                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm flex justify-between items-center animate-in slide-in-from-top-2">
+                                    <div className="mb-8 bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm flex justify-between items-center animate-in slide-in-from-top-2">
                                         <div className="flex items-center gap-3">
                                             <CalendarIcon className="w-5 h-5 text-amber-600" />
                                             <div>
@@ -318,42 +391,61 @@ const AdminView: React.FC = () => {
                                     </div>
                                 )}
 
-                                <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} />
-                                
-                                {/* Analysis History Archive */}
-                                {analysisHistoryList.length > 0 && (
-                                    <section className="space-y-6">
-                                        <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1"><DatabaseIcon className="w-5 h-5 text-slate-400"/>分析アーカイブ ({analysisHistoryList.length}件)</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {analysisHistoryList.map(entry => (
+                                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                                    {/* Main Content Column */}
+                                    <div className="flex-1 w-full min-w-0 space-y-12">
+                                        <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} />
+                                        
+                                        {/* Mobile Analysis History Accordion */}
+                                        {analysisHistoryList.length > 0 && (
+                                            <div className="lg:hidden border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white">
                                                 <button 
-                                                    key={entry.id} 
-                                                    onClick={() => restoreHistory(entry)}
-                                                    className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left ${viewingHistoryId === entry.id ? 'bg-amber-50 border-amber-400 shadow-md ring-1 ring-amber-400' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-sky-300'}`}
+                                                    onClick={() => setIsMobileHistoryOpen(!isMobileHistoryOpen)}
+                                                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
                                                 >
-                                                    <div className="flex justify-between w-full mb-2">
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${entry.type === 'trajectory' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                            {entry.type === 'trajectory' ? 'TRAJECTORY' : 'SKILL MATCH'}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-sm font-bold text-slate-800">{new Date(entry.timestamp).toLocaleString('ja-JP', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+                                                    <span className="font-bold text-slate-700 flex items-center gap-2">
+                                                        <DatabaseIcon className="w-4 h-4 text-slate-500" />
+                                                        分析アーカイブ ({analysisHistoryList.length}件)
+                                                    </span>
+                                                    <ChevronDownIcon className={`w-5 h-5 text-slate-400 transition-transform ${isMobileHistoryOpen ? 'rotate-180' : ''}`} />
                                                 </button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                )}
+                                                {isMobileHistoryOpen && (
+                                                    <div className="p-4 bg-white space-y-2 border-t border-slate-100 max-h-[400px] overflow-y-auto">
+                                                        {analysisHistoryList.map((entry, idx) => renderHistoryItem(entry, false, idx === 0))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
-                                <section className="space-y-6">
-                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1"><div className="w-2 h-6 bg-slate-200 rounded-full"></div>個別セッション履歴 ({selectedUserConversations.length}件)</h3>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                        {selectedUserConversations.map(conv => (
-                                            <button key={conv.id} onClick={() => setSelectedConvForDetail(conv)} className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl transition-all text-left">
-                                                <div className="flex justify-between items-center mb-4"><div className="text-[10px] font-black text-slate-400 font-mono">{new Date(conv.date).toLocaleString()}</div><span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{conv.status}</span></div>
-                                                <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600" dangerouslySetInnerHTML={{ __html: marked.parse(JSON.parse(conv.summary).user_summary || conv.summary) }} />
-                                            </button>
-                                        ))}
+                                        <section className="space-y-6">
+                                            <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 px-1"><div className="w-2 h-6 bg-slate-200 rounded-full"></div>個別セッション履歴 ({selectedUserConversations.length}件)</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {selectedUserConversations.map(conv => (
+                                                    <button key={conv.id} onClick={() => setSelectedConvForDetail(conv)} className="p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] hover:bg-white hover:shadow-xl transition-all text-left">
+                                                        <div className="flex justify-between items-center mb-4"><div className="text-[10px] font-black text-slate-400 font-mono">{new Date(conv.date).toLocaleString()}</div><span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${conv.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{conv.status}</span></div>
+                                                        <div className="prose prose-slate prose-sm line-clamp-5 text-slate-600" dangerouslySetInnerHTML={{ __html: marked.parse(JSON.parse(conv.summary).user_summary || conv.summary) }} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </section>
                                     </div>
-                                </section>
+
+                                    {/* Desktop Sidebar Column */}
+                                    {analysisHistoryList.length > 0 && (
+                                        <aside className="hidden lg:block w-72 sticky top-0 shrink-0 space-y-4">
+                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 max-h-[calc(100vh-160px)] overflow-y-auto">
+                                                <h3 className="text-sm font-black text-slate-700 flex items-center gap-2 mb-4 px-1 sticky top-0 bg-white z-10 pb-2 border-b border-slate-100">
+                                                    <DatabaseIcon className="w-4 h-4"/>
+                                                    Analysis Timeline
+                                                </h3>
+                                                <div className="space-y-1 relative pl-2">
+                                                    <div className="absolute left-[21px] top-4 bottom-4 w-[2px] bg-slate-100"></div>
+                                                    {analysisHistoryList.map((entry, idx) => renderHistoryItem(entry, true, idx === 0))}
+                                                </div>
+                                            </div>
+                                        </aside>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
