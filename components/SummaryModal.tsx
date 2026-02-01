@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.33 - Enhanced UX & Reassurance
+// components/SummaryModal.tsx - v4.48 - Secure Link Opening & UX Fix
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -64,6 +64,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
+  const [isExported, setIsExported] = useState(false);
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -80,6 +81,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     if (isOpen) {
       setIsCopied(false);
       setIsEditing(false);
+      setIsExported(false);
       setCorrectionRequest('');
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
@@ -142,8 +144,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     // 1. Create Export Data
     const exportData = {
         meta: {
-            title: "Career-Action 引継ぎ用データ",
-            description: "一般社団法人Career-Action所属コンサルタントへの提供用ファイル",
+            title: "キャリア相談 引継ぎ用データ",
+            description: "支援専門家への提供用ファイル",
             generatedAt: new Date().toISOString(),
             userId,
             aiAgent: aiName
@@ -157,19 +159,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `career_action_handoff_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // 3. Confirm and Redirect (Dummy URL)
-    setTimeout(() => {
-        const confirmMsg = "【データ保存とコピー完了】\n\n1. 引継ぎ用ファイルを保存しました。\n2. 相談の要約テキストをクリップボードにコピーしました。\n\n一般社団法人Career-Actionの申し込みサイトへ移動しますか？\n（移動先のフォームで「貼り付け」て使用できます）";
-        if (window.confirm(confirmMsg)) {
-            window.open("https://example.com/career-action-dummy", "_blank");
-        }
-    }, 800);
+    // 3. Update state to show the link button
+    setIsExported(true);
   };
 
   const createMarkup = (markdownText: string) => {
@@ -194,8 +191,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
           </button>
         </header>
         
-        {/* Tab Selection Removed */}
-
         <div className="p-6 flex-1 overflow-y-auto">
           {currentStep === 'survey' ? (
             <div className="flex flex-col items-center justify-center h-full space-y-8 py-10 animate-in fade-in duration-500">
@@ -244,40 +239,76 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 <div className="w-24 h-24 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-2 shadow-xl shadow-sky-100/50 border-4 border-sky-100">
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                 </div>
-                <div className="text-center space-y-4 max-w-md px-2">
-                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">専門家への相談を推奨します</h3>
-                    <p className="text-slate-600 leading-relaxed font-medium text-sm">
-                        AIとの対話データを引き継ぐことで、よりスムーズな支援が受けられます。<br/>
-                        <strong className="text-sky-700">一般社団法人Career-Action</strong>に所属する<br/>
-                        キャリアコンサルタントへデータを渡して相談しましょう。
-                    </p>
-                </div>
-                <div className="w-full max-w-sm space-y-3">
-                    <button 
-                      onClick={handleReferralAndExport}
-                      className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
-                    >
-                        <ExportIcon className="w-5 h-5" />
-                        データを保存して相談を申し込む
-                    </button>
-                    
-                    <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div className="w-full border-t border-slate-200"></div>
+                
+                {isExported ? (
+                    <div className="text-center space-y-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+                            <div className="flex items-center justify-center gap-2 text-emerald-700 font-bold mb-1">
+                                <CheckIcon className="w-5 h-5"/>
+                                <span>保存とコピーが完了しました</span>
+                            </div>
+                            <p className="text-xs text-emerald-600">
+                                相談内容がクリップボードにコピーされました。<br/>
+                                フォームに貼り付けて使用できます。
+                            </p>
                         </div>
-                        <div className="relative flex justify-center">
-                            <span className="bg-white px-2 text-xs font-bold text-slate-400">または</span>
+                        
+                        <a 
+                            href="https://www.c-ai.org" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
+                        >
+                            <LinkIcon className="w-5 h-5 text-sky-200" />
+                            提携サイト(C-Ai)を開く
+                        </a>
+                        
+                        <div className="pt-2">
+                            <button 
+                                onClick={onFinalize}
+                                className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all text-sm"
+                            >
+                                完了してトップに戻る
+                            </button>
                         </div>
                     </div>
-                    
-                    <button 
-                      onClick={onFinalize}
-                      className="w-full py-4 bg-white border-2 border-slate-200 text-slate-600 font-bold text-lg rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                    >
-                        <SaveIcon className="w-5 h-5" />
-                        相談せず、保存してトップに戻る
-                    </button>
-                </div>
+                ) : (
+                    <>
+                        <div className="text-center space-y-4 max-w-md px-2">
+                            <h3 className="text-2xl font-black text-slate-800 tracking-tight">専門家への相談を推奨します</h3>
+                            <p className="text-slate-600 leading-relaxed font-medium text-sm">
+                                AIとの対話データを引き継ぐことで、よりスムーズな支援が受けられます。<br/>
+                                <strong className="text-sky-700">支援の専門家</strong>へデータを渡して相談しましょう。
+                            </p>
+                        </div>
+                        <div className="w-full max-w-sm space-y-3">
+                            <button 
+                            onClick={handleReferralAndExport}
+                            className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
+                            >
+                                <ExportIcon className="w-5 h-5" />
+                                データを保存して相談を申し込む
+                            </button>
+                            
+                            <div className="relative py-2">
+                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                    <div className="w-full border-t border-slate-200"></div>
+                                </div>
+                                <div className="relative flex justify-center">
+                                    <span className="bg-white px-2 text-xs font-bold text-slate-400">または</span>
+                                </div>
+                            </div>
+                            
+                            <button 
+                            onClick={onFinalize}
+                            className="w-full py-4 bg-white border-2 border-slate-200 text-slate-600 font-bold text-lg rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                <SaveIcon className="w-5 h-5" />
+                                相談せず、保存してトップに戻る
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
           ) : isEditing ? (
              <div className="space-y-4 animate-in fade-in duration-300">
@@ -324,7 +355,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
               </div>
               <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
                 <div className="flex items-center gap-2">
-                    <span>整理を完了し、専門家に相談する</span>
+                    <span>整理を完了して次へ</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </div>
               </button>

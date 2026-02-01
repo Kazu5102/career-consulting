@@ -1,5 +1,5 @@
 
-// components/AddTextModal.tsx - v2.86 - AI Text Ingestion with Nickname
+// components/AddTextModal.tsx - v4.44 - Security Validation Added
 import React, { useState, useEffect } from 'react';
 import { StoredConversation } from '../types';
 import { generateSummaryFromText } from '../services/index';
@@ -11,6 +11,16 @@ interface AddTextModalProps {
   onSubmit: (newConversation: StoredConversation, nickname?: string) => void;
   existingUserIds: string[];
 }
+
+// Keywords that indicate the text is likely an encrypted report file source code
+const INVALID_KEYWORDS = [
+    "レポート閲覧認証",
+    "Unlock Report",
+    "高度に暗号化されています",
+    "Protocol 2.0 Security Verified",
+    "encryptedData =",
+    "decryptData"
+];
 
 const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, existingUserIds }) => {
   const [textToAnalyze, setTextToAnalyze] = useState('');
@@ -41,6 +51,13 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
     }
     if (isNewUser && !nickname.trim()) {
         setError('新しい相談者の場合はニックネームを入力してください。');
+        return;
+    }
+
+    // Validation Check: Prevent importing encrypted HTML source
+    const hasInvalidKeyword = INVALID_KEYWORDS.some(kw => textToAnalyze.includes(kw));
+    if (hasInvalidKeyword) {
+        setError('エラー: 暗号化されたレポートファイル（HTMLソース）が含まれています。インポートできません。');
         return;
     }
 
@@ -142,7 +159,7 @@ const AddTextModal: React.FC<AddTextModalProps> = ({ isOpen, onClose, onSubmit, 
                 required
               />
             </div>
-            {error && <p className="text-sm text-red-500 bg-red-50 p-3 rounded-md">{error}</p>}
+            {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md font-bold border border-red-100">{error}</p>}
           </div>
 
           <footer className="p-5 bg-slate-50 border-t border-slate-200 mt-auto">

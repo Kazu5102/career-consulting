@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.38",
-  "description": "Crisis Modal Fixes: Removed unauthorized English decoration text. Strict adherence to approved Japanese text.",
-  "version": "4.38",
+  "name": "Career Consulting_4.51",
+  "description": "Fix: Erasure button error handling and complete data deletion logic.",
+  "version": "4.51",
   "prompt": ""
 }

@@ -1,9 +1,10 @@
 
-// components/UserDashboard.tsx - v4.31 - Resume Capability
+// components/UserDashboard.tsx - v4.51 - Robust Erasure
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
 import * as userService from '../services/userService';
+import * as analysisService from '../services/analysisService';
 import ConversationDetailModal from './ConversationDetailModal';
 import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
@@ -49,12 +50,24 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
 
   const handleErasureRequest = async () => {
       if (window.confirm("【忘れられる権利の行使】全てのデータを完全に削除します。本当によろしいですか？")) {
-          addLogEntry({ type: 'audit', level: 'critical', action: 'Right to Erasure Executed', details: `User ${userId} requested full data deletion.` });
-          await userService.deleteUsers([userId]);
-          await conversationService.deleteConversationsByUserIds([userId]);
-          await conversationService.clearAutoSave(userId);
-          alert("抹消されました。");
-          window.location.reload();
+          try {
+              addLogEntry({ type: 'audit', level: 'critical', action: 'Right to Erasure Executed', details: `User ${userId} requested full data deletion.` });
+              
+              // ユーザー情報の削除
+              await userService.deleteUsers([userId]);
+              // 会話履歴の削除
+              await conversationService.deleteConversationsByUserIds([userId]);
+              // 分析履歴の削除 (追加)
+              analysisService.deleteAnalysisHistory([userId]);
+              // 一時保存データの削除
+              await conversationService.clearAutoSave(userId);
+              
+              alert("抹消されました。");
+              window.location.reload();
+          } catch (error: any) {
+              console.error("Erasure Error:", error);
+              alert(`削除処理中にエラーが発生しました: ${error.message || '不明なエラー'}\n画面をリロードして再度お試しください。`);
+          }
       }
   };
 
