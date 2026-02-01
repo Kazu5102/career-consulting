@@ -1,5 +1,5 @@
 
-// components/CrisisNoticeModal.tsx - v4.35 - Mobile Scroll & Text Fix
+// components/CrisisNoticeModal.tsx - v4.36 - Forced Reset & Strict Alignment
 import React, { useEffect } from 'react';
 import { addLogEntry } from '../services/devLogService';
 
@@ -23,10 +23,11 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
 
   if (!isOpen) return null;
 
+  // 背景クリックでのクローズを無効化し、強制的なリセットのみを許可する
   return (
-    <div className="fixed inset-0 bg-slate-900/90 z-[300] overflow-y-auto backdrop-blur-xl" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/95 z-[300] overflow-y-auto backdrop-blur-xl">
       <div className="min-h-full flex items-center justify-center p-4">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-500 border border-white/20" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-500 border border-white/20">
           {/* 背景にグラデーションを配置して視覚的な柔らかさを演出 */}
           <div className="bg-gradient-to-br from-rose-500 to-amber-500 p-8 text-center text-white">
               <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-white/20 mb-6 shadow-lg backdrop-blur-sm">
@@ -39,7 +40,7 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
           </div>
           
           <div className="p-8 sm:p-10 space-y-8">
-              {/* テキストを左寄せしつつ、ブロック全体を中央に配置 */}
+              {/* テキストを左寄せ（text-left）しつつ、ブロック全体を中央（flex justify-center）に配置 */}
               <div className="flex justify-center w-full">
                   <div className="text-slate-700 leading-relaxed font-bold text-left inline-block space-y-4 max-w-full">
                       {intensity === 'high' ? (
@@ -103,18 +104,13 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
               </div>
           </div>
           
-          <div className="p-6 bg-slate-50 border-t flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={onClose}
-                className="w-full px-6 py-4 font-black text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-2xl transition-all active:scale-95"
-              >
-                相談を続ける
-              </button>
+          <div className="p-6 bg-slate-50 border-t flex justify-center">
+              {/* 「相談を続ける」選択肢を完全に排除し、トップへのリセットのみを提示 */}
               <button
                 onClick={() => window.location.reload()}
-                className="w-full px-6 py-4 font-black text-rose-600 bg-rose-100/50 border border-rose-200 hover:bg-rose-100 rounded-2xl transition-all active:scale-95"
+                className="w-full px-6 py-4 font-black text-white bg-rose-600 border border-rose-700 hover:bg-rose-700 rounded-2xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
               >
-                対話をリセットする
+                <span>トップ画面に戻る</span>
               </button>
           </div>
         </div>
