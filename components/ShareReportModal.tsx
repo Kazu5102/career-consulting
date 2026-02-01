@@ -1,11 +1,11 @@
 
-// components/ShareReportModal.tsx - v3.73 - Encrypted HTML Exporter
+// components/ShareReportModal.tsx - v4.41 - Enhanced Report with History
 import React, { useState, useEffect, useRef } from 'react';
-import { StoredConversation, UserAnalysisCache } from '../types';
+import { StoredConversation, AnalysisHistoryEntry } from '../types';
 import { generateReport } from '../services/reportService';
+import { getAnalysisHistory } from '../services/analysisService';
 import { addLogEntry } from '../services/devLogService';
 import LockIcon from './icons/LockIcon';
-import ShareIcon from './icons/ShareIcon';
 import FileTextIcon from './icons/FileTextIcon';
 
 interface ShareReportModalProps {
@@ -13,14 +13,16 @@ interface ShareReportModalProps {
   onClose: () => void;
   userId: string;
   conversations: StoredConversation[];
-  analysisCache: UserAnalysisCache | null | undefined;
+  // analysisCache is no longer used, we fetch history internally
+  analysisCache: any | null | undefined;
 }
 
-const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, userId, conversations, analysisCache }) => {
+const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, userId, conversations }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [historyCount, setHistoryCount] = useState({ trajectory: 0, skill: 0 });
     const passwordInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -30,8 +32,15 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
             setError('');
             setIsLoading(false);
             setTimeout(() => passwordInputRef.current?.focus(), 100);
+            
+            // Preview history count
+            const history = getAnalysisHistory(userId);
+            setHistoryCount({
+                trajectory: history.filter(h => h.type === 'trajectory').length,
+                skill: history.filter(h => h.type === 'skillMatching').length
+            });
         }
-    }, [isOpen]);
+    }, [isOpen, userId]);
     
     if (!isOpen) return null;
 
@@ -49,7 +58,10 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
         setIsLoading(true);
 
         try {
-            const blob = await generateReport({ userId, conversations, analysisCache }, password);
+            // Fetch fresh history at generation time
+            const history = getAnalysisHistory(userId);
+            
+            const blob = await generateReport({ userId, conversations, analysisHistory: history }, password);
             const date = new Date().toISOString().split('T')[0];
             const suggestedName = `report_${userId}_${date}.html`;
 
@@ -62,10 +74,11 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            // Audit log for Protocol 2.0 Compliance
             addLogEntry({
-                userPrompt: `Encrypted Report Generation for user: ${userId}`,
-                aiSummary: `AES-GCM暗号化HTMLレポートを出力しました。\n- 履歴件数: ${conversations.length}件\n- 個別分析データの同梱: ${!!analysisCache ? 'あり' : 'なし'}`
+                type: 'audit',
+                level: 'info',
+                action: 'Report Generated',
+                details: `Encrypted report for user ${userId}. Included history: Trajectory(${history.filter(h => h.type==='trajectory').length}), Skill(${history.filter(h => h.type==='skillMatching').length}).`
             });
 
             onClose();
@@ -98,7 +111,12 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
                         <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
                             <p className="text-xs text-sky-800 font-bold leading-relaxed">
                                 相談者 (<span className="font-mono">{userId}</span>) の履歴を暗号化HTMLとして出力します。
-                                閲覧には設定したパスワードが必要です。
+                                <br/>
+                                <span className="block mt-2 opacity-80 border-t border-sky-200 pt-2">
+                                    ・会話履歴: {conversations.length}件<br/>
+                                    ・軌跡分析履歴: {historyCount.trajectory}件<br/>
+                                    ・適職診断履歴: {historyCount.skill}件
+                                </span>
                             </p>
                         </div>
                         

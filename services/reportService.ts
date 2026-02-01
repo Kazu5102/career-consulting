@@ -1,12 +1,13 @@
 
-// services/reportService.ts - v3.80 - High-Fidelity Encrypted HTML Report
+// services/reportService.ts - v4.42 - Full Detail Report
 import { encryptData } from './cryptoService';
-import { StoredConversation, UserAnalysisCache } from '../types';
+import { StoredConversation, AnalysisHistoryEntry, TrajectoryAnalysisData, SkillMatchingResult } from '../types';
+import { marked } from 'marked';
 
 interface ReportData {
   userId: string;
   conversations: StoredConversation[];
-  analysisCache: UserAnalysisCache | null | undefined;
+  analysisHistory: AnalysisHistoryEntry[];
 }
 
 export const generateReport = async (data: ReportData, password: string): Promise<Blob> => {
@@ -29,6 +30,7 @@ export const generateReport = async (data: ReportData, password: string): Promis
         .prose h1, .prose h2, .prose h3 { font-weight: 900; tracking: -0.025em; color: #1e293b; }
         .prose p { line-height: 1.8; color: #475569; }
         .prose strong { color: #0f172a; }
+        .timeline-line { position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; z-index: 0; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -51,11 +53,11 @@ export const generateReport = async (data: ReportData, password: string): Promis
         </div>
     </div>
 
-    <main id="content" class="max-w-5xl mx-auto p-4 md:p-12 animate-in fade-in duration-700">
+    <main id="content" class="max-w-6xl mx-auto p-4 md:p-12 animate-in fade-in duration-700">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200 mb-12">
             <div>
                 <span class="inline-block px-3 py-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest rounded-full mb-3">Consultation Record</span>
-                <h1 class="text-4xl font-black text-slate-900 tracking-tight">相談者レポート</h1>
+                <h1 class="text-4xl font-black text-slate-900 tracking-tight">相談者詳細レポート</h1>
                 <p class="text-slate-400 mt-2 font-bold uppercase tracking-tighter text-sm">Client ID: <span id="user-id" class="font-mono text-slate-600"></span></p>
             </div>
             <div class="text-right">
@@ -70,9 +72,6 @@ export const generateReport = async (data: ReportData, password: string): Promis
     <script>
         const encryptedData = '${encryptedData}';
         
-        /**
-         * Robust hex to byte conversion
-         */
         function hexToBytes(hex) {
             const bytes = new Uint8Array(hex.length / 2);
             for (let i = 0; i < hex.length; i += 2) {
@@ -90,22 +89,8 @@ export const generateReport = async (data: ReportData, password: string): Promis
                 const salt = hexToBytes(parts[1]);
                 const data = hexToBytes(parts[2]);
 
-                const keyMaterial = await window.crypto.subtle.importKey(
-                    'raw', 
-                    new TextEncoder().encode(password), 
-                    { name: 'PBKDF2' }, 
-                    false, 
-                    ['deriveKey']
-                );
-
-                const key = await window.crypto.subtle.deriveKey(
-                    { name: 'PBKDF2', salt, iterations: 100, hash: 'SHA-256' }, 
-                    keyMaterial, 
-                    { name: 'AES-GCM', length: 256 }, 
-                    true, 
-                    ['decrypt']
-                );
-
+                const keyMaterial = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+                const key = await window.crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
                 const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
                 return new TextDecoder().decode(decrypted);
             } catch (error) {
@@ -150,59 +135,186 @@ export const generateReport = async (data: ReportData, password: string): Promis
             const reportBody = document.getElementById('report-body');
             let html = '';
 
-            // 1. Analysis Section
-            if (data.analysisCache) {
+            // Filter histories
+            const trajectoryHistory = (data.analysisHistory || []).filter(h => h.type === 'trajectory').sort((a, b) => b.timestamp - a.timestamp);
+            const skillHistory = (data.analysisHistory || []).filter(h => h.type === 'skillMatching').sort((a, b) => b.timestamp - a.timestamp);
+
+            // 1. Trajectory History Section
+            if (trajectoryHistory.length > 0) {
                 html += '<section class="space-y-8 animate-in slide-in-from-bottom-4 duration-700">';
-                html += '<div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-sky-600 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">AI 総合解析レポート</h2></div>';
+                html += '<div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-sky-600 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">軌跡分析レポート（詳細）</h2></div>';
+                html += '<div class="relative space-y-16 pl-4">';
+                html += '<div class="timeline-line"></div>'; // Timeline line
                 
-                if (data.analysisCache.trajectory) {
-                    html += \`<div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100">
-                        <h3 class="text-xl font-black text-sky-700 mb-6 flex items-center gap-2">
-                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                           相談の軌跡・内的変容分析
-                        </h3>
-                        <div class="prose prose-slate max-w-none">\${marked.parse(data.analysisCache.trajectory.overallSummary || '')}</div>
+                trajectoryHistory.forEach(entry => {
+                    const date = new Date(entry.timestamp).toLocaleDateString('ja-JP', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                    const d = entry.data;
+                    html += \`
+                    <div class="relative z-10 pl-8">
+                        <div class="absolute left-0 top-1 w-8 h-8 bg-sky-100 rounded-full border-4 border-white flex items-center justify-center text-sky-600 shadow-sm font-bold text-xs">●</div>
+                        <div class="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-lg border border-slate-100">
+                            <div class="flex flex-col md:flex-row justify-between items-start mb-8 border-b border-slate-100 pb-4">
+                                <div>
+                                    <span class="text-[10px] font-black text-sky-500 uppercase tracking-widest">Analysis Date</span>
+                                    <h3 class="text-2xl font-black text-slate-800">\${date}</h3>
+                                </div>
+                                <div class="mt-2 md:mt-0 flex gap-2">
+                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest">\${d.triageLevel}</span>
+                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest">GAP: \${d.ageStageGap}%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                    <h4 class="text-sm font-bold text-sky-800 mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-sky-500 rounded"></span>主要な臨床的指摘</h4>
+                                    <ul class="space-y-2">
+                                        \${(d.keyTakeaways || []).map(t => \`<li class="flex gap-2 text-sm text-slate-700"><span class="text-sky-400">•</span>\${t}</li>\`).join('')}
+                                    </ul>
+                                </div>
+                                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                    <h4 class="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-indigo-500 rounded"></span>理論的根拠</h4>
+                                    <p class="text-sm text-slate-700">\${d.theoryBasis}</p>
+                                </div>
+                            </div>
+
+                            <div class="mb-8">
+                                <h4 class="text-lg font-bold text-slate-800 mb-4">内的変容プロセス (Summary)</h4>
+                                <div class="prose prose-slate max-w-none text-sm">\${marked.parse(d.overallSummary || '')}</div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <div>
+                                    <h5 class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Detected Strengths</h5>
+                                    <div class="flex flex-wrap gap-2">
+                                        \${(d.detectedStrengths || []).map(s => \`<span class="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full">\${s}</span>\`).join('')}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h5 class="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">Areas for Development</h5>
+                                    <div class="flex flex-wrap gap-2">
+                                        \${(d.areasForDevelopment || []).map(s => \`<span class="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-full">\${s}</span>\`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            \${d.expertAdvice ? \`<div class="mb-6 p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 text-sm text-indigo-900"><span class="block text-[10px] font-black uppercase text-indigo-400 mb-2">Supervisor Advice</span>\${d.expertAdvice}</div>\` : ''}
+                            
+                            \${d.reframedSkills && d.reframedSkills.length > 0 ? \`
+                                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                    <table class="w-full text-sm text-left">
+                                        <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase"><tr><th class="px-4 py-3">相談者の言葉</th><th class="px-4 py-3">専門的リフレーム</th><th class="px-4 py-3">インサイト</th></tr></thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            \${d.reframedSkills.map(r => \`<tr class="hover:bg-slate-50/50"><td class="px-4 py-3 font-medium text-slate-700">\${r.userWord}</td><td class="px-4 py-3 font-bold text-sky-700">\${r.professionalSkill}</td><td class="px-4 py-3 text-slate-500 text-xs">\${r.insight}</td></tr>\`).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            \` : ''}
+                        </div>
                     </div>\`;
-                }
-                
-                if (data.analysisCache.skillMatching) {
-                    html += \`<div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100">
-                        <h3 class="text-xl font-black text-emerald-700 mb-6 flex items-center gap-2">
-                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                           適職診断・市場価値レポート
-                        </h3>
-                        <div class="prose prose-slate max-w-none">\${marked.parse(data.analysisCache.skillMatching.analysisSummary || '')}</div>
-                    </div>\`;
-                }
-                html += '</section>';
+                });
+                html += '</div></section>';
             }
 
-            // 2. Conversation Logs
-            html += \`<section class="space-y-8">
-                <div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-slate-400 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">全セッション履歴 (\${data.conversations.length}件)</h2></div>
-                <div class="space-y-6">
-            \`;
-            data.conversations.forEach(conv => {
-                const date = new Date(conv.date).toLocaleString('ja-JP', {dateStyle:'full', timeStyle:'short'});
-                html += \`<div class="bg-slate-100/50 p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-inner">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Session Timeline</p>
-                            <h3 class="font-black text-xl text-slate-800">\${date}</h3>
-                        </div>
-                        <span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-black rounded-full border border-slate-200 shadow-sm uppercase tracking-tighter">
-                           Agent: \${conv.aiName}
-                        </span>
-                    </div>
-                    <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 prose prose-slate max-w-none">
-                        <h4 class="text-sm font-black text-sky-600 uppercase tracking-widest mb-4">Session Summary</h4>
-                        \${marked.parse(parseUserSummary(conv.summary))}
-                    </div>
-                </div>\`;
-            });
-            html += '</div></section>';
+            // 2. Skill Matching History Section
+            if (skillHistory.length > 0) {
+                html += '<section class="space-y-8 animate-in slide-in-from-bottom-4 duration-700 delay-200">';
+                html += '<div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-emerald-600 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">適職診断レポート（詳細）</h2></div>';
+                html += '<div class="relative space-y-16 pl-4">';
+                html += '<div class="timeline-line"></div>';
+                
+                skillHistory.forEach(entry => {
+                    const date = new Date(entry.timestamp).toLocaleDateString('ja-JP', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                    const d = entry.data;
+                    html += \`
+                    <div class="relative z-10 pl-8">
+                        <div class="absolute left-0 top-1 w-8 h-8 bg-emerald-100 rounded-full border-4 border-white flex items-center justify-center text-emerald-600 shadow-sm font-bold text-xs">●</div>
+                        <div class="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-lg border border-slate-100">
+                            <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
+                                <div>
+                                    <span class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Analysis Date</span>
+                                    <h3 class="text-2xl font-black text-slate-800">\${date}</h3>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-8">
+                                <h4 class="text-lg font-bold text-slate-800 mb-4">キャリアプロファイル分析</h4>
+                                <div class="prose prose-slate max-w-none text-sm mb-6">\${marked.parse(d.analysisSummary || '')}</div>
+                            </div>
 
-            reportBody.innerHTML = html;
+                            \${d.recommendedRoles && d.recommendedRoles.length > 0 ? \`
+                                <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-1 h-4 bg-emerald-500 rounded"></span>推奨ロールと適合根拠</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    \${d.recommendedRoles.map(r => \`
+                                    <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-colors">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <span class="font-bold text-slate-800 text-lg">\${r.role}</span>
+                                            <span class="text-emerald-600 font-black text-xl">\${r.matchScore}%</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 leading-relaxed">\${r.reason}</p>
+                                    </div>\`).join('')}
+                                </div>
+                            \` : ''}
+
+                            \${d.skillsToDevelop && d.skillsToDevelop.length > 0 ? \`
+                                <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-1 h-4 bg-amber-500 rounded"></span>市場価値向上のための学習項目</h4>
+                                <div class="space-y-3 mb-8">
+                                    \${d.skillsToDevelop.map(s => \`
+                                    <div class="flex items-start gap-4 p-4 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                                        <div class="w-6 h-6 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">UP</div>
+                                        <div>
+                                            <p class="font-bold text-slate-800 text-sm">\${s.skill}</p>
+                                            <p class="text-xs text-slate-500 mt-1">\${s.reason}</p>
+                                        </div>
+                                    </div>\`).join('')}
+                                </div>
+                            \` : ''}
+
+                            \${d.learningResources && d.learningResources.length > 0 ? \`
+                                <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-1 h-4 bg-violet-500 rounded"></span>推奨学習リソース</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    \${d.learningResources.map(r => \`<div class="p-3 bg-white border border-slate-200 rounded-xl"><p class="font-bold text-slate-800 text-xs mb-1">\${r.title}</p><div class="flex justify-between text-[10px] text-slate-400"><span class="font-bold">\${r.provider}</span><span>\${r.type}</span></div></div>\`).join('')}
+                                </div>
+                            \` : ''}
+                        </div>
+                    </div>\`;
+                });
+                html += '</div></section>';
+            }
+
+            // 3. Conversation Logs (Existing Logic)
+            if (data.conversations && data.conversations.length > 0) {
+                html += \`<section class="space-y-8 animate-in slide-in-from-bottom-4 duration-700 delay-300">
+                    <div class="flex items-center gap-3"><div class="w-1.5 h-8 bg-slate-400 rounded-full"></div><h2 class="text-3xl font-black text-slate-900 tracking-tight">全セッション履歴 (\${data.conversations.length}件)</h2></div>
+                    <div class="space-y-6">
+                \`;
+                data.conversations.forEach(conv => {
+                    const date = new Date(conv.date).toLocaleString('ja-JP', {dateStyle:'full', timeStyle:'short'});
+                    html += \`<div class="bg-slate-100/50 p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-inner">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Session Timeline</p>
+                                <h3 class="font-black text-xl text-slate-800">\${date}</h3>
+                            </div>
+                            <span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-black rounded-full border border-slate-200 shadow-sm uppercase tracking-tighter">
+                            Agent: \${conv.aiName}
+                            </span>
+                        </div>
+                        <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 prose prose-slate max-w-none">
+                            <h4 class="text-sm font-black text-sky-600 uppercase tracking-widest mb-4">Session Summary</h4>
+                            \${marked.parse(parseUserSummary(conv.summary))}
+                        </div>
+                    </div>\`;
+                });
+                html += '</div></section>';
+            } else {
+               html += '<div class="text-center text-slate-400 py-10 font-bold">会話履歴はありません。</div>';
+            }
+
+            if (trajectoryHistory.length === 0 && skillHistory.length === 0 && (!data.conversations || data.conversations.length === 0)) {
+                 reportBody.innerHTML = '<div class="text-center py-20"><h3 class="text-xl font-bold text-slate-400">データが存在しません</h3></div>';
+            } else {
+                 reportBody.innerHTML = html;
+            }
         }
 
         function parseUserSummary(raw) {

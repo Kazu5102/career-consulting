@@ -1,5 +1,5 @@
 
-// types.ts - v3.72
+// types.ts - v4.41
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -10,6 +10,7 @@ export interface StoredData {
   users?: UserInfo[];
   userInfo?: UserInfo;
   exportedAt?: string;
+  analysisHistory?: AnalysisHistoryEntry[];
 }
 
 export interface UserInfo {
@@ -177,6 +178,14 @@ export interface UserAnalysisCache {
     trajectory?: (TrajectoryAnalysisData | { error: string });
     skillMatching?: (SkillMatchingResult | { error: string });
     hiddenPotential?: (HiddenPotentialData | { error: string });
+}
+
+export interface AnalysisHistoryEntry {
+    id: string;
+    userId: string;
+    timestamp: number;
+    type: 'trajectory' | 'skillMatching';
+    data: TrajectoryAnalysisData | SkillMatchingResult;
 }
 
 export interface SurveyConfig {

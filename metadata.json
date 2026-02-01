@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.40",
-  "description": "Text update: Generalized referral messages and updated external link to C-Ai.",
-  "version": "4.40",
+  "name": "Career Consulting_4.42",
+  "description": "Detailed Analysis History & Full Report Output.",
+  "version": "4.42",
   "prompt": ""
 }
