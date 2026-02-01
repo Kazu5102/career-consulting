@@ -1,12 +1,12 @@
 
-// components/CrisisNoticeModal.tsx - v4.36 - Forced Reset & Strict Alignment
+// components/CrisisNoticeModal.tsx - v4.37 - Fixed Compassionate Message & Strict Alignment
 import React, { useEffect } from 'react';
 import { addLogEntry } from '../services/devLogService';
 
 interface CrisisNoticeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  intensity?: 'normal' | 'high'; // ネガティブワードの連発度合いに応じたメッセージ切り替え
+  intensity?: 'normal' | 'high'; // ネガティブワードの連発度合い。ログには残すが表示分岐は廃止。
 }
 
 const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, intensity = 'normal' }) => {
@@ -16,10 +16,10 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
         type: 'audit',
         level: 'warn',
         action: 'Emergency Intervention Triggered',
-        details: 'Crisis keywords detected. Modal displayed. No user content saved.'
+        details: `Crisis keywords detected (Intensity: ${intensity}). Modal displayed. No user content saved.`
       });
     }
-  }, [isOpen]);
+  }, [isOpen, intensity]);
 
   if (!isOpen) return null;
 
@@ -43,18 +43,13 @@ const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, 
               {/* テキストを左寄せ（text-left）しつつ、ブロック全体を中央（flex justify-center）に配置 */}
               <div className="flex justify-center w-full">
                   <div className="text-slate-700 leading-relaxed font-bold text-left inline-block space-y-4 max-w-full">
-                      {intensity === 'high' ? (
-                        <p className="text-lg">
-                          何度もそのお言葉が出るほど、今は本当にお辛い状況なのですね。<br/>
-                          あなたの命と心が、私にとっては何より大切です。
-                        </p>
-                      ) : (
-                        <p>
-                          今、とてもお辛い状況にいらっしゃるのですね。<br/>
-                          一人で抱え込むには、あまりに重いお悩みだったのでしょう。<br/>
-                          専門の相談員が、あなたの力になりたいと待っています。
-                        </p>
-                      )}
+                      <p>
+                        今、とてもお辛い状況にいらっしゃるのですね。<br/>
+                        AIでは十分な寄り添いが難しいため、安全を第一に考え、対話を停止させていただきます。
+                      </p>
+                      <p>
+                        あなたのつらいお気持ちを受け止められる、専門の相談員が待っています。
+                      </p>
                   </div>
               </div>
               
