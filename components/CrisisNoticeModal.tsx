@@ -1,6 +1,7 @@
 
-// components/CrisisNoticeModal.tsx - v3.69 - Compassionate Intervention UI
-import React from 'react';
+// components/CrisisNoticeModal.tsx - v4.34 - Emergency Audit Logging
+import React, { useEffect } from 'react';
+import { addLogEntry } from '../services/devLogService';
 
 interface CrisisNoticeModalProps {
   isOpen: boolean;
@@ -9,6 +10,17 @@ interface CrisisNoticeModalProps {
 }
 
 const CrisisNoticeModal: React.FC<CrisisNoticeModalProps> = ({ isOpen, onClose, intensity = 'normal' }) => {
+  useEffect(() => {
+    if (isOpen) {
+      addLogEntry({
+        type: 'audit',
+        level: 'warn',
+        action: 'Emergency Intervention Triggered',
+        details: 'Crisis keywords detected. Modal displayed. No user content saved.'
+      });
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
