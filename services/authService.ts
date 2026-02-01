@@ -1,7 +1,8 @@
 
+// services/authService.ts
 const STORAGE_KEY = 'adminPassword_v1';
-const DEFAULT_PASSWORD = '1234';
-const DEVELOPER_PASSWORD = 'nomu';
+const DEFAULT_PASSWORD = '1qazxcv';
+const DEVELOPER_PASSWORD = 'nomusan1010';
 
 export const getStoredPassword = (): string => {
     return localStorage.getItem(STORAGE_KEY) || DEFAULT_PASSWORD;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserInfo } from '../types';
 import LockIcon from './icons/LockIcon';
+import { checkPassword } from '../services/authService';
 
 interface PinModalProps {
   isOpen: boolean;
@@ -9,8 +10,6 @@ interface PinModalProps {
   onClose: () => void;
   onSuccess: (userId: string) => void;
 }
-
-const MASTER_PIN = '5555';
 
 const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess }) => {
   const [pin, setPin] = useState('');
@@ -30,10 +29,11 @@ const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess })
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (pin === user.pin || pin === MASTER_PIN) {
+    // Check against User PIN OR Global Master Password
+    if (pin === user.pin || checkPassword(pin)) {
       onSuccess(user.id);
     } else {
-      setError('PINコードが正しくありません。');
+      setError('認証に失敗しました。');
       setPin('');
       inputRef.current?.select();
     }
@@ -41,10 +41,7 @@ const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess })
   
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow only numbers and limit to 4 digits
-    if (/^\d*$/.test(value) && value.length <= 4) {
-      setPin(value);
-    }
+    setPin(value);
   };
 
   return (
@@ -56,26 +53,24 @@ const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess })
             </div>
             <h3 className="text-lg font-bold text-slate-800">認証が必要です</h3>
             <p className="text-slate-600">こんにちは、<span className="font-bold">{user.nickname}</span> さん</p>
-            <p className="text-sm text-slate-500 mt-1">4桁のPINコードを入力してください。</p>
+            <p className="text-sm text-slate-500 mt-1">PINコード または パスワードを入力してください。</p>
         </div>
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
             <div>
                 <input
                     ref={inputRef}
                     type="password"
-                    inputMode="numeric"
-                    pattern="\d{4}"
                     value={pin}
                     onChange={handlePinChange}
-                    placeholder="PINコード"
-                    className={`w-full text-center tracking-[1em] text-2xl font-mono px-4 py-3 bg-slate-100 rounded-lg border ${error ? 'border-red-400 ring-red-400' : 'border-slate-300'} focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-200`}
+                    placeholder="PIN または Password"
+                    className={`w-full text-center tracking-widest text-xl font-bold px-4 py-3 bg-slate-100 rounded-lg border ${error ? 'border-red-400 ring-red-400' : 'border-slate-300'} focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-200`}
                     autoFocus
                 />
                 {error && <p className="text-xs text-red-500 mt-1.5 px-1 text-center">{error}</p>}
             </div>
             <button
                 type="submit"
-                disabled={pin.length !== 4}
+                disabled={!pin}
                 className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-sky-600 text-white hover:bg-sky-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
             >
                 認証

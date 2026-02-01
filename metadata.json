@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.47",
-  "description": "UX Improvement: Renamed confusing terms and added report completion screen.",
-  "version": "4.47",
+  "name": "Career Consulting_4.51",
+  "description": "Fix: Erasure button error handling and complete data deletion logic.",
+  "version": "4.51",
   "prompt": ""
 }
