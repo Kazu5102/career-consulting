@@ -46,7 +46,7 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
         <header className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-800">セッション記録・引継ぎ書</h2>
+              <h2 className="text-xl font-bold text-slate-800">セッション記録・引継ぎ資料</h2>
                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
                     status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
