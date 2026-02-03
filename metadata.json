@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.60",
-  "description": "Update: New visual identity with custom icon and Multimodal (Image) support.",
-  "version": "4.60",
+  "name": "Career Consulting_4.61",
+  "description": "Update: Fixed shortcut icon display compatibility for iOS/Android.",
+  "version": "4.61",
   "prompt": ""
 }
