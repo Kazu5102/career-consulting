@@ -1,5 +1,5 @@
 
-// types.ts - v4.41
+// types.ts - v4.52 - Multimodal Support
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -52,6 +52,10 @@ export interface GroundingMetadata {
 export interface ChatMessage {
   author: MessageAuthor;
   text: string;
+  image?: {
+    data: string; // base64
+    mimeType: string;
+  };
   groundingMetadata?: GroundingMetadata;
 }
 

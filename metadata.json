@@ -1,10 +1,9 @@
-
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.51",
-  "description": "Fix: Erasure button error handling and complete data deletion logic.",
-  "version": "4.51",
+  "name": "Career Consulting_4.60",
+  "description": "Update: New visual identity with custom icon and Multimodal (Image) support.",
+  "version": "4.60",
   "prompt": ""
 }
