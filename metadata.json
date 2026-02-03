@@ -1,10 +1,9 @@
-
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.61",
-  "description": "Update: Fixed shortcut icon display compatibility for iOS/Android.",
-  "version": "4.61",
+  "name": "Career Consulting_4.51",
+  "description": "Fix: Erasure button error handling and complete data deletion logic.",
+  "version": "4.51",
   "prompt": ""
 }
