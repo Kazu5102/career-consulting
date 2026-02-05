@@ -142,7 +142,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
             })}
           </div>
       </div>
-      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
+      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} viewMode="user" />}
       <ExportSuccessModal isOpen={isExportSuccessModalOpen} onClose={() => setIsExportSuccessModalOpen(false)} />
     </>
   );

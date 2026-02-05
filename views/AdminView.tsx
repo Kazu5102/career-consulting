@@ -465,7 +465,7 @@ const AdminView: React.FC = () => {
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
-            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} />}
+            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} viewMode="admin" />}
         </div>
     );
 };

@@ -1,15 +1,19 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { marked } from 'marked';
 import { StoredConversation } from '../types';
 import MessageBubble from './MessageBubble';
+import ChevronDownIcon from './icons/ChevronDownIcon';
 
 interface ConversationDetailModalProps {
   conversation: StoredConversation;
   onClose: () => void;
+  viewMode: 'user' | 'admin';
 }
 
-const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conversation, onClose }) => {
+const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conversation, onClose, viewMode }) => {
+  const [isProNotesExpanded, setIsProNotesExpanded] = useState(false);
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ja-JP', { dateStyle: 'long', timeStyle: 'short' });
   };
@@ -36,8 +40,8 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
   // Check for signs of an accidentally imported encrypted file
   const isEncryptedReportArtifact = 
     user_summary.includes("レポート閲覧認証") || 
-    user_summary.includes("パスワードを入力してください") ||
-    user_summary.includes("高度に暗号化されています") ||
+    user_summary.includes("パスワードを入力してください") || 
+    user_summary.includes("高度に暗号化されています") || 
     user_summary.includes("Unlock Report");
 
   return (
@@ -46,7 +50,7 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
         <header className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-800">セッション記録・引継ぎ資料</h2>
+              <h2 className="text-xl font-bold text-slate-800">セッション記録・振り返り</h2>
                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
                     status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
@@ -75,32 +79,49 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
                 </p>
              </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <section className="bg-amber-50/40 p-6 rounded-3xl border border-amber-100/50">
-                <div className="flex items-center gap-2 mb-6 text-amber-800">
-                    <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-amber-100 rounded">User Facing</span>
-                    <h3 className="text-lg font-bold">相談の振り返り</h3>
-                </div>
-                <article 
-                    className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
-                    dangerouslySetInnerHTML={createMarkup(user_summary)}
-                />
-                </section>
-
-                <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50">
-                <div className="flex items-center gap-2 mb-6 text-emerald-800">
-                    <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
-                    <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
-                </div>
-                {pro_notes ? (
+            <div className={`grid gap-8 ${viewMode === 'admin' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-3xl mx-auto'}`}>
+                {/* ユーザー向けサマリー（常に表示） */}
+                <section className="bg-amber-50/40 p-6 rounded-3xl border border-amber-100/50 h-fit">
+                    <div className="flex items-center gap-2 mb-6 text-amber-800">
+                        <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-amber-100 rounded">User Facing</span>
+                        <h3 className="text-lg font-bold">相談の振り返り</h3>
+                    </div>
                     <article 
                         className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
-                        dangerouslySetInnerHTML={createMarkup(pro_notes)}
+                        dangerouslySetInnerHTML={createMarkup(user_summary)}
                     />
-                ) : (
-                    <p className="text-slate-400 italic text-sm">※詳細ノートは生成されていません。</p>
-                )}
                 </section>
+
+                {/* 専門家向けノート（管理者のみ表示） */}
+                {viewMode === 'admin' && (
+                    <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50 h-fit">
+                        <div 
+                            className="flex items-center justify-between gap-2 mb-4 text-emerald-800 cursor-pointer lg:cursor-auto select-none lg:select-text"
+                            onClick={() => setIsProNotesExpanded(!isProNotesExpanded)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
+                                <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
+                            </div>
+                            {/* モバイル/タブレットではアコーディオン開閉ボタンを表示 */}
+                            <div className="lg:hidden p-1 bg-white/50 rounded-full">
+                                <ChevronDownIcon className={`w-5 h-5 text-emerald-600 transition-transform duration-300 ${isProNotesExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                        </div>
+                        
+                        {/* モバイルではデフォルト非表示、PCではデフォルト表示（lg:max-h-none） */}
+                        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isProNotesExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 lg:max-h-none lg:opacity-100'}`}>
+                            {pro_notes ? (
+                                <article 
+                                    className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed pt-2 lg:pt-0"
+                                    dangerouslySetInnerHTML={createMarkup(pro_notes)}
+                                />
+                            ) : (
+                                <p className="text-slate-400 italic text-sm pt-2 lg:pt-0">※詳細ノートは生成されていません。</p>
+                            )}
+                        </div>
+                    </section>
+                )}
             </div>
           )}
 

@@ -1,9 +1,10 @@
+
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.51",
-  "description": "Fix: Erasure button error handling and complete data deletion logic.",
-  "version": "4.51",
+  "name": "Career Consulting_4.52",
+  "description": "Fix: Hide professional notes for users and improve mobile layout for admins.",
+  "version": "4.52",
   "prompt": ""
 }
