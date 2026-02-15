@@ -1,0 +1,9 @@
+{
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "name": "Career Consulting_4.55",
+  "description": "Protocol 3.0 Core: Migrated storage engine to IndexedDB for unlimited persistence and better performance.",
+  "version": "4.55",
+  "prompt": ""
+}
