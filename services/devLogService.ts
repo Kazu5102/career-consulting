@@ -1,6 +1,6 @@
 
-// services/devLogService.ts - v4.12 - Enhanced Audit Logging
-export type LogType = 'system' | 'security' | 'audit' | 'error';
+// services/devLogService.ts - v4.53 - Quality Feedback Logging
+export type LogType = 'system' | 'security' | 'audit' | 'error' | 'quality_feedback';
 export type LogLevel = 'info' | 'warn' | 'critical';
 
 export interface DevLogEntry {
@@ -8,7 +8,7 @@ export interface DevLogEntry {
   type: LogType;
   level: LogLevel;
   action: string;      // Operation name or User Prompt
-  details: string;     // Result details or AI Summary
+  details: string;     // Result details or AI Summary (JSON stringified for structured data)
 }
 
 export interface DevLog {

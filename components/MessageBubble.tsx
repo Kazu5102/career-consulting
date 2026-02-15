@@ -1,5 +1,5 @@
 
-// components/MessageBubble.tsx - v2.22 - Dog Action Chip Implementation
+// components/MessageBubble.tsx - v2.30 - Regeneration UI
 import React from 'react';
 import { marked } from 'marked';
 import { ChatMessage, MessageAuthor } from '../types';
@@ -7,12 +7,14 @@ import UserIcon from './icons/UserIcon';
 import RobotIcon from './icons/RobotIcon';
 import EditIcon from './icons/EditIcon';
 import LinkIcon from './icons/LinkIcon';
+import RefreshIcon from './icons/RefreshIcon';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   isEditable?: boolean;
   onEdit?: () => void;
   isThinking?: boolean;
+  onRegenerate?: () => void; // New Prop for Regeneration
 }
 
 const createMarkup = (markdownText: string) => {
@@ -46,7 +48,7 @@ const SourceChip: React.FC<{ url: string; title?: string }> = ({ url, title }) =
     );
 };
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEdit, isThinking }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEdit, isThinking, onRegenerate }) => {
   const isUser = message.author === MessageAuthor.USER;
 
   const bubbleClasses = isUser
@@ -83,7 +85,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEd
       )}
       
       <div className={`flex flex-col gap-2 max-w-lg lg:max-w-2xl`}>
-          <div className={`px-5 py-3 rounded-2xl ${bubbleClasses} ${isUser ? 'rounded-br-lg' : 'rounded-bl-lg'} break-words shadow-sm`}>
+          <div className={`px-5 py-3 rounded-2xl ${bubbleClasses} ${isUser ? 'rounded-br-lg' : 'rounded-bl-lg'} break-words shadow-sm relative`}>
             {message.text ? (
               <div dangerouslySetInnerHTML={createMarkup(message.text)} />
             ) : (
@@ -95,13 +97,29 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isEditable, onEd
             )}
           </div>
           
-          {uniqueSources.length > 0 && !isUser && (
-              <div className="flex flex-wrap gap-2 ml-2">
-                  {uniqueSources.map((source, idx) => (
-                      <SourceChip key={idx} url={source.uri} title={source.title} />
-                  ))}
-              </div>
-          )}
+          <div className="flex justify-between items-start">
+            {uniqueSources.length > 0 && !isUser ? (
+                <div className="flex flex-wrap gap-2 ml-2">
+                    {uniqueSources.map((source, idx) => (
+                        <SourceChip key={idx} url={source.uri} title={source.title} />
+                    ))}
+                </div>
+            ) : (
+                <div></div>
+            )}
+
+            {/* Regeneration Button for AI Messages */}
+            {!isUser && onRegenerate && !isThinking && (
+                <button
+                    onClick={onRegenerate}
+                    className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-sky-600 hover:bg-sky-50 px-2 py-1 rounded-full border border-slate-200 transition-all mr-1 ml-auto opacity-0 group-hover:opacity-100"
+                    title="その言い方なんか変だよ。もう一度考えて"
+                >
+                    <RefreshIcon className="w-3 h-3" />
+                    <span>言い直して！</span>
+                </button>
+            )}
+          </div>
       </div>
 
       {isUser && (

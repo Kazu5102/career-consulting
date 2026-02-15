@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor } from '../types';
 import MessageBubble from './MessageBubble';
@@ -6,9 +7,10 @@ interface ChatWindowProps {
   messages: ChatMessage[];
   isLoading: boolean;
   onEditMessage: (index: number) => void;
+  onRegenerate?: () => void; // Added for regeneration
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onEditMessage }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onEditMessage, onRegenerate }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,6 +33,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onEditMess
         const isLastMessage = index === messages.length - 1;
         const isAiThinking = isLastMessage && msg.author === MessageAuthor.AI && isLoading;
         const isEditable = index === lastUserMessageIndex && !isLoading;
+        
+        // Allow regeneration only for the very last message if it's from AI and not currently thinking
+        const showRegenerate = isLastMessage && msg.author === MessageAuthor.AI && !isLoading && onRegenerate;
 
         return (
           <MessageBubble
@@ -39,6 +44,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onEditMess
             isEditable={isEditable}
             onEdit={() => onEditMessage(index)}
             isThinking={isAiThinking}
+            onRegenerate={showRegenerate ? onRegenerate : undefined}
           />
         );
       })}

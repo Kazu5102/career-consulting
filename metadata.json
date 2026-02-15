@@ -3,8 +3,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.52",
-  "description": "Fix: Hide professional notes for users and improve mobile layout for admins.",
-  "version": "4.52",
+  "name": "Career Consulting_4.54",
+  "description": "UI Improvement: Friendly regeneration button and structured quality feedback logging.",
+  "version": "4.54",
   "prompt": ""
 }
