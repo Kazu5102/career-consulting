@@ -1,5 +1,5 @@
 
-// components/ShareReportModal.tsx - v4.47 - UX Improvements
+// components/ShareReportModal.tsx - v4.55 - Async History Fetching
 import React, { useState, useEffect, useRef } from 'react';
 import { StoredConversation, AnalysisHistoryEntry } from '../types';
 import { generateReport } from '../services/reportService';
@@ -14,7 +14,6 @@ interface ShareReportModalProps {
   onClose: () => void;
   userId: string;
   conversations: StoredConversation[];
-  // analysisCache is no longer used, we fetch history internally
   analysisCache: any | null | undefined;
 }
 
@@ -36,12 +35,15 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
             setIsComplete(false);
             setTimeout(() => passwordInputRef.current?.focus(), 100);
             
-            // Preview history count
-            const history = getAnalysisHistory(userId);
-            setHistoryCount({
-                trajectory: history.filter(h => h.type === 'trajectory').length,
-                skill: history.filter(h => h.type === 'skillMatching').length
-            });
+            // Preview history count (Async)
+            const fetchHistory = async () => {
+                const history = await getAnalysisHistory(userId);
+                setHistoryCount({
+                    trajectory: history.filter(h => h.type === 'trajectory').length,
+                    skill: history.filter(h => h.type === 'skillMatching').length
+                });
+            };
+            fetchHistory();
         }
     }, [isOpen, userId]);
     
@@ -61,8 +63,8 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
         setIsLoading(true);
 
         try {
-            // Fetch fresh history at generation time
-            const history = getAnalysisHistory(userId);
+            // Fetch fresh history at generation time (Async)
+            const history = await getAnalysisHistory(userId);
             
             const blob = await generateReport({ userId, conversations, analysisHistory: history }, password);
             const date = new Date().toISOString().split('T')[0];
@@ -77,7 +79,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            addLogEntry({
+            await addLogEntry({
                 type: 'audit',
                 level: 'info',
                 action: 'Report Generated',
