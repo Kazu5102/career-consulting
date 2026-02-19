@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.43 - Robust Streaming Support for Analysis
+// services/geminiService.ts - v4.62 - Phased Analysis Client
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
@@ -193,8 +193,13 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
-    // Use streaming accumulator
-    return await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId });
+    // Phased Execution: Call API multiple times to avoid timeout
+    const phase1 = await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId, phase: 'basic' });
+    const phase2 = await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId, phase: 'insight' });
+    const phase3 = await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId, phase: 'clinical' });
+
+    // Merge results
+    return { ...phase1, ...phase2, ...phase3 };
 };
 
 export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
@@ -207,8 +212,13 @@ export const generateSummaryFromText = async (textToAnalyze: string): Promise<st
 };
 
 export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
-    // Use streaming accumulator
-    return await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations });
+    // Phased Execution: Call API multiple times to avoid timeout
+    const phase1 = await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations, phase: 'profile' });
+    const phase2 = await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations, phase: 'roles' });
+    const phase3 = await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations, phase: 'growth' });
+
+    // Merge results
+    return { ...phase1, ...phase2, ...phase3 };
 };
 
 export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {

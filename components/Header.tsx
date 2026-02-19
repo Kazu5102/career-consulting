@@ -6,7 +6,6 @@ interface HeaderProps {
   onBackClick?: () => void;
 }
 
-
 const Header: React.FC<HeaderProps> = ({ showBackButton, onBackClick }) => {
   
   return (

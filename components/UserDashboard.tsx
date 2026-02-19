@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v4.51 - Robust Erasure
+// components/UserDashboard.tsx - v4.61 - Reverted Install Guide
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -57,7 +57,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
               await userService.deleteUsers([userId]);
               // 会話履歴の削除
               await conversationService.deleteConversationsByUserIds([userId]);
-              // 分析履歴の削除 (追加)
+              // 分析履歴の削除
               analysisService.deleteAnalysisHistory([userId]);
               // 一時保存データの削除
               await conversationService.clearAutoSave(userId);
@@ -99,7 +99,6 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
           <div className="flex-1 overflow-y-auto pr-2 space-y-3">
             <h2 className="text-lg font-black text-slate-800 px-1">過去のセッション ({conversations.length}件)</h2>
             {conversations.map(conv => {
-                // Interrupted Session: Show Resume Card
                 if (conv.status === 'interrupted') {
                     return (
                         <div key={conv.id} className="w-full p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition-all group flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
@@ -126,7 +125,6 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
                     );
                 }
                 
-                // Completed Session: Show Detail Button
                 return (
                     <button key={conv.id} onClick={() => setSelectedConversation(conv)} className="w-full text-left p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-sky-300 transition-all group relative overflow-hidden pl-7">
                         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-400"></div>
@@ -142,7 +140,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
             })}
           </div>
       </div>
-      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} viewMode="user" />}
+      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
       <ExportSuccessModal isOpen={isExportSuccessModalOpen} onClose={() => setIsExportSuccessModalOpen(false)} />
     </>
   );

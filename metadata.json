@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.55",
-  "description": "Protocol 3.0 Core: Migrated storage engine to IndexedDB for unlimited persistence and better performance.",
-  "version": "4.55",
+  "name": "Career Consulting_4.62",
+  "description": "Fix: Implemented phased analysis execution to prevent API timeouts.",
+  "version": "4.62",
   "prompt": ""
 }

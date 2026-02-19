@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.55 - Async Data & Analysis
+// views/AdminView.tsx - v4.48 - Mobile Optimized Admin UI
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
@@ -145,14 +145,14 @@ const AdminView: React.FC = () => {
     const activeUser = users.find(u => u.id === selectedUserId);
 
     // Refresh history counts when user is selected or analysis completes
-    const refreshHistoryCounts = useCallback(async () => {
+    const refreshHistoryCounts = useCallback(() => {
         if (!selectedUserId) {
             setHistoryCounts({ trajectory: 0, skillMatching: 0 });
             setAnalysisHistoryList([]);
             return;
         }
-        // Async fetch from DB
-        const history = await analysisService.getAnalysisHistory(selectedUserId);
+        // service already returns sorted descending (newest first)
+        const history = analysisService.getAnalysisHistory(selectedUserId);
         setAnalysisHistoryList(history);
         setHistoryCounts({
             trajectory: history.filter(h => h.type === 'trajectory').length,
@@ -187,9 +187,9 @@ const AdminView: React.FC = () => {
         
         await userService.deleteUsers(ids);
         await conversationService.deleteConversationsByUserIds(ids);
-        await analysisService.deleteAnalysisHistory(ids); // Also delete analysis history
+        analysisService.deleteAnalysisHistory(ids); // Also delete analysis history
         
-        await addLogEntry({ type: 'audit', level: 'critical', action: 'Delete Users', details: `Admin deleted ${ids.length} users and their history.` });
+        addLogEntry({ type: 'audit', level: 'critical', action: 'Delete Users', details: `Admin deleted ${ids.length} users and their history.` });
         await loadData();
     };
 
@@ -225,7 +225,7 @@ const AdminView: React.FC = () => {
             }
 
             // Auto-save the result to history
-            await analysisService.saveAnalysisResult(targetUserId, type, data);
+            analysisService.saveAnalysisResult(targetUserId, type, data);
             refreshHistoryCounts();
 
             setAnalyses(prev => ({ ...prev, [type]: { status: 'success', data, error: null } }));
@@ -465,7 +465,7 @@ const AdminView: React.FC = () => {
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
-            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} viewMode="admin" />}
+            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} />}
         </div>
     );
 };
