@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.62 - Phased Analysis Support
+// api/gemini-proxy.ts - v4.60 - Multimodal Support
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -102,147 +102,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 }
 
-async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string, phase?: string }, res: VercelResponse) {
-    const { conversations, phase = 'basic' } = payload;
+async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string }, res: VercelResponse) {
+    const { conversations } = payload;
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
+    const isSingleSession = conversations.length === 1;
+
+    const contextInstruction = isSingleSession
+        ? `相談履歴は**1件のみ**です。深層心理を分析してください。`
+        : `相談履歴は**複数件**あります。【内的変容プロセス】を重視して分析してください。`;
     
-    let prompt = "";
-    let schema: any = {};
-
-    // Phased Execution Strategy to prevent timeouts
-    switch (phase) {
-        case 'basic':
-            prompt = `あなたはキャリアコンサルタントのスーパーバイザーです。相談履歴から【全体像】と【緊急度】を分析してください。
-出力項目:
-- overallSummary: 内的変容プロセスのサマリー (300文字程度)
-- triageLevel: 介入の緊急度 (high/medium/low)
-- ageStageGap: 心理的発達段階と実年齢の乖離度 (0-100%)
+    const prompt = `あなたはキャリアコンサルタントの「スーパーバイザー」です。
+職種提案は行わず、相談者の【内的変容のプロセス】のみを分析してください。
+${contextInstruction}
 履歴:
 ${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    overallSummary: { type: Type.STRING },
-                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"] },
-                    ageStageGap: { type: Type.NUMBER }
-                },
-                required: ["overallSummary", "triageLevel", "ageStageGap"]
-            };
-            break;
-
-        case 'insight':
-            prompt = `あなたはキャリアコンサルタントのスーパーバイザーです。相談履歴から【主要な気づき】と【次回セッションへの導入】を分析してください。
-出力項目:
-- keyTakeaways: 臨床的な主要な指摘事項 (3〜5点)
-- sessionStarter: 次回セッションで使える具体的な問いかけ (1文)
-履歴:
-${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    sessionStarter: { type: Type.STRING }
-                },
-                required: ["keyTakeaways", "sessionStarter"]
-            };
-            break;
-
-        case 'clinical':
-            prompt = `あなたはキャリアコンサルタントのスーパーバイザーです。相談履歴から【理論的背景】と【専門家への助言】を分析してください。
-出力項目:
-- theoryBasis: 適用可能なキャリア理論とその根拠
-- expertAdvice: 担当コンサルタントへのスーパービジョン・アドバイス
-履歴:
-${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    theoryBasis: { type: Type.STRING },
-                    expertAdvice: { type: Type.STRING }
-                },
-                required: ["theoryBasis", "expertAdvice"]
-            };
-            break;
-            
-        default:
-            throw new Error("Invalid phase for trajectory analysis");
-    }
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
         model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            responseSchema: schema
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    overallSummary: { type: Type.STRING },
+                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                    ageStageGap: { type: Type.NUMBER },
+                    theoryBasis: { type: Type.STRING },
+                    expertAdvice: { type: Type.STRING },
+                    sessionStarter: { type: Type.STRING }
+                },
+                required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter"]
+            }
         }
     }));
 }
 
-async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[], phase?: string }, res: VercelResponse) {
-    const { conversations, phase = 'profile' } = payload;
+async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
+    const { conversations } = payload;
     const historyText = conversations.map(c => c.summary).join('\n');
-    
-    let prompt = "";
-    let schema: any = {};
-
-    switch (phase) {
-        case 'profile':
-            prompt = `相談者の履歴から、キャリアプロファイルと強みを分析してください。
-出力項目:
-- analysisSummary: キャリアプロファイルの分析サマリー
-履歴:
-${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    analysisSummary: { type: Type.STRING }
-                },
-                required: ["analysisSummary"]
-            };
-            break;
-
-        case 'roles':
-            prompt = `相談者の経験と強みに基づき、現実的な「地続きの適職」を最大3つ提案してください。
-出力項目:
-- recommendedRoles: 推奨職種リスト (職種名、理由、適合スコア)
-履歴:
-${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } }
-                },
-                required: ["recommendedRoles"]
-            };
-            break;
-
-        case 'growth':
-            prompt = `相談者の市場価値を高めるために必要なスキルと学習リソースを提案してください。
-出力項目:
-- skillsToDevelop: 伸ばすべきスキル (最大3つ)
-- learningResources: 具体的な学習リソース (最大3つ)
-履歴:
-${historyText}`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
-                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
-                },
-                required: ["skillsToDevelop", "learningResources"]
-            };
-            break;
-
-        default:
-            throw new Error("Invalid phase for skill matching");
-    }
+    const prompt = `相談者の強みを再定義し、現実的な「地続きの適職」を提案してください。\n履歴:\n${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
         model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            responseSchema: schema
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    analysisSummary: { type: Type.STRING },
+                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } },
+                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
+                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
+                },
+                required: ["analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
+            }
         }
     }));
 }
