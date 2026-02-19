@@ -1,10 +1,9 @@
 
-// components/DataManagementModal.tsx - v4.55 - Async DB Management
+// components/DataManagementModal.tsx - v4.20 - Unified Persistence Logic
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
 import * as conversationService from '../services/conversationService';
-import * as analysisService from '../services/analysisService';
 import * as devLogService from '../services/devLogService';
 import DatabaseIcon from './icons/DatabaseIcon';
 import ExportIcon from './icons/ExportIcon';
@@ -36,19 +35,9 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
 
   const handleExportAll = async () => {
     try {
-      setIsProcessing(true);
       const users = await userService.getUsers();
       const conversations = await conversationService.getAllConversations();
-      const analysisHistory = await analysisService.getAllAnalysisHistory();
-      
-      const backupData: StoredData = { 
-          version: STORAGE_VERSION, 
-          users, 
-          data: conversations, 
-          analysisHistory,
-          exportedAt: new Date().toISOString() 
-      };
-      
+      const backupData: StoredData = { version: STORAGE_VERSION, users, data: conversations, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -58,13 +47,8 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showStatus("全データをエクスポートしました (IndexedDB)。");
-    } catch (e) { 
-        console.error(e);
-        alert("エクスポート中にエラーが発生しました。"); 
-    } finally {
-        setIsProcessing(false);
-    }
+      showStatus("データをエクスポートしました。");
+    } catch { alert("エラーが発生しました。"); }
   };
 
   const handleImportSystem = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,39 +59,23 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
     reader.onload = async (e) => {
         try {
             const imported = JSON.parse(e.target?.result as string) as StoredData;
-            
-            // 1. Merge Users
             let importedUsers: UserInfo[] = imported.users || (imported.userInfo ? [imported.userInfo] : []);
-            // For PutAll, we just assume adding them is fine. If ID exists, it updates.
-            await userService.saveUsers(importedUsers);
-
-            // 2. Merge Conversations
             let importedConvs: StoredConversation[] = imported.data || [];
-            // We use putAll logic inside save, so we can just add them.
-            // But conversationService has replaceAllConversations which clears DB.
-            // Let's implement a merge approach to be safe: get existing, filter dupes, add new.
+            
+            const currentUsers = await userService.getUsers();
+            const userIdMap = new Map(currentUsers.map(u => [u.id, u]));
+            importedUsers.forEach(u => userIdMap.set(u.id, u));
+            await userService.saveUsers(Array.from(userIdMap.values()));
+
             const currentConvs = await conversationService.getAllConversations();
             const convIdSet = new Set(currentConvs.map(c => c.id));
             const uniqueNewConvs = importedConvs.filter(c => !convIdSet.has(c.id));
-            
-            // We can't use replaceAllConversations if we want to KEEP current data.
-            // So let's iterate and save.
-            for (const conv of uniqueNewConvs) {
-                await conversationService.saveConversation(conv);
-            }
+            await conversationService.replaceAllConversations([...currentConvs, ...uniqueNewConvs]);
 
-            // 3. Merge Analysis History
-            if (imported.analysisHistory) {
-                await analysisService.restoreAnalysisHistory(imported.analysisHistory);
-            }
-
-            await devLogService.addLogEntry({ type: 'audit', level: 'info', action: 'Data Import', details: `Imported ${uniqueNewConvs.length} sessions & users.` });
+            devLogService.addLogEntry({ type: 'audit', level: 'info', action: 'Data Import', details: `Imported ${uniqueNewConvs.length} sessions.` });
             onDataRefresh();
             showStatus(`${uniqueNewConvs.length}件の履歴を統合しました。`);
-        } catch (e) { 
-            console.error(e);
-            alert("インポートに失敗しました。"); 
-        } finally { setIsProcessing(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+        } catch { alert("インポートに失敗しました。"); } finally { setIsProcessing(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
     };
     reader.readAsText(file);
   };
@@ -115,7 +83,7 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
   return (
     <div className="fixed inset-0 bg-slate-900/60 z-[250] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
-        <header className="p-6 border-b border-slate-100 flex justify-between items-center bg-white"><div className="flex items-center gap-3 text-slate-800"><DatabaseIcon className="w-6 h-6 text-sky-600" /><h2 className="text-xl font-bold tracking-tight">データ管理コンソール (DB)</h2></div><button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></header>
+        <header className="p-6 border-b border-slate-100 flex justify-between items-center bg-white"><div className="flex items-center gap-3 text-slate-800"><DatabaseIcon className="w-6 h-6 text-sky-600" /><h2 className="text-xl font-bold tracking-tight">データ管理コンソール</h2></div><button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></header>
         <div className="p-8 space-y-8">
           <section className="space-y-4">
             <div className="text-xs font-black text-slate-400 uppercase tracking-widest">System Backup & Restore</div>

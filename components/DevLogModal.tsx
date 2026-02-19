@@ -1,5 +1,5 @@
 
-// components/DevLogModal.tsx - v4.55 - Async Data Fetching
+// components/DevLogModal.tsx - v4.12 - Audit Visualization
 import React, { useState, useEffect } from 'react';
 import * as devLogService from '../services/devLogService';
 import { DevLogEntry } from '../services/devLogService';
@@ -19,24 +19,21 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      const fetchLogs = async () => {
-          const allLogs = await devLogService.getLogs();
-          // Display newest first (reverse the array since IndexedDB getAll returns natural order)
-          setLogs(allLogs.entries.reverse());
-      };
-      fetchLogs();
+      const allLogs = devLogService.getLogs();
+      // Display newest first
+      setLogs(allLogs.entries.slice().reverse());
     }
   }, [isOpen]);
 
-  const handleClearLogs = async () => {
+  const handleClearLogs = () => {
     if (window.confirm("全てのログを削除しますか？\n※セキュリティ監査ログも含まれます。通常は推奨されません。")) {
-      await devLogService.clearLogs();
+      devLogService.clearLogs();
       setLogs([]);
     }
   };
 
-  const handleExportLogs = async () => {
-    const logsData = await devLogService.getLogs();
+  const handleExportLogs = () => {
+    const logsData = devLogService.getLogs();
     if (logsData.entries.length === 0) {
       alert("エクスポートするログがありません。");
       return;
@@ -93,7 +90,7 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
              <div className="p-2 bg-slate-100 rounded-lg"><LogIcon className="w-5 h-5 text-slate-600"/></div>
              <div>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">System Audit Logs</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 3.0 Compliance Record (Async DB)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 2.0 Compliance Record</p>
              </div>
           </div>
           <div className="flex items-center gap-2">
