@@ -1,14 +1,24 @@
 
-// services/conversationService.ts - v4.55 - IndexedDB Support
-import { StoredConversation } from '../types';
-import { dbService, STORES } from './db';
+// services/conversationService.ts - v1.0.0 - Persistence Layer Isolation
+import { StoredConversation, STORAGE_VERSION, StoredData } from '../types';
+// Fix: Import STORAGE_KEYS from constants.ts instead of types.ts
+import { STORAGE_KEYS } from '../constants';
 
 /**
- * Retrieves all conversations from IndexedDB.
+ * Retrieves all conversations from storage.
+ * Designed to be async to facilitate future database migration.
  */
 export const getAllConversations = async (): Promise<StoredConversation[]> => {
   try {
-    return await dbService.getAll<StoredConversation>(STORES.CONVERSATIONS);
+    const rawData = localStorage.getItem(STORAGE_KEYS.CONSULTATIONS);
+    if (!rawData) return [];
+    const parsed = JSON.parse(rawData);
+    if (parsed && parsed.data && Array.isArray(parsed.data)) {
+      return parsed.data;
+    } else if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    return [];
   } catch (error) {
     console.error("Failed to fetch conversations:", error);
     return [];
@@ -27,26 +37,40 @@ export const getConversationsByUserId = async (userId: string): Promise<StoredCo
  * Saves a new conversation or updates an existing one.
  */
 export const saveConversation = async (conversation: StoredConversation): Promise<void> => {
-  try {
-      await dbService.put(STORES.CONVERSATIONS, conversation);
-  } catch (error) {
-      console.error("Failed to save conversation:", error);
+  const all = await getAllConversations();
+  const index = all.findIndex(c => c.id === conversation.id);
+  
+  let updated;
+  if (index !== -1) {
+    updated = [...all];
+    updated[index] = conversation;
+  } else {
+    updated = [...all, conversation];
   }
+
+  const dataToStore: StoredData = {
+    version: STORAGE_VERSION,
+    data: updated
+  };
+  localStorage.setItem(STORAGE_KEYS.CONSULTATIONS, JSON.stringify(dataToStore));
 };
 
 /**
  * Bulk deletes conversations by user IDs.
- * Since conversations store key is 'id' (timestamp), we need to find them first.
  */
 export const deleteConversationsByUserIds = async (userIds: string[]): Promise<void> => {
+  const targetIds = new Set(userIds);
   const all = await getAllConversations();
-  const targets = all.filter(c => userIds.includes(c.userId));
-  const keys = targets.map(c => c.id);
-  await dbService.deleteAll(STORES.CONVERSATIONS, keys);
+  const remaining = all.filter(c => !targetIds.has(c.userId));
+  
+  localStorage.setItem(STORAGE_KEYS.CONSULTATIONS, JSON.stringify({
+    version: STORAGE_VERSION,
+    data: remaining
+  }));
 };
 
 /**
- * Saves auto-save draft data. (Remains in LocalStorage for performance/simplicity for now)
+ * Saves auto-save draft data.
  */
 export const saveAutoSave = async (userId: string, data: any): Promise<void> => {
   localStorage.setItem(`career_autosave_${userId}`, JSON.stringify(data));
@@ -69,9 +93,10 @@ export const clearAutoSave = async (userId: string): Promise<void> => {
 
 /**
  * Replaces the entire conversation store (used for import/restore).
- * WARNING: This clears existing DB data first.
  */
 export const replaceAllConversations = async (conversations: StoredConversation[]): Promise<void> => {
-  await dbService.clear(STORES.CONVERSATIONS);
-  await dbService.putAll(STORES.CONVERSATIONS, conversations);
+  localStorage.setItem(STORAGE_KEYS.CONSULTATIONS, JSON.stringify({
+    version: STORAGE_VERSION,
+    data: conversations
+  }));
 };

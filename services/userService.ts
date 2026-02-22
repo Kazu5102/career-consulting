@@ -1,8 +1,9 @@
 
-// services/userService.ts - v4.55 - IndexedDB Support
+// services/userService.ts - v4.20 - Future-proofed Async Interfaces
 import { UserInfo } from '../types';
+// Fix: Import STORAGE_KEYS from constants.ts instead of types.ts
+import { STORAGE_KEYS } from '../constants';
 import { ADJECTIVES, ANIMALS } from '../data/nicknames';
-import { dbService, STORES } from './db';
 
 /**
  * Generates a unique, memorable nickname.
@@ -24,26 +25,26 @@ export const generatePin = (): string => {
 };
 
 /**
- * Retrieves all users from IndexedDB.
+ * Retrieves all users. Now async-ready.
  */
 export const getUsers = async (): Promise<UserInfo[]> => {
   try {
-    return await dbService.getAll<UserInfo>(STORES.USERS);
+    const data = localStorage.getItem(STORAGE_KEYS.USERS);
+    return data ? JSON.parse(data) : [];
   } catch (error) {
-    console.error("Failed to get users from DB", error);
+    console.error("Failed to get users from localStorage", error);
     return [];
   }
 };
 
 /**
- * Saves all users. Note: IndexedDB putAll overwrites/adds.
- * For full replacement logic if needed, we might need clear+putAll, but put is fine for updates.
+ * Saves all users.
  */
 export const saveUsers = async (users: UserInfo[]): Promise<void> => {
   try {
-    await dbService.putAll(STORES.USERS, users);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   } catch (error) {
-    console.error("Failed to save users to DB", error);
+    console.error("Failed to save users to localStorage", error);
   }
 };
 
@@ -62,17 +63,16 @@ export const addNewUser = async (): Promise<UserInfo> => {
         pin: generatePin(),
     };
     
-    await dbService.put(STORES.USERS, newUser);
+    await saveUsers([...users, newUser]);
     return newUser;
 }
 
 /**
- * Optimized user deletion.
+ * Optimized user deletion with clear separation of concerns.
  */
 export const deleteUsers = async (userIds: string[]): Promise<void> => {
-  try {
-      await dbService.deleteAll(STORES.USERS, userIds);
-  } catch (error) {
-      console.error("Failed to delete users", error);
-  }
+  const targetIds = new Set(userIds);
+  const users = await getUsers();
+  const remainingUsers = users.filter(u => !targetIds.has(u.id));
+  await saveUsers(remainingUsers);
 };

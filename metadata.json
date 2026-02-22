@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.55B（DB改変_P3.0スタート）",
-  "description": "Protocol 3.0 Core: Migrated storage engine to IndexedDB for unlimited persistence and better performance.",
-  "version": "4.55",
+  "name": "Career Consulting_4.61",
+  "description": "Revert: Rolled back to v4.61 by removing installation guide features.",
+  "version": "4.61",
   "prompt": ""
 }
