@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v4.51 - Robust Erasure
+// components/UserDashboard.tsx - v4.55 - Async Erasure
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -34,7 +34,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
       setIsExporting(true);
       try {
           const userData: UserInfo = { id: userId, nickname, pin };
-          const dataToStore: StoredData = { version: STORAGE_VERSION, data: conversations, userInfo: userData };
+          // Need to fetch history as well for full export, but this is user data export.
+          // Let's stick to conversations for now or fetch history async if needed.
+          // Since history is internal analytics, maybe user doesn't need it?
+          // Protocol 2.0 says "Data Portability". Let's include everything if possible.
+          // For now, keeping it simple as StoredData structure supports it but getAnalysisHistory is async now.
+          
+          const analysisHistory = await analysisService.getAnalysisHistory(userId);
+
+          const dataToStore: StoredData = { 
+              version: STORAGE_VERSION, 
+              data: conversations, 
+              userInfo: userData,
+              analysisHistory 
+          };
+          
           const blob = new Blob([JSON.stringify(dataToStore, null, 2)], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -51,14 +65,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
   const handleErasureRequest = async () => {
       if (window.confirm("【忘れられる権利の行使】全てのデータを完全に削除します。本当によろしいですか？")) {
           try {
-              addLogEntry({ type: 'audit', level: 'critical', action: 'Right to Erasure Executed', details: `User ${userId} requested full data deletion.` });
+              await addLogEntry({ type: 'audit', level: 'critical', action: 'Right to Erasure Executed', details: `User ${userId} requested full data deletion.` });
               
               // ユーザー情報の削除
               await userService.deleteUsers([userId]);
               // 会話履歴の削除
               await conversationService.deleteConversationsByUserIds([userId]);
               // 分析履歴の削除 (追加)
-              analysisService.deleteAnalysisHistory([userId]);
+              await analysisService.deleteAnalysisHistory([userId]);
               // 一時保存データの削除
               await conversationService.clearAutoSave(userId);
               
@@ -93,7 +107,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
              </div>
              <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl mb-6 flex gap-4 items-center">
                 <div className="w-10 h-10 bg-sky-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-lg"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg></div>
-                <p className="text-[11px] text-sky-800 font-bold leading-relaxed">本システムは Protocol 2.0 に基づきデータを保護しています。いつでも全てのデータを削除することが可能です。</p>
+                <p className="text-[11px] text-sky-800 font-bold leading-relaxed">本システムは Protocol 3.0 (IndexedDB) に基づきデータを保護しています。ブラウザ容量の制限なく安全に記録され、いつでも全てのデータを削除することが可能です。</p>
              </div>
           </header>
           <div className="flex-1 overflow-y-auto pr-2 space-y-3">

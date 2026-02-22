@@ -1,13 +1,12 @@
 
-// services/analysisService.ts
-import { STORAGE_KEYS } from '../constants';
+// services/analysisService.ts - v4.55 - IndexedDB Support
 import { AnalysisHistoryEntry, AnalysisType } from '../types';
+import { dbService, STORES } from './db';
 
-export const getAnalysisHistory = (userId: string): AnalysisHistoryEntry[] => {
+// Changed to Async
+export const getAnalysisHistory = async (userId: string): Promise<AnalysisHistoryEntry[]> => {
     try {
-        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSIS_HISTORY);
-        if (!raw) return [];
-        const all: AnalysisHistoryEntry[] = JSON.parse(raw);
+        const all = await dbService.getAll<AnalysisHistoryEntry>(STORES.ANALYSIS_HISTORY);
         // Sort: Newest first
         return all.filter(e => e.userId === userId).sort((a, b) => b.timestamp - a.timestamp);
     } catch (e) {
@@ -16,14 +15,12 @@ export const getAnalysisHistory = (userId: string): AnalysisHistoryEntry[] => {
     }
 };
 
-export const saveAnalysisResult = (userId: string, type: AnalysisType, data: any) => {
+// Changed to Async
+export const saveAnalysisResult = async (userId: string, type: AnalysisType, data: any): Promise<void> => {
     // Only persist Trajectory and SkillMatching as per requirements
     if (type === 'hiddenPotential') return;
 
     try {
-        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSIS_HISTORY);
-        const all: AnalysisHistoryEntry[] = raw ? JSON.parse(raw) : [];
-        
         const newEntry: AnalysisHistoryEntry = {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             userId,
@@ -32,35 +29,33 @@ export const saveAnalysisResult = (userId: string, type: AnalysisType, data: any
             data
         };
         
-        all.push(newEntry);
-        localStorage.setItem(STORAGE_KEYS.ANALYSIS_HISTORY, JSON.stringify(all));
+        await dbService.put(STORES.ANALYSIS_HISTORY, newEntry);
     } catch (e) {
         console.error("Failed to save analysis result", e);
     }
 };
 
-export const deleteAnalysisHistory = (userIds: string[]) => {
+// Changed to Async
+export const deleteAnalysisHistory = async (userIds: string[]): Promise<void> => {
     try {
-        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSIS_HISTORY);
-        if (!raw) return;
-        const all: AnalysisHistoryEntry[] = JSON.parse(raw);
-        const remaining = all.filter(e => !userIds.includes(e.userId));
-        localStorage.setItem(STORAGE_KEYS.ANALYSIS_HISTORY, JSON.stringify(remaining));
+        const all = await dbService.getAll<AnalysisHistoryEntry>(STORES.ANALYSIS_HISTORY);
+        const targets = all.filter(e => userIds.includes(e.userId));
+        const keys = targets.map(e => e.id);
+        await dbService.deleteAll(STORES.ANALYSIS_HISTORY, keys);
     } catch (e) {
         console.error("Failed to delete analysis history", e);
     }
 };
 
 // For full system backup/restore
-export const getAllAnalysisHistory = (): AnalysisHistoryEntry[] => {
+export const getAllAnalysisHistory = async (): Promise<AnalysisHistoryEntry[]> => {
     try {
-        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSIS_HISTORY);
-        return raw ? JSON.parse(raw) : [];
+        return await dbService.getAll<AnalysisHistoryEntry>(STORES.ANALYSIS_HISTORY);
     } catch (e) { return []; }
 }
 
-export const restoreAnalysisHistory = (history: AnalysisHistoryEntry[]) => {
+export const restoreAnalysisHistory = async (history: AnalysisHistoryEntry[]): Promise<void> => {
     try {
-        localStorage.setItem(STORAGE_KEYS.ANALYSIS_HISTORY, JSON.stringify(history));
+        await dbService.putAll(STORES.ANALYSIS_HISTORY, history);
     } catch (e) { console.error("Restore failed", e); }
 }
