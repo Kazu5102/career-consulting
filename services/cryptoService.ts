@@ -13,7 +13,7 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
     return window.crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt: salt,
+            salt: salt as BufferSource,
             iterations: 100, // Standard developer-friendly iterations for quick local tests
             hash: 'SHA-256',
         },
@@ -25,10 +25,10 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
 };
 
 /**
- * Fast and robust hex conversion for large ArrayBuffers
+ * Fast and robust hex conversion for large ArrayBuffers or Uint8Arrays
  */
-const toHex = (buffer: ArrayBuffer): string => {
-    const bytes = new Uint8Array(buffer);
+const toHex = (buffer: ArrayBuffer | Uint8Array): string => {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     let hex = '';
     for (let i = 0; i < bytes.length; i++) {
         hex += bytes[i].toString(16).padStart(2, '0');
@@ -45,7 +45,7 @@ export const encryptData = async (data: string, password: string): Promise<strin
     const encryptedData = await window.crypto.subtle.encrypt(
         {
             name: 'AES-GCM',
-            iv: iv,
+            iv: iv as BufferSource,
         },
         key,
         encoder.encode(data)
