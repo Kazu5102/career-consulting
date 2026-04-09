@@ -1,7 +1,7 @@
 
-// api/gemini-proxy.ts - v4.60 - System Instructions & Statistical Model Sync
+// api/gemini-proxy.ts - v4.61 - System Instructions & Statistical Model Sync
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -285,12 +285,6 @@ ${aiType === 'dog' ? '※特記事項: 今回は「Compassionate Partner (Dog)�
             systemInstruction, 
             temperature: 0.7,
             topP: 0.95,
-            safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }
-            ],
             thinkingConfig: { thinkingBudget: 0 } 
         },
     }));

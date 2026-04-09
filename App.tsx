@@ -1,5 +1,5 @@
 
-// App.tsx - v4.60 - Update Ethical Guidelines Reference in Protocol Modal
+// App.tsx - v4.66 - Version update for SSE parsing fix
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

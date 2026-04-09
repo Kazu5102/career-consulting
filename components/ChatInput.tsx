@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.60 - Keystroke Statistical Analysis Model (Module 201)
+// components/ChatInput.tsx - v4.62 - Keystroke Statistical Analysis Model (Module 201)
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -17,10 +17,10 @@ interface ChatInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const MIN_TIMEOUT = 600;
+const MIN_TIMEOUT = 500; // S504: 安全装置として500msを下回らないように変更
 const MAX_TIMEOUT = 3000;
-const ALPHA = 1.5; // α: 許容係数
-const MAX_INTERVALS_HISTORY = 5;
+const ALPHA = 2.0; // α: 許容係数 (Step 1: T_base = μ + 2.0 * σ)
+const MAX_INTERVALS_HISTORY = 10; // N=10 に変更
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -34,30 +34,25 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // 打鍵統計解析モデル用 (モジュール201)
+  // S501: 打鍵統計解析モデル用 (モジュール201)
   const lastKeystrokeTimeRef = useRef<number | null>(null);
-  const keystrokeIntervalsRef = useRef<number[]>([]);
+  const keystrokeIntervalsRef = useRef<number[]>([]); // キューはuseRefで実装
+  
+  // S501: 算術平均 μ、標準偏差 σ、推敲係数 β を保持するステート
+  const [mu, setMu] = useState<number>(MIN_TIMEOUT);
+  const [sigma, setSigma] = useState<number>(0);
+  const [beta, setBeta] = useState<number>(1.0);
 
-  const calculateDynamicTimeout = (textLength: number): number => {
-      const intervals = keystrokeIntervalsRef.current;
-      let mu = MIN_TIMEOUT;
-      let sigma = 0;
+  // S503: 動的閾値の演算実装（動的閾値決定モジュール 202 相当）
+  const calculateDynamicTimeout = (): number => {
+      // Step 1（基準閾値）: T_base = μ + 2.0 * σ
+      const tBase = mu + ALPHA * sigma;
+      
+      // Step 2（推敲補正）: T_final = T_base * β
+      const tFinal = tBase * beta;
 
-      // 移動平均値（μ）と標準偏差（σ）の逐次計算
-      if (intervals.length > 0) {
-          mu = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-          const variance = intervals.reduce((a, b) => a + Math.pow(b - mu, 2), 0) / intervals.length;
-          sigma = Math.sqrt(variance);
-      }
-
-      // 推敲係数βの算出 (文字数に応じた動的延長)
-      const beta = 1.0 + (textLength / 50);
-
-      // μ + α・σ の数式モデルによる動的閾値の決定
-      const dynamicTimeout = (mu + ALPHA * sigma) * beta;
-
-      // 異常値のキャップ (最小600ms 〜 最大3000ms)
-      return Math.min(Math.max(dynamicTimeout, MIN_TIMEOUT), MAX_TIMEOUT);
+      // S504: 判定の最小値（安全装置）として、T_final が 500ms を下回らないようにクランプ処理
+      return Math.min(Math.max(tFinal, MIN_TIMEOUT), MAX_TIMEOUT);
   };
 
   // clearSignalが更新されたら問答無用でクリア
@@ -84,16 +79,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       return;
     }
 
-    const currentTimeout = calculateDynamicTimeout(text.length);
+    // S504: タイマー制御への反映
+    const currentTimeout = calculateDynamicTimeout();
 
     silenceTimerRef.current = setTimeout(() => {
+      // S505: セキュリティ境界の遵守 (機密データはRAM上でのみ処理)
       setIsSilent(true);
     }, currentTimeout);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
+  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping, mu, sigma, beta]);
 
   // 状態の外部通知
   useEffect(() => {
@@ -120,14 +117,37 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText(val);
     setIsSilent(false);
     
-    // 打鍵間隔の記録
+    // S503: Step 2（推敲補正）現在の文字数 L に応じて β を決定
+    const L = val.length;
+    let newBeta = 1.0;
+    if (L < 20) {
+        newBeta = 1.0;
+    } else if (L >= 20 && L < 100) {
+        newBeta = 1.5;
+    } else {
+        newBeta = 2.0;
+    }
+    setBeta(newBeta);
+
+    // S502: 統計演算ロジックの実装（打鍵統計解析モジュール 201 相当）
     const now = Date.now();
     if (lastKeystrokeTimeRef.current) {
         const interval = now - lastKeystrokeTimeRef.current;
-        if (interval < 5000) { // 5秒以上の間隔はノイズとして除外
+        if (interval < 3000) { // S502: 3秒以上の間隔はノイズとして除外（外れ値フィルタリング）
             keystrokeIntervalsRef.current.push(interval);
             if (keystrokeIntervalsRef.current.length > MAX_INTERVALS_HISTORY) {
                 keystrokeIntervalsRef.current.shift();
+            }
+            
+            // S502: μ と σ を逐次計算
+            const intervals = keystrokeIntervalsRef.current;
+            if (intervals.length > 0) {
+                const newMu = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                const variance = intervals.reduce((a, b) => a + Math.pow(b - newMu, 2), 0) / intervals.length;
+                const newSigma = Math.sqrt(variance);
+                
+                setMu(newMu);
+                setSigma(newSigma);
             }
         }
     }

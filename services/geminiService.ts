@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.43 - Robust Streaming Support for Analysis
+// services/geminiService.ts - v4.66 - Fix SSE parsing bug in streaming response
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
@@ -47,14 +47,17 @@ async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promi
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
+    let buffer = '';
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         
-        // Parse SSE format: data: {...}
-        const lines = chunk.split('\n\n');
+        buffer += chunk;
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
         for (const line of lines) {
             const trimmed = line.trim();
             if (trimmed.startsWith('data: ')) {
@@ -78,7 +81,7 @@ async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promi
         return JSON.parse(fullText);
     } catch (e) {
         // Fallback: try to extract JSON if markdown fencing was included
-        const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+        const jsonMatch = fullText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         if (jsonMatch) return JSON.parse(jsonMatch[0]);
         throw new Error("AIからの応答を解析できませんでした (Invalid JSON)");
     }
