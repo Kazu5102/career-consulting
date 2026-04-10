@@ -141,7 +141,7 @@ ${contextInstruction}
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3.1-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -179,7 +179,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3.1-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -282,7 +282,7 @@ ${aiType === 'dog' ? '※特記事項: 今回は「Compassionate Partner (Dog)�
     }));
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-flash-preview', 
+        model: 'gemini-3.1-pro-preview', 
         contents,
         config: { 
             systemInstruction, 
@@ -349,7 +349,7 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
     }
 
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",

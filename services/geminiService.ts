@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.66 - Fix SSE parsing bug in streaming response
+// services/geminiService.ts - v4.70 - Fix SSE parsing bug and error swallowing
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
@@ -63,16 +63,16 @@ async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promi
             if (trimmed.startsWith('data: ')) {
                 const dataStr = trimmed.slice(6);
                 if (dataStr === '[DONE]') break;
+                
+                let data;
                 try {
-                    const data = JSON.parse(dataStr);
-                    if (data.text) fullText += data.text;
-                    if (data.error) throw new Error(data.error);
+                    data = JSON.parse(dataStr);
                 } catch (e) {
-                    // ignore incomplete JSON chunks in SSE data, though we expect valid JSON per line usually
-                    if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
-                       // Only log legitimate errors, not parsing of partials if that were to happen
-                    }
+                    continue; // ignore incomplete JSON chunks
                 }
+                
+                if (data.text) fullText += data.text;
+                if (data.error) throw new Error(data.error);
             }
         }
     }
