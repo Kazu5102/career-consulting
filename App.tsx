@@ -1,5 +1,5 @@
 
-// App.tsx - v4.66 - Version update for SSE parsing fix
+// App.tsx - v4.67 - Version update for build fix
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

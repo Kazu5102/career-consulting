@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.48 - Secure Link Opening & UX Fix
+// components/SummaryModal.tsx - v4.67 - Fix type error in report generation
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -153,13 +153,16 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
         }).catch(e => console.warn('Auto-copy failed', e));
 
         // 1. Create Report Data
-        const currentConversation = {
-            id: `session_${Date.now()}`,
+        const currentConversation: any = {
+            id: Date.now(),
             userId,
             aiName,
+            aiType: 'human',
+            aiAvatar: '',
             date: new Date().toISOString(),
             messages,
-            summary: JSON.stringify(parsedSummary)
+            summary: JSON.stringify(parsedSummary),
+            status: 'completed'
         };
         
         const reportData = {

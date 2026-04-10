@@ -1,9 +1,0 @@
-{
-  "requestFramePermissions": [
-    "microphone"
-  ],
-  "name": "Career Consulting_4.66",
-  "description": "Protocol 3.0 Core: Migrated storage engine to IndexedDB for unlimited persistence and better performance. Added self-decrypting HTML report download for peer-to-peer secure data transfer. Fixed SSE parsing bug.",
-  "version": "4.66",
-  "prompt": ""
-}
