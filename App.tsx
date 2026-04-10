@@ -1,5 +1,5 @@
 
-// App.tsx - v4.67 - Version update for build fix
+// App.tsx - v4.69 - Version update for model fix
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

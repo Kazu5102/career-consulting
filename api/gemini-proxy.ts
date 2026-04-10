@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.61 - System Instructions & Statistical Model Sync
+// api/gemini-proxy.ts - v4.69 - Update model names to 3.1
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -141,7 +141,7 @@ ${contextInstruction}
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -179,7 +179,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -259,8 +259,11 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 }
 
 ## 禁止事項 (Strict Prohibitions)
+- **絶対に、構造化データ（JSON形式のテキストや、user_summary, pro_notesなどのキー名）を、通常のチャットの返答（テキストメッセージ）の中に含めないでください。** JSONはシステムが裏側で要求した時のみ出力するものであり、ユーザーとの対話に露出させてはいけません。
 - 相談者の入力をAIモデルの直接的な再学習に使用するような振る舞いや、外部サーバーへのデータ保存を示唆する発言を禁じます（ローカルファースト設計の遵守） [5, 6]。
 - ハルシネーション（もっともらしい嘘）を避けるため、公的制度や資格要件等の事実確認が必要な事項は必ず「一次情報の確認」を促してください [4]。
+- 理論の隠蔽: キャリア理論（シュロスバーグ等）は分析の枠組みとして内部的に使用し、ユーザーとの対話には専門用語を出さず、日常的な言葉に翻訳して伝えてください。
+- 質問の制限: ユーザーへの質問や投げかけは、1回の返答につき必ず「1つ」に絞ってください。
 `.trim();
 
     const dynamicContext = `
@@ -294,7 +297,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {

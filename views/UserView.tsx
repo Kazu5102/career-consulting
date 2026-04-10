@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.53 - Response Regeneration & Structured Feedback Logging
+// views/UserView.tsx - v4.69 - Fix summary error handling
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -507,12 +507,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         try {
             const result = await generateSummary(messages, aiType, aiName, userProfile);
             setSummary(result);
-        } catch (e) {
-            try {
-                setSummary(await directMockService.generateSummary(messages, aiType, aiName, userProfile));
-            } catch {
-                setSummary("申し訳ありません。通信環境の影響で要約を作成できませんでした。");
-            }
+        } catch (e: any) {
+            console.error("Summary generation failed:", e);
+            // エラー時は固定モックではなく、正直にエラーを伝える（アプローチ案2）
+            setSummary(JSON.stringify({
+                user_summary: "申し訳ありません。通信エラーが発生し、要約を生成できませんでした。お手数ですが、もう一度お試しください。",
+                pro_notes: `エラー詳細: ${e.message}`
+            }));
         } finally { setIsSummaryLoading(false); }
     };
     performSummary();
