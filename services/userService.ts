@@ -1,8 +1,10 @@
 
-// services/userService.ts - v4.55 - IndexedDB Support
+// services/userService.ts - v4.80 - In-Memory Storage
 import { UserInfo } from '../types';
 import { ADJECTIVES, ANIMALS } from '../data/nicknames';
-import { dbService, STORES } from './db';
+
+// In-memory storage
+let memoryUsers: UserInfo[] = [];
 
 /**
  * Generates a unique, memorable nickname.
@@ -24,37 +26,25 @@ export const generatePin = (): string => {
 };
 
 /**
- * Retrieves all users from IndexedDB.
+ * Retrieves all users from memory.
  */
 export const getUsers = async (): Promise<UserInfo[]> => {
-  try {
-    return await dbService.getAll<UserInfo>(STORES.USERS);
-  } catch (error) {
-    console.error("Failed to get users from DB", error);
-    return [];
-  }
+  return [...memoryUsers];
 };
 
 /**
- * Saves all users. Note: IndexedDB putAll overwrites/adds.
- * For full replacement logic if needed, we might need clear+putAll, but put is fine for updates.
+ * Saves all users to memory.
  */
 export const saveUsers = async (users: UserInfo[]): Promise<void> => {
-  try {
-    await dbService.putAll(STORES.USERS, users);
-  } catch (error) {
-    console.error("Failed to save users to DB", error);
-  }
+  memoryUsers = [...users];
 };
 
 export const getUserById = async (userId: string): Promise<UserInfo | undefined> => {
-  const users = await getUsers();
-  return users.find(u => u.id === userId);
+  return memoryUsers.find(u => u.id === userId);
 }
 
 export const addNewUser = async (): Promise<UserInfo> => {
-    const users = await getUsers();
-    const existingNicknames = users.map(u => u.nickname);
+    const existingNicknames = memoryUsers.map(u => u.nickname);
     
     const newUser: UserInfo = {
         id: `user_${Date.now()}`,
@@ -62,17 +52,14 @@ export const addNewUser = async (): Promise<UserInfo> => {
         pin: generatePin(),
     };
     
-    await dbService.put(STORES.USERS, newUser);
+    memoryUsers.push(newUser);
     return newUser;
 }
 
 /**
- * Optimized user deletion.
+ * Optimized user deletion from memory.
  */
 export const deleteUsers = async (userIds: string[]): Promise<void> => {
-  try {
-      await dbService.deleteAll(STORES.USERS, userIds);
-  } catch (error) {
-      console.error("Failed to delete users", error);
-  }
+  memoryUsers = memoryUsers.filter(u => !userIds.includes(u.id));
 };
+

@@ -1,14 +1,35 @@
 
 // services/reportService.ts - v4.60 - A4 Print Optimized
-import { encryptData } from './cryptoService';
+import { encryptData, decryptData } from './cryptoService';
 import { StoredConversation, AnalysisHistoryEntry, TrajectoryAnalysisData, SkillMatchingResult } from '../types';
 import { marked } from 'marked';
 
-interface ReportData {
+export interface ReportData {
   userId: string;
   conversations: StoredConversation[];
   analysisHistory: AnalysisHistoryEntry[];
 }
+
+export const extractDataFromReport = async (htmlContent: string, password: string): Promise<ReportData | null> => {
+    try {
+        const match = htmlContent.match(/const encryptedData = '([^']+)';/);
+        if (!match || !match[1]) {
+            throw new Error('Encrypted data not found in HTML');
+        }
+        
+        const encryptedData = match[1];
+        const decryptedString = await decryptData(encryptedData, password);
+        
+        if (!decryptedString) {
+            return null; // Password incorrect or decryption failed
+        }
+        
+        return JSON.parse(decryptedString) as ReportData;
+    } catch (error) {
+        console.error('Failed to extract data from report:', error);
+        return null;
+    }
+};
 
 export const generateReport = async (data: ReportData, password: string): Promise<Blob> => {
   const dataString = JSON.stringify(data);

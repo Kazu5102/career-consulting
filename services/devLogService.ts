@@ -1,6 +1,5 @@
 
-// services/devLogService.ts - v4.55 - IndexedDB Support
-import { dbService, STORES } from './db';
+// services/devLogService.ts - v4.80 - In-Memory Storage
 import { LogType, LogLevel, DevLogEntry } from '../types';
 
 export type { LogType, LogLevel, DevLogEntry };
@@ -12,22 +11,18 @@ export interface DevLog {
 
 const DEV_LOG_VERSION = 2;
 
+// In-memory storage
+let memoryLogs: DevLogEntry[] = [];
+
 /**
- * Retrieves all development logs from IndexedDB.
+ * Retrieves all development logs from memory.
  */
 export const getLogs = async (): Promise<DevLog> => {
-  try {
-    const entries = await dbService.getAll<DevLogEntry>(STORES.LOGS);
-    return { version: DEV_LOG_VERSION, entries };
-  } catch (error) {
-    console.error("Failed to get dev logs", error);
-    return { version: DEV_LOG_VERSION, entries: [] };
-  }
+  return { version: DEV_LOG_VERSION, entries: [...memoryLogs] };
 };
 
 /**
  * Adds a new entry to the development/audit log.
- * Now Async.
  */
 export const addLogEntry = async (
     input: { userPrompt: string, aiSummary: string } | { type: LogType, level: LogLevel, action: string, details: string }
@@ -54,22 +49,13 @@ export const addLogEntry = async (
       };
   }
 
-  try {
-      // Auto-pruning logic could be added here if DB gets too large, 
-      // but IndexedDB handles large data well.
-      await dbService.add(STORES.LOGS, newEntry);
-  } catch (e) {
-      console.error("Failed to write log", e);
-  }
+  memoryLogs.push(newEntry);
 };
 
 /**
- * Clears all development logs from IndexedDB.
+ * Clears all development logs from memory.
  */
 export const clearLogs = async (): Promise<void> => {
-  try {
-    await dbService.clear(STORES.LOGS);
-  } catch (error) {
-    console.error("Failed to clear dev logs", error);
-  }
+  memoryLogs = [];
 };
+

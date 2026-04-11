@@ -1,48 +1,41 @@
 
-// services/conversationService.ts - v4.55 - IndexedDB Support
+// services/conversationService.ts - v4.80 - In-Memory Storage
 import { StoredConversation } from '../types';
-import { dbService, STORES } from './db';
+
+// In-memory storage
+let memoryConversations: StoredConversation[] = [];
 
 /**
- * Retrieves all conversations from IndexedDB.
+ * Retrieves all conversations from memory.
  */
 export const getAllConversations = async (): Promise<StoredConversation[]> => {
-  try {
-    return await dbService.getAll<StoredConversation>(STORES.CONVERSATIONS);
-  } catch (error) {
-    console.error("Failed to fetch conversations:", error);
-    return [];
-  }
+  return [...memoryConversations];
 };
 
 /**
  * Retrieves conversations for a specific user.
  */
 export const getConversationsByUserId = async (userId: string): Promise<StoredConversation[]> => {
-  const all = await getAllConversations();
-  return all.filter(c => c.userId === userId);
+  return memoryConversations.filter(c => c.userId === userId);
 };
 
 /**
- * Saves a new conversation or updates an existing one.
+ * Saves a new conversation or updates an existing one in memory.
  */
 export const saveConversation = async (conversation: StoredConversation): Promise<void> => {
-  try {
-      await dbService.put(STORES.CONVERSATIONS, conversation);
-  } catch (error) {
-      console.error("Failed to save conversation:", error);
+  const index = memoryConversations.findIndex(c => c.id === conversation.id);
+  if (index >= 0) {
+      memoryConversations[index] = conversation;
+  } else {
+      memoryConversations.push(conversation);
   }
 };
 
 /**
- * Bulk deletes conversations by user IDs.
- * Since conversations store key is 'id' (timestamp), we need to find them first.
+ * Bulk deletes conversations by user IDs from memory.
  */
 export const deleteConversationsByUserIds = async (userIds: string[]): Promise<void> => {
-  const all = await getAllConversations();
-  const targets = all.filter(c => userIds.includes(c.userId));
-  const keys = targets.map(c => c.id);
-  await dbService.deleteAll(STORES.CONVERSATIONS, keys);
+  memoryConversations = memoryConversations.filter(c => !userIds.includes(c.userId));
 };
 
 /**
@@ -69,9 +62,8 @@ export const clearAutoSave = async (userId: string): Promise<void> => {
 
 /**
  * Replaces the entire conversation store (used for import/restore).
- * WARNING: This clears existing DB data first.
  */
 export const replaceAllConversations = async (conversations: StoredConversation[]): Promise<void> => {
-  await dbService.clear(STORES.CONVERSATIONS);
-  await dbService.putAll(STORES.CONVERSATIONS, conversations);
+  memoryConversations = [...conversations];
 };
+

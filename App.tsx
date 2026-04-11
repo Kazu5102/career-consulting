@@ -1,5 +1,5 @@
 
-// App.tsx - v4.71 - Version update for stable model fix
+// App.tsx - v4.80 - Zero Trust In-Memory Architecture
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -41,6 +41,14 @@ const App: React.FC = () => {
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
+
+        // Prevent accidental data loss
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, []);
 
     const handleLegalConfirm = () => {

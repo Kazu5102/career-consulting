@@ -40,8 +40,8 @@ async function fetchFromProxy(action: string, payload: any, isStreaming: boolean
 
 // Helper to fetch stream and accumulate text until done, then parse as JSON.
 async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promise<any> {
-    // Longer timeout for streaming initial connection
-    const response = await fetchFromProxy(action, payload, true, 60000);
+    // Longer timeout for streaming initial connection and heavy analysis
+    const response = await fetchFromProxy(action, payload, true, 120000);
     
     if (!response.body) throw new Error("No response body");
     const reader = response.body.getReader();

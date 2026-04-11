@@ -53,3 +53,33 @@ export const encryptData = async (data: string, password: string): Promise<strin
 
     return `${toHex(iv)}:${toHex(salt)}:${toHex(encryptedData)}`;
 };
+
+const hexToBytes = (hex: string): Uint8Array => {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+    }
+    return bytes;
+};
+
+export const decryptData = async (encryptedString: string, password: string): Promise<string | null> => {
+    try {
+        const parts = encryptedString.split(':');
+        if (parts.length !== 3) throw new Error('Invalid format');
+        
+        const iv = hexToBytes(parts[0]);
+        const salt = hexToBytes(parts[1]);
+        const data = hexToBytes(parts[2]);
+
+        const key = await getPasswordKey(password, salt);
+        const decrypted = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv }, 
+            key, 
+            data
+        );
+        return new TextDecoder().decode(decrypted);
+    } catch (error) {
+        console.error('Decryption error:', error);
+        return null;
+    }
+};

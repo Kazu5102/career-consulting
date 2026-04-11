@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.71 - Revert to stable model names (1.5)
+// api/gemini-proxy.ts - v4.72 - Fix model names according to SKILL.md
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -141,7 +141,7 @@ ${contextInstruction}
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -179,7 +179,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -282,7 +282,7 @@ ${aiType === 'dog' ? '※特記事項: 今回は「Compassionate Partner (Dog)�
     }));
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-pro', 
+        model: 'gemini-3-pro-preview', 
         contents,
         config: { 
             systemInstruction, 
@@ -297,7 +297,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-3-pro-preview',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {
@@ -349,7 +349,7 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
     }
 
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
