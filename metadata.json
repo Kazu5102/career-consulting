@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.80",
-  "description": "Protocol 4.0 Core: Migrated to True Zero Trust In-Memory Architecture. Removed IndexedDB entirely. Added HTML report restoration feature. Extended API timeouts to prevent connection errors.",
-  "version": "4.80",
+  "name": "Career Consulting_4.81",
+  "description": "Protocol 4.0 Core: Migrated to True Zero Trust In-Memory Architecture. Removed IndexedDB entirely. Added HTML report restoration feature. Extended API timeouts to prevent connection errors. Fixed model name bug causing conversation errors.",
+  "version": "4.81",
   "prompt": ""
 }

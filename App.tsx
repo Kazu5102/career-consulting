@@ -1,5 +1,5 @@
 
-// App.tsx - v4.80 - Zero Trust In-Memory Architecture
+// App.tsx - v4.81 - Fix model name bug
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
