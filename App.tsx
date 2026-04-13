@@ -1,5 +1,5 @@
 
-// App.tsx - v4.81 - Fix model name bug
+// App.tsx - v4.82 - Use flash model for stability
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

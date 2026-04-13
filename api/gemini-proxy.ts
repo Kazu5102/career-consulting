@@ -282,7 +282,7 @@ ${aiType === 'dog' ? '※特記事項: 今回は「Compassionate Partner (Dog)�
     }));
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.1-pro-preview', 
+        model: 'gemini-3-flash-preview', 
         contents,
         config: { 
             systemInstruction, 
@@ -296,7 +296,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {
