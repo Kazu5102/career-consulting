@@ -1,5 +1,5 @@
 
-// App.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
+// App.tsx - v4.62 - 2026-04-17 - API suggestion disabled & Mock fallback
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

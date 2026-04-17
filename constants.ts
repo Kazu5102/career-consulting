@@ -1,9 +1,9 @@
 
 // constants.ts
-// v4.61 - 2026-04-17 - API loop fix and fallback restoration
+// v4.62 - 2026-04-17 - API suggestion disabled and mock fallback implemented
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.61";
+export const APP_VERSION = "4.62";
 
 // Storage Keys
 export const STORAGE_KEYS = {

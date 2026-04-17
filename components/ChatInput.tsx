@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
+// components/ChatInput.tsx - v4.62 - 2026-04-17 - API suggestion disabled & Mock fallback
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';

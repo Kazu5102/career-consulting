@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
+// views/UserView.tsx - v4.62 - 2026-04-17 - API suggestion disabled & Mock fallback
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -227,19 +227,21 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         }
         if (!matched) setSuggestionsVisible(false);
     }
-    // 【内省深堀介入領域】: 待機時間(T)超過時はAPIを用いて文脈ベースの深く適切なサジェストを生成
+    // 【内省深堀介入領域】: 待機時間(T)超過時 (v4.62にてAPIサジェスト機能を停止し、完全節約のローカル辞書化)
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
-            if (draft !== lastApiDraftRef.current) {
-                lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
-                generateSuggestions(messages, draft)
-                    .then(resp => {
-                        if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                            setSuggestions(resp.suggestions);
-                            setSuggestionsVisible(true);
-                        }
-                    })
-                    .catch(() => {});
+            let matched = false;
+            for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
+                if (draft.includes(key)) {
+                    setSuggestions(list);
+                    setSuggestionsVisible(true);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                setSuggestions(FALLBACK_SUGGESTIONS);
+                setSuggestionsVisible(true);
             }
         } else {
             setSuggestions(FALLBACK_SUGGESTIONS);
@@ -289,15 +291,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (currentMessages.length >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
-          generateSuggestions(currentMessages)
-            .then(resp => {
-                setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
-                setSuggestionsVisible(true);
-            })
-            .catch(() => {
-                setSuggestions(FALLBACK_SUGGESTIONS);
-                setSuggestionsVisible(true);
-            });
+          setSuggestions(FALLBACK_SUGGESTIONS);
+          setSuggestionsVisible(true);
       }
   };
 
@@ -347,13 +342,39 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
 
       } catch (error) {
-          console.error("Chat Execution Error:", error);
-          setIsLoading(false);
-          setHasError(true);
-          setAiMood('thinking'); 
-          
-          // Remove the failed AI placeholder so the chat log stays clean
-          setMessages(prev => prev.filter(m => m.text !== ''));
+          console.error("Chat Execution Error, attempting Mock Fallback:", error);
+          try {
+              // 429等のエラー時はMockサービスへ自動的にフォールバックするフェイルセーフ機構
+              const mockStream = await directMockService.getStreamingChatResponse(history, aiType, aiName, profileToUse);
+              if (!mockStream) throw new Error("Mock stream unavailable");
+              
+              let aiResponseText = '';
+              const reader = mockStream.getReader();
+              
+              while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  if (value.text) {
+                      aiResponseText += value.text;
+                      setMessages(prev => {
+                          const updated = [...prev];
+                          const lastMsg = updated[updated.length - 1];
+                          if (lastMsg.author === MessageAuthor.AI) {
+                              lastMsg.text = aiResponseText;
+                          }
+                          return updated;
+                      });
+                  }
+              }
+              await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+          } catch (mockError) {
+              console.error("Mock Fallback also failed:", mockError);
+              setIsLoading(false);
+              setHasError(true);
+              setAiMood('thinking'); 
+              // 最終的に失敗した場合はプレースホルダーを削除
+              setMessages(prev => prev.filter(m => m.text !== ''));
+          }
       }
   };
 

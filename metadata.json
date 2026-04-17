@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.61",
-  "description": "Fix: API loop fix and fallback restoration with Dual-stage suggestion framework.",
-  "version": "4.61",
+  "name": "Career Consulting_4.62",
+  "description": "Fix: API suggestion disabled completely to save quota, Mock fallback implemented.",
+  "version": "4.62",
   "prompt": "",
   "D7": [],
   "Yp": []
