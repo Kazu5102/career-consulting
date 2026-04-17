@@ -1,5 +1,5 @@
 
-// components/DevLogModal.tsx - v4.55 - Async Data Fetching
+// components/DevLogModal.tsx - v4.12 - Audit Visualization
 import React, { useState, useEffect } from 'react';
 import * as devLogService from '../services/devLogService';
 import { DevLogEntry } from '../services/devLogService';
@@ -8,7 +8,6 @@ import TrashIcon from './icons/TrashIcon';
 import FileTextIcon from './icons/FileTextIcon';
 import LockIcon from './icons/LockIcon';
 import DatabaseIcon from './icons/DatabaseIcon';
-import RefreshIcon from './icons/RefreshIcon';
 
 interface DevLogModalProps {
   isOpen: boolean;
@@ -20,24 +19,21 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      const fetchLogs = async () => {
-          const allLogs = await devLogService.getLogs();
-          // Display newest first (reverse the array since IndexedDB getAll returns natural order)
-          setLogs(allLogs.entries.reverse());
-      };
-      fetchLogs();
+      const allLogs = devLogService.getLogs();
+      // Display newest first
+      setLogs(allLogs.entries.slice().reverse());
     }
   }, [isOpen]);
 
-  const handleClearLogs = async () => {
+  const handleClearLogs = () => {
     if (window.confirm("全てのログを削除しますか？\n※セキュリティ監査ログも含まれます。通常は推奨されません。")) {
-      await devLogService.clearLogs();
+      devLogService.clearLogs();
       setLogs([]);
     }
   };
 
-  const handleExportLogs = async () => {
-    const logsData = await devLogService.getLogs();
+  const handleExportLogs = () => {
+    const logsData = devLogService.getLogs();
     if (logsData.entries.length === 0) {
       alert("エクスポートするログがありません。");
       return;
@@ -72,13 +68,11 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
           case 'security': return <LockIcon className="w-4 h-4 text-rose-500" />;
           case 'audit': return <FileTextIcon className="w-4 h-4 text-amber-500" />;
           case 'system': return <DatabaseIcon className="w-4 h-4 text-sky-500" />;
-          case 'quality_feedback': return <RefreshIcon className="w-4 h-4 text-emerald-500" />;
           default: return <LogIcon className="w-4 h-4 text-slate-400" />;
       }
   };
 
-  const getLogColor = (level: string, type: string) => {
-      if (type === 'quality_feedback') return 'bg-emerald-50 border-emerald-100';
+  const getLogColor = (level: string) => {
       switch(level) {
           case 'critical': return 'bg-rose-50 border-rose-100';
           case 'warn': return 'bg-amber-50 border-amber-100';
@@ -96,7 +90,7 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
              <div className="p-2 bg-slate-100 rounded-lg"><LogIcon className="w-5 h-5 text-slate-600"/></div>
              <div>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">System Audit Logs</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 3.0 Compliance Record (Async DB)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 2.0 Compliance Record</p>
              </div>
           </div>
           <div className="flex items-center gap-2">
@@ -120,7 +114,7 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
           {logs.length > 0 ? (
             <div className="divide-y divide-slate-100">
               {logs.map((log, index) => (
-                <div key={index} className={`p-4 flex gap-4 ${getLogColor(log.level, log.type)} hover:bg-opacity-80 transition-colors`}>
+                <div key={index} className={`p-4 flex gap-4 ${getLogColor(log.level)} hover:bg-opacity-80 transition-colors`}>
                   <div className="flex flex-col items-center gap-1 min-w-[80px]">
                       <span className="text-[10px] font-mono font-bold text-slate-400">{formatDate(log.timestamp)}</span>
                       <div className="p-1.5 bg-white rounded-full border border-slate-100 shadow-sm">
@@ -130,7 +124,6 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
                   <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                              log.type === 'quality_feedback' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                               log.level === 'critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : 
                               log.level === 'warn' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                               'bg-slate-100 text-slate-600 border-slate-200'

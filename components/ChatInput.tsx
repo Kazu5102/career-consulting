@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.62 - Keystroke Statistical Analysis Model (Module 201)
+// components/ChatInput.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -13,53 +13,33 @@ interface ChatInputProps {
   initialText: string; 
   clearSignal?: number; // 確実にクリアするための信号
   onCancelEdit: () => void;
-  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
+  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; isDeepSilent: boolean; currentDraft: string }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const MIN_TIMEOUT = 500; // S504: 安全装置として500msを下回らないように変更
-const MAX_TIMEOUT = 3000;
-const ALPHA = 2.0; // α: 許容係数 (Step 1: T_base = μ + 2.0 * σ)
-const MAX_INTERVALS_HISTORY = 10; // N=10 に変更
+const SILENCE_TIMEOUT = 600; // 通常入力領域（ローカル辞書検索用）
+const DEEP_SILENCE_TIMEOUT = 2500; // 内省深堀介入領域（API通信用: T待機時間）
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSilent, setIsSilent] = useState(false);
+  const [isDeepSilent, setIsDeepSilent] = useState(false);
   const [isActiveTyping, setIsActiveTyping] = useState(false); 
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
-
-  // S501: 打鍵統計解析モデル用 (モジュール201)
-  const lastKeystrokeTimeRef = useRef<number | null>(null);
-  const keystrokeIntervalsRef = useRef<number[]>([]); // キューはuseRefで実装
-  
-  // S501: 算術平均 μ、標準偏差 σ、推敲係数 β を保持するステート
-  const [mu, setMu] = useState<number>(MIN_TIMEOUT);
-  const [sigma, setSigma] = useState<number>(0);
-  const [beta, setBeta] = useState<number>(1.0);
-
-  // S503: 動的閾値の演算実装（動的閾値決定モジュール 202 相当）
-  const calculateDynamicTimeout = (): number => {
-      // Step 1（基準閾値）: T_base = μ + 2.0 * σ
-      const tBase = mu + ALPHA * sigma;
-      
-      // Step 2（推敲補正）: T_final = T_base * β
-      const tFinal = tBase * beta;
-
-      // S504: 判定の最小値（安全装置）として、T_final が 500ms を下回らないようにクランプ処理
-      return Math.min(Math.max(tFinal, MIN_TIMEOUT), MAX_TIMEOUT);
-  };
 
   // clearSignalが更新されたら問答無用でクリア
   useEffect(() => {
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
+    setIsDeepSilent(false);
   }, [clearSignal]);
 
   // 編集開始時などの同期
@@ -69,28 +49,33 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     }
   }, [initialText]);
   
-  // 静止判定ロジックの改善 (動的閾値の適用)
+  // 静止判定ロジックの改善（領域分離アルゴリズム）
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (deepSilenceTimerRef.current) clearTimeout(deepSilenceTimerRef.current);
     
     // 静止判定の対象外
     if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
+      setIsDeepSilent(false);
       return;
     }
 
-    // S504: タイマー制御への反映
-    const currentTimeout = calculateDynamicTimeout();
-
+    // 第一領域：通常入力領域判定（0.6秒）
     silenceTimerRef.current = setTimeout(() => {
-      // S505: セキュリティ境界の遵守 (機密データはRAM上でのみ処理)
       setIsSilent(true);
-    }, currentTimeout);
+    }, SILENCE_TIMEOUT);
+
+    // 第二領域：内省深堀介入領域判定（待機時間T=2.5秒）
+    deepSilenceTimerRef.current = setTimeout(() => {
+      setIsDeepSilent(true);
+    }, DEEP_SILENCE_TIMEOUT);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (deepSilenceTimerRef.current) clearTimeout(deepSilenceTimerRef.current);
     };
-  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping, mu, sigma, beta]);
+  }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
 
   // 状態の外部通知
   useEffect(() => {
@@ -98,9 +83,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       isFocused,
       isTyping: isActiveTyping || isListening, 
       isSilent,
+      isDeepSilent,
       currentDraft: text
     });
-  }, [isFocused, isActiveTyping, isListening, isSilent, text, onStateChange]);
+  }, [isFocused, isActiveTyping, isListening, isSilent, isDeepSilent, text, onStateChange]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -116,43 +102,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     const val = e.target.value;
     setText(val);
     setIsSilent(false);
+    setIsDeepSilent(false);
     
-    // S503: Step 2（推敲補正）現在の文字数 L に応じて β を決定
-    const L = val.length;
-    let newBeta = 1.0;
-    if (L < 20) {
-        newBeta = 1.0;
-    } else if (L >= 20 && L < 100) {
-        newBeta = 1.5;
-    } else {
-        newBeta = 2.0;
-    }
-    setBeta(newBeta);
-
-    // S502: 統計演算ロジックの実装（打鍵統計解析モジュール 201 相当）
-    const now = Date.now();
-    if (lastKeystrokeTimeRef.current) {
-        const interval = now - lastKeystrokeTimeRef.current;
-        if (interval < 3000) { // S502: 3秒以上の間隔はノイズとして除外（外れ値フィルタリング）
-            keystrokeIntervalsRef.current.push(interval);
-            if (keystrokeIntervalsRef.current.length > MAX_INTERVALS_HISTORY) {
-                keystrokeIntervalsRef.current.shift();
-            }
-            
-            // S502: μ と σ を逐次計算
-            const intervals = keystrokeIntervalsRef.current;
-            if (intervals.length > 0) {
-                const newMu = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-                const variance = intervals.reduce((a, b) => a + Math.pow(b - newMu, 2), 0) / intervals.length;
-                const newSigma = Math.sqrt(variance);
-                
-                setMu(newMu);
-                setSigma(newSigma);
-            }
-        }
-    }
-    lastKeystrokeTimeRef.current = now;
-
     setIsActiveTyping(true);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
@@ -201,6 +152,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
+    setIsDeepSilent(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

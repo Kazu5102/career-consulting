@@ -1,5 +1,5 @@
 
-// App.tsx - v4.82 - Use flash model for stability
+// App.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -20,7 +20,6 @@ const App: React.FC = () => {
     const [serverStatus, setServerStatus] = useState<ServerStatus>('checking');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [isFallbackMode, setIsFallbackMode] = useState(false);
-    const [isProtocolModalOpen, setIsProtocolModalOpen] = useState(false);
 
     useEffect(() => {
         const verifyServer = async () => {
@@ -41,14 +40,6 @@ const App: React.FC = () => {
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
-
-        // Prevent accidental data loss
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, []);
 
     const handleLegalConfirm = () => {
@@ -83,7 +74,9 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        setIsProtocolModalOpen(true);
+        const baseMsg = `【Protocol 2.0 Verified (v${APP_VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`;
+        const extraMsg = isFallbackMode ? "\n\n⚠️ 現在、オフライン/デモモードで動作しています。AI応答はシミュレーションです。" : "";
+        alert(baseMsg + extraMsg);
     };
 
     return (
@@ -145,63 +138,6 @@ const App: React.FC = () => {
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
             <LegalConsentModal isOpen={isLegalModalOpen} onConfirm={handleLegalConfirm} />
-
-            {/* Protocol Details Modal */}
-            {isProtocolModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="bg-slate-900 p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                <h3 className="font-bold text-sm tracking-wide">Protocol 2.0 Verified (v{APP_VERSION})</h3>
-                            </div>
-                            <button onClick={() => setIsProtocolModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <ul className="space-y-3 text-sm text-slate-700 font-medium">
-                                <li className="flex items-start gap-2">
-                                    <span className="text-sky-500 font-bold">1.</span>
-                                    <span>「キャリアコンサルタント 倫理綱領 (特定非営利活動法人キャリアコンサルティング協議会)」を対話ロジックの最上位に配置</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="text-sky-500 font-bold">2.</span>
-                                    <span>AI利活用ガイドラインに基づく「人間中心の設計」</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="text-sky-500 font-bold">3.</span>
-                                    <span>ハルシネーション抑制アルゴリズムの採用</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="text-sky-500 font-bold">4.</span>
-                                    <span>データ学習利用の拒否（オプトアウト）設定済</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="text-sky-500 font-bold">5.</span>
-                                    <span>暗号化通信およびAES-GCMレポート出力</span>
-                                </li>
-                            </ul>
-                            
-                            {isFallbackMode && (
-                                <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-amber-800 text-xs">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    <p>現在、オフライン/デモモードで動作しています。AI応答はシミュレーションです。</p>
-                                </div>
-                            )}
-                            
-                            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
-                                <button 
-                                    onClick={() => setIsProtocolModalOpen(false)}
-                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-lg transition-colors"
-                                >
-                                    閉じる
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

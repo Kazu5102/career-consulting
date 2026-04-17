@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.67 - Fix type error in report generation
+// components/SummaryModal.tsx - v4.48 - Secure Link Opening & UX Fix
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -45,7 +45,7 @@ const SURVEY_CONFIG: SurveyConfig = {
   description: "対話の要約を作成している間に、簡単なアンケートへのご協力をお願いします。回答完了後、要約結果が表示されます。"
 };
 
-type ModalStep = 'survey' | 'loading' | 'result' | 'referral' | 'password';
+type ModalStep = 'survey' | 'loading' | 'result' | 'referral';
 
 const SummaryModal: React.FC<SummaryModalProps> = ({ 
   isOpen, 
@@ -65,8 +65,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
   const [isExported, setIsExported] = useState(false);
-  const [password, setPassword] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -136,62 +134,39 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       setCurrentStep('referral');
   };
 
-  const handleProceedToPassword = () => {
-      setCurrentStep('password');
-  };
+  const handleReferralAndExport = () => {
+    // 0. Copy to Clipboard (Auto) - User Summary is best for forms
+    const textToCopy = parsedSummary.user_summary || summary;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        console.debug('Summary copied to clipboard automatically.');
+    }).catch(e => console.warn('Auto-copy failed', e));
 
-  const handleExportHtml = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password.trim() || isGenerating) return;
+    // 1. Create Export Data
+    const exportData = {
+        meta: {
+            title: "キャリア相談 引継ぎ用データ",
+            description: "支援専門家への提供用ファイル",
+            generatedAt: new Date().toISOString(),
+            userId,
+            aiAgent: aiName
+        },
+        summary: parsedSummary,
+        chatHistory: messages
+    };
     
-    setIsGenerating(true);
-    try {
-        // 0. Copy to Clipboard (Auto) - User Summary is best for forms
-        const textToCopy = parsedSummary.user_summary || summary;
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            console.debug('Summary copied to clipboard automatically.');
-        }).catch(e => console.warn('Auto-copy failed', e));
+    // 2. Trigger Download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
-        // 1. Create Report Data
-        const currentConversation: any = {
-            id: Date.now(),
-            userId,
-            aiName,
-            aiType: 'human',
-            aiAvatar: '',
-            date: new Date().toISOString(),
-            messages,
-            summary: JSON.stringify(parsedSummary),
-            status: 'completed'
-        };
-        
-        const reportData = {
-            userId,
-            conversations: [currentConversation],
-            analysisHistory: []
-        };
-
-        // 2. Generate Encrypted HTML
-        const { generateReport } = await import('../services/reportService');
-        const blob = await generateReport(reportData, password);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.html`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        setIsExported(true);
-        setCurrentStep('referral');
-    } catch (error) {
-        console.error("Failed to generate report", error);
-        alert("レポートの生成に失敗しました。");
-    } finally {
-        setIsGenerating(false);
-        setPassword('');
-    }
+    // 3. Update state to show the link button
+    setIsExported(true);
   };
 
   const createMarkup = (markdownText: string) => {
@@ -308,11 +283,11 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                         </div>
                         <div className="w-full max-w-sm space-y-3">
                             <button 
-                            onClick={handleProceedToPassword}
+                            onClick={handleReferralAndExport}
                             className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
                             >
                                 <ExportIcon className="w-5 h-5" />
-                                データを暗号化して相談を申し込む
+                                データを保存して相談を申し込む
                             </button>
                             
                             <div className="relative py-2">
@@ -335,50 +310,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                     </>
                 )}
             </div>
-          ) : currentStep === 'password' ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-6 py-6 animate-in fade-in zoom-in duration-500">
-                  <div className="w-20 h-20 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-2 shadow-xl">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                  </div>
-                  <div className="text-center space-y-2 max-w-md px-2">
-                      <h3 className="text-2xl font-black text-slate-800 tracking-tight">暗号化パスワードの設定</h3>
-                      <p className="text-slate-600 leading-relaxed font-medium text-sm">
-                          専門家に渡すファイルに強力な暗号化（AES-GCM）をかけます。<br/>
-                          復号するためのパスワードを設定してください。
-                      </p>
-                  </div>
-                  <form onSubmit={handleExportHtml} className="w-full max-w-sm space-y-4">
-                      <input 
-                          type="password" 
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="パスワードを入力" 
-                          required 
-                          className="w-full px-6 py-4 bg-slate-100 border-2 border-transparent rounded-2xl focus:outline-none focus:border-sky-500 focus:bg-white transition-all text-center font-bold tracking-widest text-lg"
-                      />
-                      <button 
-                          type="submit" 
-                          disabled={isGenerating || !password.trim()}
-                          className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] uppercase tracking-widest text-sm disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                      >
-                          {isGenerating ? (
-                              <>
-                                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                  暗号化中...
-                              </>
-                          ) : (
-                              '暗号化HTMLをダウンロード'
-                          )}
-                      </button>
-                      <button 
-                          type="button"
-                          onClick={() => setCurrentStep('referral')}
-                          className="w-full py-3 text-slate-500 font-bold hover:text-slate-700 hover:bg-slate-50 rounded-xl transition-all text-sm"
-                      >
-                          戻る
-                      </button>
-                  </form>
-              </div>
           ) : isEditing ? (
              <div className="space-y-4 animate-in fade-in duration-300">
               <div>

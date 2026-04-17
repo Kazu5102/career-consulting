@@ -13,7 +13,7 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
     return window.crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt: salt as BufferSource,
+            salt: salt,
             iterations: 100, // Standard developer-friendly iterations for quick local tests
             hash: 'SHA-256',
         },
@@ -25,10 +25,10 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
 };
 
 /**
- * Fast and robust hex conversion for large ArrayBuffers or Uint8Arrays
+ * Fast and robust hex conversion for large ArrayBuffers
  */
-const toHex = (buffer: ArrayBuffer | Uint8Array): string => {
-    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+const toHex = (buffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(buffer);
     let hex = '';
     for (let i = 0; i < bytes.length; i++) {
         hex += bytes[i].toString(16).padStart(2, '0');
@@ -45,41 +45,11 @@ export const encryptData = async (data: string, password: string): Promise<strin
     const encryptedData = await window.crypto.subtle.encrypt(
         {
             name: 'AES-GCM',
-            iv: iv as BufferSource,
+            iv: iv,
         },
         key,
         encoder.encode(data)
     );
 
     return `${toHex(iv)}:${toHex(salt)}:${toHex(encryptedData)}`;
-};
-
-const hexToBytes = (hex: string): Uint8Array => {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-        bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-    }
-    return bytes;
-};
-
-export const decryptData = async (encryptedString: string, password: string): Promise<string | null> => {
-    try {
-        const parts = encryptedString.split(':');
-        if (parts.length !== 3) throw new Error('Invalid format');
-        
-        const iv = hexToBytes(parts[0]);
-        const salt = hexToBytes(parts[1]);
-        const data = hexToBytes(parts[2]);
-
-        const key = await getPasswordKey(password, salt);
-        const decrypted = await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv }, 
-            key, 
-            data
-        );
-        return new TextDecoder().decode(decrypted);
-    } catch (error) {
-        console.error('Decryption error:', error);
-        return null;
-    }
 };

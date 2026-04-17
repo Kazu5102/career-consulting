@@ -1,10 +1,9 @@
 
-// services/userService.ts - v4.80 - In-Memory Storage
+// services/userService.ts - v4.20 - Future-proofed Async Interfaces
 import { UserInfo } from '../types';
+// Fix: Import STORAGE_KEYS from constants.ts instead of types.ts
+import { STORAGE_KEYS } from '../constants';
 import { ADJECTIVES, ANIMALS } from '../data/nicknames';
-
-// In-memory storage
-let memoryUsers: UserInfo[] = [];
 
 /**
  * Generates a unique, memorable nickname.
@@ -26,25 +25,37 @@ export const generatePin = (): string => {
 };
 
 /**
- * Retrieves all users from memory.
+ * Retrieves all users. Now async-ready.
  */
 export const getUsers = async (): Promise<UserInfo[]> => {
-  return [...memoryUsers];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.USERS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error("Failed to get users from localStorage", error);
+    return [];
+  }
 };
 
 /**
- * Saves all users to memory.
+ * Saves all users.
  */
 export const saveUsers = async (users: UserInfo[]): Promise<void> => {
-  memoryUsers = [...users];
+  try {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  } catch (error) {
+    console.error("Failed to save users to localStorage", error);
+  }
 };
 
 export const getUserById = async (userId: string): Promise<UserInfo | undefined> => {
-  return memoryUsers.find(u => u.id === userId);
+  const users = await getUsers();
+  return users.find(u => u.id === userId);
 }
 
 export const addNewUser = async (): Promise<UserInfo> => {
-    const existingNicknames = memoryUsers.map(u => u.nickname);
+    const users = await getUsers();
+    const existingNicknames = users.map(u => u.nickname);
     
     const newUser: UserInfo = {
         id: `user_${Date.now()}`,
@@ -52,14 +63,16 @@ export const addNewUser = async (): Promise<UserInfo> => {
         pin: generatePin(),
     };
     
-    memoryUsers.push(newUser);
+    await saveUsers([...users, newUser]);
     return newUser;
 }
 
 /**
- * Optimized user deletion from memory.
+ * Optimized user deletion with clear separation of concerns.
  */
 export const deleteUsers = async (userIds: string[]): Promise<void> => {
-  memoryUsers = memoryUsers.filter(u => !userIds.includes(u.id));
+  const targetIds = new Set(userIds);
+  const users = await getUsers();
+  const remainingUsers = users.filter(u => !targetIds.has(u.id));
+  await saveUsers(remainingUsers);
 };
-

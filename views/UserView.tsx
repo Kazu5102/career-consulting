@@ -1,12 +1,11 @@
 
-// views/UserView.tsx - v4.69 - Fix summary error handling
+// views/UserView.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
 import * as directMockService from '../services/mockGeminiService';
 import * as conversationService from '../services/conversationService';
 import { getUserById } from '../services/userService';
-import { addLogEntry } from '../services/devLogService';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
 import ChatInput from '../components/ChatInput';
@@ -211,7 +210,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   };
 
-  const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
+  const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; isDeepSilent: boolean; currentDraft: string }) => {
     setIsTyping(state.isTyping);
     const draft = state.currentDraft;
 
@@ -227,7 +226,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         }
         if (!matched) setSuggestionsVisible(false);
     }
-    else if (state.isSilent && !isLoading && !hasError && onboardingStep >= 6) {
+    // 【内省深堀介入領域】: 待機時間(T)超過時はAPIを用いて文脈ベースの深く適切なサジェストを生成
+    else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
             generateSuggestions(messages, draft)
                 .then(resp => {
@@ -237,6 +237,28 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     }
                 })
                 .catch(() => {});
+        } else if (suggestions.length === 0) {
+            setSuggestions(FALLBACK_SUGGESTIONS);
+            setSuggestionsVisible(true);
+        }
+    }
+    // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
+    else if (state.isSilent && !state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
+        if (draft.trim().length > 0) {
+            let matched = false;
+            for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
+                if (draft.includes(key)) {
+                    setSuggestions(list);
+                    setSuggestionsVisible(true);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && suggestions.length === 0) {
+                // 特にマッチするものがなくても、打感を保つためフォールバックを表示
+                setSuggestions(FALLBACK_SUGGESTIONS);
+                setSuggestionsVisible(true);
+            }
         } else if (suggestions.length === 0) {
             setSuggestions(FALLBACK_SUGGESTIONS);
             setSuggestionsVisible(true);
@@ -329,53 +351,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           // Remove the failed AI placeholder so the chat log stays clean
           setMessages(prev => prev.filter(m => m.text !== ''));
       }
-  };
-
-  // Regeneration Handler (Structured for DB Migration)
-  const handleRegenerate = async () => {
-      if (messages.length < 2 || isLoading) return;
-
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.author !== MessageAuthor.AI) return;
-
-      const rejectedResponse = lastMessage.text;
-      
-      // Find the last user input (context)
-      let userContext = "";
-      for (let i = messages.length - 2; i >= 0; i--) {
-          if (messages[i].author === MessageAuthor.USER) {
-              userContext = messages[i].text;
-              break;
-          }
-      }
-
-      // 1. Structured Logging for Quality Feedback (DB Ready)
-      const feedbackData = {
-          log_type: 'quality_feedback',
-          action_type: 'regeneration_request',
-          created_at: new Date().toISOString(),
-          context_prompt: userContext,
-          rejected_output: rejectedResponse,
-          meta_json: {
-              aiType,
-              avatar: aiAvatarKey,
-              mood: aiMood
-          }
-      };
-
-      addLogEntry({
-          type: 'quality_feedback',
-          level: 'info',
-          action: 'Regenerate Response',
-          details: JSON.stringify(feedbackData)
-      });
-
-      // 2. Remove the AI response
-      const historyWithoutLastAi = messages.slice(0, -1);
-      setMessages(historyWithoutLastAi);
-
-      // 3. Retry execution with the truncated history
-      await executeAiTurn(historyWithoutLastAi);
   };
 
   const handleSendMessage = async (text: string) => {
@@ -507,13 +482,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         try {
             const result = await generateSummary(messages, aiType, aiName, userProfile);
             setSummary(result);
-        } catch (e: any) {
-            console.error("Summary generation failed:", e);
-            // エラー時は固定モックではなく、正直にエラーを伝える（アプローチ案2）
-            setSummary(JSON.stringify({
-                user_summary: "申し訳ありません。通信エラーが発生し、要約を生成できませんでした。お手数ですが、もう一度お試しください。",
-                pro_notes: `エラー詳細: ${e.message}`
-            }));
+        } catch (e) {
+            try {
+                setSummary(await directMockService.generateSummary(messages, aiType, aiName, userProfile));
+            } catch {
+                setSummary("申し訳ありません。通信環境の影響で要約を作成できませんでした。");
+            }
         } finally { setIsSummaryLoading(false); }
     };
     performSummary();
@@ -592,12 +566,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
          view === 'avatarSelection' ? <AvatarSelectionView onSelect={handleAvatarSelected} onBack={handleBackFromAvatarSelection} /> :
          <div className="w-full max-w-5xl h-full flex flex-row gap-6 relative justify-center">
             <div className="flex-1 h-full flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
-              <ChatWindow 
-                messages={messages} 
-                isLoading={isLoading} 
-                onEditMessage={() => {}} 
-                onRegenerate={handleRegenerate} // Pass regeneration handler
-              />
+              <ChatWindow messages={messages} isLoading={isLoading} onEditMessage={() => {}} />
               <div className="flex-shrink-0 flex flex-col bg-white border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-10">
                   {onboardingStep === 1 && (
                     <div className="grid grid-cols-1 gap-2 p-4 animate-in fade-in duration-500">

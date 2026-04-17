@@ -1,5 +1,5 @@
 
-// types.ts - v4.55
+// types.ts - v4.41
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -193,16 +193,4 @@ export interface SurveyConfig {
   url: string;
   title: string;
   description: string;
-}
-
-// Log Types
-export type LogType = 'system' | 'security' | 'audit' | 'error' | 'quality_feedback';
-export type LogLevel = 'info' | 'warn' | 'critical';
-
-export interface DevLogEntry {
-  timestamp: string;
-  type: LogType;
-  level: LogLevel;
-  action: string;      // Operation name or User Prompt
-  details: string;     // Result details or AI Summary (JSON stringified for structured data)
 }

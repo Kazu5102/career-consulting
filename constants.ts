@@ -1,8 +1,9 @@
 
 // constants.ts
+// v4.60 - 2026-04-17 - Production phase transition
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.82";
+export const APP_VERSION = "4.60";
 
 // Storage Keys
 export const STORAGE_KEYS = {

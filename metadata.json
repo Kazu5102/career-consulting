@@ -2,8 +2,10 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.82",
-  "description": "Protocol 4.0 Core: Migrated to True Zero Trust In-Memory Architecture. Removed IndexedDB entirely. Added HTML report restoration feature. Extended API timeouts to prevent connection errors. Switched to flash model for stability.",
-  "version": "4.82",
-  "prompt": ""
+  "name": "Career Consulting_4.60C",
+  "description": "Fix: Erasure button error handling and complete data deletion logic.",
+  "version": "4.51",
+  "prompt": "",
+  "D7": [],
+  "Yp": []
 }
