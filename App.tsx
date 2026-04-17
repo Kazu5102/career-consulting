@@ -1,5 +1,5 @@
 
-// App.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
+// App.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

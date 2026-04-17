@@ -1,9 +1,9 @@
 
 // constants.ts
-// v4.60 - 2026-04-17 - Production phase transition
+// v4.61 - 2026-04-17 - API loop fix and fallback restoration
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.60";
+export const APP_VERSION = "4.61";
 
 // Storage Keys
 export const STORAGE_KEYS = {

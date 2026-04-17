@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
+// components/ChatInput.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';

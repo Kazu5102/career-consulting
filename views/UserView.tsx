@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.60 - 2026-04-17 - Production phase with Dual-stage suggestion
+// views/UserView.tsx - v4.61 - 2026-04-17 - API loop fix and fallback restoration
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -95,6 +95,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
+  const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
 
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
@@ -229,15 +230,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     // 【内省深堀介入領域】: 待機時間(T)超過時はAPIを用いて文脈ベースの深く適切なサジェストを生成
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
-            generateSuggestions(messages, draft)
-                .then(resp => {
-                    if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                        setSuggestions(resp.suggestions);
-                        setSuggestionsVisible(true);
-                    }
-                })
-                .catch(() => {});
-        } else if (suggestions.length === 0) {
+            if (draft !== lastApiDraftRef.current) {
+                lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
+                generateSuggestions(messages, draft)
+                    .then(resp => {
+                        if (resp && resp.suggestions && resp.suggestions.length > 0) {
+                            setSuggestions(resp.suggestions);
+                            setSuggestionsVisible(true);
+                        }
+                    })
+                    .catch(() => {});
+            }
+        } else {
             setSuggestions(FALLBACK_SUGGESTIONS);
             setSuggestionsVisible(true);
         }
@@ -254,17 +258,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     break;
                 }
             }
-            if (!matched && suggestions.length === 0) {
-                // 特にマッチするものがなくても、打感を保つためフォールバックを表示
+            if (!matched) {
+                // 特にマッチするものがなくても、打感を保つためフォールバックを強制表示（抜け漏れ修正）
                 setSuggestions(FALLBACK_SUGGESTIONS);
                 setSuggestionsVisible(true);
             }
-        } else if (suggestions.length === 0) {
+        } else {
             setSuggestions(FALLBACK_SUGGESTIONS);
             setSuggestionsVisible(true);
         }
     }
-  }, [isLoading, onboardingStep, suggestions.length, messages, hasError]);
+  }, [isLoading, onboardingStep, messages, hasError]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -356,6 +360,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setInputClearSignal(prev => prev + 1);
+    lastApiDraftRef.current = ''; // 意図的な送信時にキャッシュをリセット
     if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
         handleGenerateSummary();
         return;
