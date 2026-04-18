@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.62",
-  "description": "Fix: API suggestion disabled completely to save quota, Mock fallback implemented.",
-  "version": "4.62",
+  "name": "Career Consulting_4.70",
+  "description": "Feat: Add API usage tracking, Admin dashboard simulator, and feature toggle mechanism.",
+  "version": "4.70",
   "prompt": "",
   "D7": [],
   "Yp": []

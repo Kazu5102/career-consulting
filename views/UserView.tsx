@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.62 - 2026-04-17 - API suggestion disabled & Mock fallback
+// views/UserView.tsx - v4.63 - 2026-04-18 - Dynamic typing Suggestion Framework
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -227,21 +227,22 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         }
         if (!matched) setSuggestionsVisible(false);
     }
-    // 【内省深堀介入領域】: 待機時間(T)超過時 (v4.62にてAPIサジェスト機能を停止し、完全節約のローカル辞書化)
+    // 【内省深堀介入領域】: 動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
         if (draft.trim().length > 0) {
-            let matched = false;
-            for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
-                if (draft.includes(key)) {
-                    setSuggestions(list);
-                    setSuggestionsVisible(true);
-                    matched = true;
-                    break;
-                }
-            }
-            if (!matched) {
-                setSuggestions(FALLBACK_SUGGESTIONS);
-                setSuggestionsVisible(true);
+            if (draft !== lastApiDraftRef.current) {
+                lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
+                generateSuggestions(messages, draft)
+                    .then(resp => {
+                        if (resp && resp.suggestions && resp.suggestions.length > 0) {
+                            setSuggestions(resp.suggestions);
+                            setSuggestionsVisible(true);
+                        }
+                    })
+                    .catch(() => {
+                        setSuggestions(FALLBACK_SUGGESTIONS);
+                        setSuggestionsVisible(true);
+                    });
             }
         } else {
             setSuggestions(FALLBACK_SUGGESTIONS);
@@ -291,8 +292,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (currentMessages.length >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
-          setSuggestions(FALLBACK_SUGGESTIONS);
-          setSuggestionsVisible(true);
+          // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
+          generateSuggestions(currentMessages)
+            .then(resp => {
+                setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
+                setSuggestionsVisible(true);
+            })
+            .catch(() => {
+                setSuggestions(FALLBACK_SUGGESTIONS);
+                setSuggestionsVisible(true);
+            });
       }
   };
 

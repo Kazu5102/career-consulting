@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.43 - Streaming Analysis for PRO Model
+// api/gemini-proxy.ts - v4.63 - Lightweight Context for Suggestion
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 

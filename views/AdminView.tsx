@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.48 - Mobile Optimized Admin UI
+// views/AdminView.tsx - v4.70 - Added Usage Dashboard & Setup
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
@@ -8,6 +8,8 @@ import * as conversationService from '../services/conversationService';
 import * as analysisService from '../services/analysisService';
 import { analyzeTrajectory, performSkillMatching } from '../services/index';
 import { addLogEntry } from '../services/devLogService';
+import { getUsageData, UsageData, clearUsageData } from '../services/usageTrackingService';
+import { FEATURES } from '../constants';
 
 import ShareReportModal from '../components/ShareReportModal';
 import DevLogModal from '../components/DevLogModal';
@@ -66,6 +68,11 @@ const AdminView: React.FC = () => {
     const [isDataModalOpen, setIsDataModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+    
+    // Usage Dashboard State
+    const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
+    const [usageData, setUsageData] = useState<UsageData>(getUsageData());
+    const [simUserCount, setSimUserCount] = useState<number>(500);
 
     const loadData = useCallback(async () => {
         const u = await userService.getUsers();
@@ -351,6 +358,9 @@ const AdminView: React.FC = () => {
                 <div className="p-4 bg-white border-t space-y-2">
                     <button onClick={() => setIsDataModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"><DatabaseIcon className="w-4 h-4" /> Data Manage</button>
                     <button onClick={() => setIsDevLogModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-slate-600 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"><LogIcon className="w-4 h-4" /> System Logs</button>
+                    {FEATURES.ENABLE_USAGE_TRACKING && (
+                        <button onClick={() => { setUsageData(getUsageData()); setIsUsageModalOpen(true); }} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"><DatabaseIcon className="w-4 h-4" /> Usage & Scale Predict</button>
+                    )}
                     <button onClick={() => setIsSecurityModalOpen(true)} className="w-full flex items-center justify-center gap-3 px-4 py-3 text-xs font-black text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors"><LockIcon className="w-4 h-4" /> Security Settings</button>
                 </div>
             </aside>
@@ -464,6 +474,94 @@ const AdminView: React.FC = () => {
             <DevLogModal isOpen={isDevLogModalOpen} onClose={() => setIsDevLogModalOpen(false)} />
             <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onOpenAddText={() => setIsAddTextModalOpen(true)} onDataRefresh={loadData} />
             <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
+            
+            {/* Usage Dashboard Modal */}
+            {isUsageModalOpen && FEATURES.ENABLE_USAGE_TRACKING && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><DatabaseIcon className="w-6 h-6 text-indigo-500" /> Usage & Scale Predictor</h2>
+                                <p className="text-sm font-bold text-slate-500 mt-1">API消費状況と将来コストのシミュレーション</p>
+                            </div>
+                            <button onClick={() => setIsUsageModalOpen(false)} className="p-2 bg-slate-200 hover:bg-slate-300 rounded-full transition-colors text-slate-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto bg-slate-50/50 space-y-6">
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm">
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">現在の総コール数</p>
+                                    <p className="text-3xl font-black text-indigo-700">{usageData.totalApiCalls.toLocaleString()}<span className="text-sm text-slate-400 font-bold ml-1">回</span></p>
+                                </div>
+                                <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm">
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">概算累計トークン量</p>
+                                    <p className="text-3xl font-black text-sky-700">{usageData.totalEstimatedTokens.toLocaleString()}<span className="text-sm text-slate-400 font-bold ml-1">Tokens</span></p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-6 border border-indigo-100 rounded-2xl shadow-sm">
+                                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><TargetIcon className="w-5 h-5 text-indigo-500"/> 事業スケール・シミュレーター (What-If)</h3>
+                                <p className="text-sm text-slate-600 mb-6 font-bold">1日の想定アクティブユーザー数を動かして、API到達限界とコストを予測します。</p>
+                                
+                                <div className="mb-6">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <label className="text-sm font-black text-slate-700">想定DAU（日間アクティブユーザー）</label>
+                                        <span className="text-2xl font-black text-indigo-600">{simUserCount.toLocaleString()} <span className="text-sm font-bold text-slate-400">人 / 日</span></span>
+                                    </div>
+                                    <input 
+                                        type="range" min="10" max="5000" step="10" 
+                                        value={simUserCount} 
+                                        onChange={(e) => setSimUserCount(Number(e.target.value))}
+                                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                    />
+                                    <div className="flex justify-between text-[10px] font-bold text-slate-400 mt-2 px-1"><span>10人</span><span>1000人</span><span>5000人</span></div>
+                                </div>
+
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
+                                    <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                                        <span className="text-sm font-bold text-slate-600">1日当たりの予測APIコール数 <br/><span className="text-[10px] text-slate-400">(現平均 {usageData.totalApiCalls > 0 ? Math.ceil(usageData.totalApiCalls / Math.max(1, users.length)) : 15}回/人 で算出)</span></span>
+                                        <span className="text-xl font-black text-slate-800">
+                                            {(() => {
+                                                const avgCallPerUser = usageData.totalApiCalls > 0 && users.length > 0 ? usageData.totalApiCalls / users.length : 15;
+                                                const dailyCalls = Math.ceil(avgCallPerUser * simUserCount);
+                                                return (
+                                                    <span className={dailyCalls > 1500 ? 'text-rose-600' : 'text-emerald-600'}>
+                                                        {dailyCalls.toLocaleString()} <span className="text-sm text-slate-400">回</span>
+                                                        {dailyCalls > 1500 && <p className="text-[10px] text-rose-500 block text-right mt-1">※無料枠(1500回)を突破します</p>}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-600">有料版(Gemini 1.5 Flash)移行時の月額目安 <br/><span className="text-[10px] text-slate-400">($0.075 / 1M token 換算)</span></span>
+                                        <span className="text-xl font-black text-indigo-700">
+                                            {(() => {
+                                                const avgTokensPerUser = usageData.totalEstimatedTokens > 0 && users.length > 0 ? usageData.totalEstimatedTokens / users.length : 5000;
+                                                const monthlyTokens = avgTokensPerUser * simUserCount * 30; // 30 days
+                                                const estimatedCostUSD = (monthlyTokens / 1_000_000) * 0.075;
+                                                return `$${estimatedCostUSD.toFixed(2)}`;
+                                            })()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-slate-100 bg-white flex justify-between">
+                            <button onClick={() => {
+                                if(window.confirm('計測データをリセットしますか？')) {
+                                    clearUsageData();
+                                    setUsageData(getUsageData());
+                                }
+                            }} className="px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">リセット</button>
+                            <button onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-black transition-colors shadow-sm">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
             {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} />}
         </div>

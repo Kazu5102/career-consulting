@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v4.62 - 2026-04-17 - API suggestion disabled & Mock fallback
+// components/ChatInput.tsx - v4.63 - 2026-04-18 - Dynamic typing pace learning
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -18,7 +18,7 @@ interface ChatInputProps {
 
 const MAX_TEXTAREA_HEIGHT = 128;
 const SILENCE_TIMEOUT = 600; // 通常入力領域（ローカル辞書検索用）
-const DEEP_SILENCE_TIMEOUT = 2500; // 内省深堀介入領域（API通信用: T待機時間）
+const DEEP_SILENCE_TIMEOUT_DEFAULT = 2500; // 動的学習の初期値
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
@@ -33,6 +33,30 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   const deepSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
+  const keystrokesRef = useRef<number[]>([]); // 打鍵時間の記録用
+
+  // 打鍵間隔の平均μと標準偏差σに基づく推敲待機時間の動的計算
+  const calculateDynamicTimeout = (): number => {
+    const strokes = keystrokesRef.current;
+    if (strokes.length < 3) return DEEP_SILENCE_TIMEOUT_DEFAULT;
+
+    const intervals: number[] = [];
+    for (let i = 1; i < strokes.length; i++) {
+       const diff = strokes[i] - strokes[i-1];
+       // 1.5秒以上の極端な停止は「推敲」とみなし学習データ（通常タイピング速度）から除外
+       if (diff < 1500) intervals.push(diff);
+    }
+
+    if (intervals.length < 2) return DEEP_SILENCE_TIMEOUT_DEFAULT;
+
+    const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+
+    // 推敲係数β: 平均 + (標準偏差 * 3)。最低1.5秒、最大4.0秒に丸める
+    const dynamicTimeout = mean + (stdDev * 3);
+    return Math.min(Math.max(dynamicTimeout, 1500), 4000);
+  };
 
   // clearSignalが更新されたら問答無用でクリア
   useEffect(() => {
@@ -66,10 +90,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       setIsSilent(true);
     }, SILENCE_TIMEOUT);
 
-    // 第二領域：内省深堀介入領域判定（待機時間T=2.5秒）
+    // 第二領域：内省深堀介入領域判定（動的待機時間）
+    const dynamicTimeout = calculateDynamicTimeout();
     deepSilenceTimerRef.current = setTimeout(() => {
       setIsDeepSilent(true);
-    }, DEEP_SILENCE_TIMEOUT);
+    }, dynamicTimeout);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -104,6 +129,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setIsSilent(false);
     setIsDeepSilent(false);
     
+    // 打鍵タイムスタンプを記録（直近15回まで）
+    keystrokesRef.current.push(Date.now());
+    if (keystrokesRef.current.length > 15) {
+        keystrokesRef.current.shift();
+    }
+
     setIsActiveTyping(true);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
