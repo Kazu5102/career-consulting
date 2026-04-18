@@ -1,40 +1,71 @@
 
-// services/geminiService.ts - v4.43 - Robust Streaming Support for Analysis
+// services/geminiService.ts - v4.72 - Robust Streaming Support for Analysis
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
 const ANALYSIS_TIMEOUT = 300000; // 5 minutes
 
-async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 20000): Promise<any> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-    try {
-        const response = await fetch(PROXY_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, payload }),
-            signal: controller.signal,
-        });
-    
-        clearTimeout(timeoutId);
+async function fetchFromProxy(action: string, payload: any, isStreaming: boolean = false, timeout: number = 20000, maxRetries: number = 3): Promise<any> {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        attempt++;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.details || errorData.error || `サーバーエラー: ${response.status}`;
-            const error: any = new Error(errorMessage);
-            error.code = errorData.code;
+        try {
+            const response = await fetch(PROXY_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, payload }),
+                signal: controller.signal,
+            });
+        
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                // スパイク制限(429)やサーバー過負荷(5xx)の場合はリトライ対象エラーを投げる
+                if (response.status === 429 || response.status >= 500) {
+                    throw new Error(`RETRY_TARGET_${response.status}`);
+                }
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.details || errorData.error || `サーバーエラー: ${response.status}`;
+                const error: any = new Error(errorMessage);
+                error.code = errorData.code;
+                throw error;
+            }
+            
+            if (isStreaming) return response;
+            return await response.json();
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            
+            const isRetryTarget = error.message && error.message.includes('RETRY_TARGET_');
+            const isAbort = error instanceof DOMException && error.name === 'AbortError';
+
+            // タイムアウトまたはリトライ対象(429等)で、かつ最大試行回数に達していない場合はバックオフしてリトライ
+            if (attempt < maxRetries && (isRetryTarget || isAbort)) {
+                // 指数的バックオフ (約2秒、4秒...) + ゆらぎ(Jitter)
+                const backoffMs = (Math.pow(2, attempt) * 1000) + (Math.random() * 1000);
+                console.warn(`[API] バックグラウンドで自動リトライを実行します (試行 ${attempt}/${maxRetries-1}). 待機: ${Math.round(backoffMs)}ms. 理由: ${isAbort ? 'Timeout' : error.message}`);
+                await delay(backoffMs);
+                continue; // ループの先頭に戻ってリトライ
+            }
+
+            if (isAbort) {
+                throw new Error('タイムアウトしました。');
+            }
+            
+            if (isRetryTarget) {
+                const code = error.message.split('_')[2];
+                const finalError: any = new Error(`現在アクセスが集中しています (${code})`);
+                finalError.code = parseInt(code);
+                throw finalError;
+            }
+
             throw error;
         }
-        
-        if (isStreaming) return response;
-        return response.json();
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error instanceof DOMException && error.name === 'AbortError') {
-            throw new Error('タイムアウトしました。');
-        }
-        throw error;
     }
 }
 

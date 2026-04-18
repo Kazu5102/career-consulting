@@ -1,5 +1,5 @@
 
-// App.tsx - v4.70 - 2026-04-18 - Usage Tracking Dashboard & Setup
+// App.tsx - v4.72 - 2026-04-18 - Automatic Stealth Retry
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

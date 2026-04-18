@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.70",
-  "description": "Feat: Add API usage tracking, Admin dashboard simulator, and feature toggle mechanism.",
-  "version": "4.70",
+  "name": "Career Consulting_4.72",
+  "description": "Feat: Add automatic stealth retry (exponential backoff) mechanism to Gemini API service to silently recover from 429 spikes.",
+  "version": "4.72",
   "prompt": "",
   "D7": [],
   "Yp": []

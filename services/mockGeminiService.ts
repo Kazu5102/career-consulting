@@ -61,8 +61,14 @@ export const checkServerStatus = async (): Promise<{status: string}> => {
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
     await delay(1500);
-    const responseText = "これはデモ用の応答です。実際の環境ではAIからの返答がストリーミングされます。";
-    const chunks = responseText.split(/(、|。)/).filter(Boolean);
+
+    let responseText = "ごめんなさい、ちょっと今ボクの頭がパンクしちゃってうまく考えがまとまらないワン…。少しだけ休憩して、あとでもう一度お話を聞かせてくれないかな？";
+    
+    if (aiType === 'mentor' || aiType === 'analytical' || (!aiName.includes('ハチ') && !aiName.includes('ラッキー'))) {
+        responseText = "申し訳ありません。現在、推論システムにアクセスが集中しており応答の生成に失敗してしまいました。少しお時間を置いてから、再度お話をお聞かせいただけますでしょうか。";
+    }
+
+    const chunks = responseText.split(/(、|。|？|\?|！|\!|…)/).filter(Boolean);
     let isClosed = false;
     return new ReadableStream({
         async pull(controller) {
