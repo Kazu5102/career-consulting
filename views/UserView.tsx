@@ -322,109 +322,124 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       // Add placeholder message for AI
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
 
-      try {
-        const stream = await getStreamingChatResponse(history, aiType, aiName, profileToUse);
-        if (!stream) throw new Error("Connection failed: No stream returned");
-        
-        let aiResponseText = '';
-        const reader = stream.getReader();
-        
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value.error) throw new Error(value.error.message);
-            if (value.text) {
-                aiResponseText += value.text;
-                setMessages(prev => {
-                    const updated = [...prev];
-                    const lastMsg = updated[updated.length - 1];
-                    // Ensure we are updating the AI message
-                    if (lastMsg.author === MessageAuthor.AI) {
-                        lastMsg.text = aiResponseText;
+        try {
+            const stream = await getStreamingChatResponse(history, aiType, aiName, profileToUse);
+            if (!stream) throw new Error("Connection failed: No stream returned");
+            
+            let aiResponseText = '';
+            const reader = stream.getReader();
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value.error) throw new Error(value.error.message);
+                if (value.text) {
+                    aiResponseText += value.text;
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        const lastMsg = updated[updated.length - 1];
+                        // Ensure we are updating the AI message
+                        if (lastMsg.author === MessageAuthor.AI) {
+                            lastMsg.text = aiResponseText;
+                        }
+                        return updated;
+                    });
+                }
+            }
+            
+            if (!aiResponseText) throw new Error("Empty response received");
+            await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+
+        } catch (error) {
+            console.error("Chat Execution Error, attempting Mock Fallback:", error);
+            try {
+                // 429等のエラー時はMockサービスへ自動的にフォールバックするフェイルセーフ機構
+                const mockStream = await directMockService.getStreamingChatResponse(history, aiType, aiName, profileToUse);
+                if (!mockStream) throw new Error("Mock stream unavailable");
+                
+                let aiResponseText = '';
+                const reader = mockStream.getReader();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    if (value.text) {
+                        aiResponseText += value.text;
+                        setMessages(prev => {
+                            const updated = [...prev];
+                            const lastMsg = updated[updated.length - 1];
+                            if (lastMsg.author === MessageAuthor.AI) {
+                                lastMsg.text = aiResponseText;
+                            }
+                            return updated;
+                        });
                     }
-                    return updated;
-                });
+                }
+                await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+                setHasError(true); // Mockフォールバックが成功した場合もエラー状態(リトライ可能)とする
+            } catch (mockError) {
+                console.error("Mock Fallback also failed:", mockError);
+                setIsLoading(false);
+                setHasError(true);
+                setAiMood('thinking'); 
+                // 最終的に失敗した場合はプレースホルダーを削除
+                setMessages(prev => prev.filter(m => m.text !== ''));
             }
         }
+    };
+
+    const handleSendMessage = async (text: string) => {
+        if (!text.trim() || isLoading) return;
+        setInputClearSignal(prev => prev + 1);
+        lastApiDraftRef.current = ''; // 意図的な送信時にキャッシュをリセット
         
-        if (!aiResponseText) throw new Error("Empty response received");
-        await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+        if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
+            handleGenerateSummary();
+            return;
+        }
+        
+        const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
+        if (hasCrisisWord) {
+            setCrisisCount(prev => prev + 1);
+            setIsCrisisModalOpen(true);
+            setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
+            return;
+        }
+        
+        // Mockエラーメッセージが出ている状態で新しく送信された場合、直前のAIエラーメッセージを履歴から消す
+        let currentHistory = [...messages];
+        if (hasError && currentHistory.length > 0 && currentHistory[currentHistory.length - 1].author === MessageAuthor.AI) {
+            currentHistory.pop();
+        }
 
-      } catch (error) {
-          console.error("Chat Execution Error, attempting Mock Fallback:", error);
-          try {
-              // 429等のエラー時はMockサービスへ自動的にフォールバックするフェイルセーフ機構
-              const mockStream = await directMockService.getStreamingChatResponse(history, aiType, aiName, profileToUse);
-              if (!mockStream) throw new Error("Mock stream unavailable");
-              
-              let aiResponseText = '';
-              const reader = mockStream.getReader();
-              
-              while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  if (value.text) {
-                      aiResponseText += value.text;
-                      setMessages(prev => {
-                          const updated = [...prev];
-                          const lastMsg = updated[updated.length - 1];
-                          if (lastMsg.author === MessageAuthor.AI) {
-                              lastMsg.text = aiResponseText;
-                          }
-                          return updated;
-                      });
-                  }
-              }
-              await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
-          } catch (mockError) {
-              console.error("Mock Fallback also failed:", mockError);
-              setIsLoading(false);
-              setHasError(true);
-              setAiMood('thinking'); 
-              // 最終的に失敗した場合はプレースホルダーを削除
-              setMessages(prev => prev.filter(m => m.text !== ''));
-          }
-      }
-  };
+        // Optimistic Update: Add user message immediately
+        const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
+        const newHistory = [...currentHistory, userMessage];
+        setMessages(newHistory);
+        
+        setSuggestionsVisible(false); 
+        setHasError(false);
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
-    setInputClearSignal(prev => prev + 1);
-    lastApiDraftRef.current = ''; // 意図的な送信時にキャッシュをリセット
-    if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
-        handleGenerateSummary();
-        return;
-    }
-    const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
-    if (hasCrisisWord) {
-        setCrisisCount(prev => prev + 1);
-        setIsCrisisModalOpen(true);
-        setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
-        return;
-    }
-    
-    // Optimistic Update: Add user message immediately
-    const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
-    const newHistory = [...messages, userMessage];
-    setMessages(newHistory);
-    
-    setSuggestionsVisible(false); 
-    setHasError(false);
+        if (onboardingStep >= 1 && onboardingStep <= 5) {
+            await processOnboarding(text, newHistory);
+            return;
+        }
+        
+        // Normal chat flow
+        await executeAiTurn(newHistory);
+    };
 
-    if (onboardingStep >= 1 && onboardingStep <= 5) {
-        await processOnboarding(text, newHistory);
-        return;
-    }
-    
-    // Normal chat flow
-    await executeAiTurn(newHistory);
-  };
-
-  const handleRetry = () => {
-      // Retry using the existing message history (which already contains the user's last message)
-      if (messages.length === 0) return;
-      executeAiTurn(messages);
-  };
+    const handleRetry = () => {
+        let currentHistory = [...messages];
+        // エラー時のAI謝罪メッセージがあれば除去してからリトライ
+        if (hasError && currentHistory.length > 0 && currentHistory[currentHistory.length - 1].author === MessageAuthor.AI) {
+            currentHistory.pop();
+            setMessages(currentHistory);
+        }
+        if (currentHistory.length === 0) return;
+        setHasError(false);
+        executeAiTurn(currentHistory);
+    };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);

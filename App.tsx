@@ -1,5 +1,5 @@
 
-// App.tsx - v4.72 - 2026-04-18 - Automatic Stealth Retry
+// App.tsx - v4.73 - 2026-04-18 - Fix mock fallback type matching & history bloat
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

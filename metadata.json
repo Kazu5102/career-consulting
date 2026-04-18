@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.72",
-  "description": "Feat: Add automatic stealth retry (exponential backoff) mechanism to Gemini API service to silently recover from 429 spikes.",
-  "version": "4.72",
+  "name": "Career Consulting_4.73",
+  "description": "Fix: Correct mock fallback character persona matching and prevent error messages from bloating chat history.",
+  "version": "4.73",
   "prompt": "",
   "D7": [],
   "Yp": []

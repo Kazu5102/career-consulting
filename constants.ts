@@ -1,9 +1,9 @@
 
 // constants.ts
-// v4.72 - 2026-04-18 - Automatic Stealth Retry (Exponential Backoff)
+// v4.73 - 2026-04-18 - Fix mock fallback type matching & history bloat
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.72";
+export const APP_VERSION = "4.73";
 
 // Feature Toggles (機能の有効/無効の切り替えスイッチ。本番環境への移行時に使用)
 export const FEATURES = {
