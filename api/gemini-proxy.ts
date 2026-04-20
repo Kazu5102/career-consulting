@@ -141,7 +141,7 @@ ${contextInstruction}
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.0-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -179,7 +179,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.0-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -262,7 +262,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     }));
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3-flash-preview', 
+        model: 'gemini-3.0-flash', 
         contents,
         config: { 
             systemInstruction, 
@@ -276,7 +276,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.0-flash',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {
@@ -328,7 +328,7 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
     }
 
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.0-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",

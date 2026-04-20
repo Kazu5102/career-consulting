@@ -1,5 +1,5 @@
 
-// App.tsx - v4.73 - 2026-04-18 - Fix mock fallback type matching & history bloat
+// App.tsx - v4.75 - 2026-04-20 - Fix summary fallback mock issue by avoiding Pro strict RPM limit
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

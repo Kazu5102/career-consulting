@@ -58,8 +58,12 @@ const INSTANT_KEYWORDS: Record<string, string[]> = {
     '将来': ['将来が不安', 'キャリアプラン', '5年後の自分', 'ロールモデルがない'],
     '給料': ['給与への不満', '評価制度について', '年収アップ', '待遇改善'],
     'スキル': ['スキル不足を感じる', '新しい技術', '資格取得', '学習方法'],
-    '疲れ': ['仕事に疲れれた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
-    '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング']
+    '疲れ': ['仕事に疲れた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
+    '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング'],
+    '不安': ['漠然とした不安', 'このままでいいのか', '自信がない', '今後の生活'],
+    '強み': ['自分の強みを知りたい', 'アピールポイント', '向いている仕事', '適性検査'],
+    '時間': ['残業が多い', 'ワークライフバランス', '自分の時間が欲しい', '時間管理'],
+    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について']
 };
 
 const FALLBACK_SUGGESTIONS = [
@@ -96,6 +100,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
   const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
+  const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
@@ -228,11 +233,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         if (!matched) setSuggestionsVisible(false);
     }
     // 【内省深堀介入領域】: 動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
-    else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
+    else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
         if (draft.trim().length > 0) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
-                generateSuggestions(messages, draft)
+                isSuggestingRef.current = true; // 案X: ブロック開始
+                
+                // 案V: 無駄な履歴を削ぎ落とし、直近2ラリー（最大4件）だけを文脈として渡す
+                const recentMessages = messages.slice(-4);
+                
+                generateSuggestions(recentMessages, draft)
                     .then(resp => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
                             setSuggestions(resp.suggestions);
@@ -242,6 +252,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     .catch(() => {
                         setSuggestions(FALLBACK_SUGGESTIONS);
                         setSuggestionsVisible(true);
+                    })
+                    .finally(() => {
+                        isSuggestingRef.current = false; // 案X: ブロック解除
                     });
             }
         } else {
@@ -293,7 +306,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       
       if (onboardingStep >= 6) {
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
-          generateSuggestions(currentMessages)
+          isSuggestingRef.current = true; // 案X: ブロック開始
+          // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
+          const recentMessages = currentMessages.slice(-4);
+          
+          generateSuggestions(recentMessages)
             .then(resp => {
                 setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
                 setSuggestionsVisible(true);
@@ -301,6 +318,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             .catch(() => {
                 setSuggestions(FALLBACK_SUGGESTIONS);
                 setSuggestionsVisible(true);
+            })
+            .finally(() => {
+                isSuggestingRef.current = false; // 案X: ブロック解除
             });
       }
   };
@@ -533,6 +553,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             const result = await generateSummary(messages, aiType, aiName, userProfile);
             setSummary(result);
         } catch (e) {
+            console.warn("API Error during summary generation, falling back to mock:", e);
             try {
                 setSummary(await directMockService.generateSummary(messages, aiType, aiName, userProfile));
             } catch {

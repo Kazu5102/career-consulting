@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.73",
-  "description": "Fix: Correct mock fallback character persona matching and prevent error messages from bloating chat history.",
-  "version": "4.73",
+  "name": "Career Consulting_4.75",
+  "description": "Fix: Avoid strict Pro RPM limits on summary/analysis endpoints by routing all generative tasks to high-capacity Flash models preventing fallback to mock data.",
+  "version": "4.75",
   "prompt": "",
   "D7": [],
   "Yp": []
