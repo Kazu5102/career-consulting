@@ -1,9 +1,9 @@
 
 // constants.ts
-// v4.75 - 2026-04-20 - Fix summary fallback mock issue by avoiding Pro strict RPM limit
+// v4.80 - 2026-05-01 - Stability: Reverting to GA Gemini 1.5 Flash
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.75";
+export const APP_VERSION = "4.80";
 
 // Feature Toggles (機能の有効/無効の切り替えスイッチ。本番環境への移行時に使用)
 export const FEATURES = {

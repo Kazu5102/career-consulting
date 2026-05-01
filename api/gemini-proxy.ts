@@ -136,12 +136,13 @@ ${contextInstruction}
 2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
 3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
 4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。
+5. **重要**: 出力は必ず指定されたスキーマに従い、有効なJSON形式で返してください。余計な文字列（Markdownのコードブロック等）は含めないでください。
 
 履歴:
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.0-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -174,12 +175,13 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
 3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
 4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
+5. **重要**: 出力は必ず指定されたスキーマに従い、有効なJSON形式で返してください。余計な文字列（Markdownのコードブロック等）は含めないでください。
 
 履歴:
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.0-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -262,12 +264,11 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     }));
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-3.0-flash', 
+        model: 'gemini-1.5-flash', 
         contents,
         config: { 
             systemInstruction, 
-            temperature: 0.7,
-            thinkingConfig: { thinkingBudget: 0 } 
+            temperature: 0.7 
         },
     }));
 }
@@ -276,7 +277,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3.0-flash',
+        model: 'gemini-1.5-flash',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {
@@ -328,11 +329,10 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
     }
 
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-3.0-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },

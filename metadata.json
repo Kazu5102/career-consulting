@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.75",
-  "description": "Fix: Avoid strict Pro RPM limits on summary/analysis endpoints by routing all generative tasks to high-capacity Flash models preventing fallback to mock data.",
-  "version": "4.75",
+  "name": "Career Consulting_4.80",
+  "description": "Stability Fix: Reverted all AI operations to production-grade Gemini 1.5 Flash model and increased response resilience to resolve frequent communication errors reported in preview models.",
+  "version": "4.80",
   "prompt": "",
   "D7": [],
   "Yp": []

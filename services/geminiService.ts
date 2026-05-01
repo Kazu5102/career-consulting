@@ -1,6 +1,7 @@
 
 // services/geminiService.ts - v4.72 - Robust Streaming Support for Analysis
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
+import * as directMockService from './mockGeminiService';
 
 const PROXY_API_ENDPOINT = '/api/gemini-proxy';
 const ANALYSIS_TIMEOUT = 300000; // 5 minutes
@@ -91,15 +92,20 @@ async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promi
             if (trimmed.startsWith('data: ')) {
                 const dataStr = trimmed.slice(6);
                 if (dataStr === '[DONE]') break;
+                
+                let data;
                 try {
-                    const data = JSON.parse(dataStr);
-                    if (data.text) fullText += data.text;
-                    if (data.error) throw new Error(data.error);
-                } catch (e) {
-                    // ignore incomplete JSON chunks in SSE data, though we expect valid JSON per line usually
-                    if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
-                       // Only log legitimate errors, not parsing of partials if that were to happen
-                    }
+                    data = JSON.parse(dataStr);
+                } catch (parseError) {
+                    continue; // Ignore partial chunks in JSON.parse
+                }
+                
+                if (data.error) {
+                     const errorMsg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+                     throw new Error(errorMsg); // Propagate actual error up to the top level
+                }
+                if (data.text) {
+                     fullText += data.text;
                 }
             }
         }
@@ -110,7 +116,14 @@ async function fetchStreamAndAccumulateJSON(action: string, payload: any): Promi
     } catch (e) {
         // Fallback: try to extract JSON if markdown fencing was included
         const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        if (jsonMatch) {
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+                console.error("Failed to parse extracted JSON:", jsonMatch[0]);
+            }
+        }
+        console.error("Original fullText:", fullText);
         throw new Error("AIからの応答を解析できませんでした (Invalid JSON)");
     }
 }
@@ -224,8 +237,12 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 };
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
-    // Use streaming accumulator
-    return await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId });
+    try {
+        return await fetchStreamAndAccumulateJSON('analyzeTrajectory', { conversations, userId });
+    } catch (e) {
+        console.warn('API error in analyzeTrajectory, falling back to mock.', e);
+        return await directMockService.analyzeTrajectory(conversations, userId);
+    }
 };
 
 export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
@@ -238,8 +255,12 @@ export const generateSummaryFromText = async (textToAnalyze: string): Promise<st
 };
 
 export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
-    // Use streaming accumulator
-    return await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations });
+    try {
+        return await fetchStreamAndAccumulateJSON('performSkillMatching', { conversations });
+    } catch (e) {
+        console.warn('API error in performSkillMatching, falling back to mock.', e);
+        return await directMockService.performSkillMatching(conversations);
+    }
 };
 
 export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {

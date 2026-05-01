@@ -1,5 +1,5 @@
 
-// App.tsx - v4.75 - 2026-04-20 - Fix summary fallback mock issue by avoiding Pro strict RPM limit
+// App.tsx - v4.80 - 2026-05-01 - Revert to GA 1.5 Flash for stability
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
