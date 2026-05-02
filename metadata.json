@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.44",
-  "description": "Stability Patch v5.44: Implemented robust defensive accessor logic for AI streaming chunks to handle SDK variability. Restored conversation integrity and maintained optimized context windows for quota-safe high-precision analysis.",
-  "version": "5.44",
+  "name": "Career Consulting_5.46",
+  "description": "Professional Recovery v5.46: Optimized with Gemini 3 series models (gemini-3-flash-preview / gemini-3.1-pro-preview) to ensure high-fidelity reasoning and stable streaming. Fixed SSE buffer handling for uninterrupted long-form trajectory analysis and empathetic chat sessions.",
+  "version": "5.46",
   "prompt": "",
   "D7": [],
   "Yp": []
