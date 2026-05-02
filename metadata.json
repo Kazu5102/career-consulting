@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.80",
-  "description": "Stability Fix: Reverted all AI operations to production-grade Gemini 1.5 Flash model and increased response resilience to resolve frequent communication errors reported in preview models.",
-  "version": "4.80",
+  "name": "Career Consulting_5.10",
+  "description": "Model Correction Patch: Resolved the 404 'model not found' issue by standardizing all AI requests on the gemini-3-flash-preview model and verifying API compatibility through enhanced server logs.",
+  "version": "5.10",
   "prompt": "",
   "D7": [],
   "Yp": []

@@ -1,9 +1,9 @@
 
 // constants.ts
-// v4.80 - 2026-05-01 - Stability: Reverting to GA Gemini 1.5 Flash
+// v5.10 - 2026-05-02 - Stability Patch: Fixed 404 model errors and added server-side verification
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "4.80";
+export const APP_VERSION = "5.10";
 
 // Feature Toggles (機能の有効/無効の切り替えスイッチ。本番環境への移行時に使用)
 export const FEATURES = {

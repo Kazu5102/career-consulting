@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v4.63 - Lightweight Context for Suggestion
+// api/gemini-proxy.ts - v5.10 - 2026-05-02 - Critical Fix: Standardizing on Gemini 3 Flash Preview to resolve 404 errors
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -31,8 +31,9 @@ interface StoredConversation {
 let ai: GoogleGenAI | null = null;
 const getAIClient = () => {
     if (!ai) {
-        if (!process.env.API_KEY) throw new Error("API_KEY not set in environment variables.");
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+        if (!apiKey) throw new Error("GEMINI_API_KEY is not set in environment variables.");
+        ai = new GoogleGenAI({ apiKey });
     }
     return ai;
 };
@@ -54,8 +55,9 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: () => Promis
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering for Vercel/Nginx
     
-    // Initial keep-alive message to establish connection immediately
+    // Initial keep-alive message
     res.write(': start\n\n');
 
     try {
@@ -118,6 +120,7 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
     const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
     const isSingleSession = conversations.length === 1;
 
+    console.log(`[AI Request] Action: analyzeTrajectory, Model: gemini-3-flash-preview`);
     const contextInstruction = isSingleSession
         ? `相談履歴は**1件のみ**です。
 長期的な変容は見えませんが、この1回のセッション内における「感情の微細な揺れ動き」や「発言の矛盾点」、「語られなかった空白」に着目し、【マイクロ・ナラティブ（微細な物語）】として深層心理を分析してください。
@@ -142,7 +145,7 @@ ${contextInstruction}
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -167,6 +170,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
     const { conversations } = payload;
     const historyText = conversations.map(c => c.summary).join('\n');
     
+    console.log(`[AI Request] Action: performSkillMatching, Model: gemini-3-flash-preview`);
     const prompt = `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
 相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
 
@@ -181,7 +185,7 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 ${historyText}`;
 
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -263,8 +267,9 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         parts: [{ text: msg.text }],
     }));
 
+    console.log(`[AI Request] Action: getStreamingChatResponse, Model: gemini-3-flash-preview`);
     await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: 'gemini-1.5-flash', 
+        model: 'gemini-3-flash-preview', 
         contents,
         config: { 
             systemInstruction, 
@@ -276,8 +281,9 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
     const { chatHistory } = payload;
     const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
+    console.log(`[AI Request] Action: generateSummary, Model: gemini-3-flash-preview`);
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
 履歴: ${historyText}`,
         config: {
@@ -329,7 +335,7 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
     }
 
     const result = await getAIClient().models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -340,5 +346,6 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
             }
         }
     });
+    console.log(`[AI Request] Action: generateSuggestions, Model: gemini-3-flash-preview`);
     return robustParseJSON(result.text || "{}");
 }

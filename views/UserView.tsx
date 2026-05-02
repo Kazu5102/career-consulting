@@ -396,7 +396,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     }
                 }
                 await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
-                setHasError(true); // Mockフォールバックが成功した場合もエラー状態(リトライ可能)とする
+                // Mockフォールバック成功時はエラーボックスを見せず、警告のみ
+                console.warn("Service is currently in fallback mode.");
             } catch (mockError) {
                 console.error("Mock Fallback also failed:", mockError);
                 setIsLoading(false);

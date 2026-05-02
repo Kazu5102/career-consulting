@@ -1,5 +1,5 @@
 
-// App.tsx - v4.80 - 2026-05-01 - Revert to GA 1.5 Flash for stability
+// App.tsx - v5.10 - 2026-05-02 - Model Stability Implementation
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
