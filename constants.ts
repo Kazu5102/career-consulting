@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.41 - 2026-05-02 - Plan A: Optimized precision strategy with strict history slicing and prompt slimming
+// v5.43 - 2026-05-02 - Precision Stabilization: Corrected SDK accessors and optimized context window
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.41";
+export const APP_VERSION = "5.43";
 
 /**
  * AI Service Configuration

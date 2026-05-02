@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.41 - 2026-05-02 - Plan A: Optimized precision strategy with strict history slicing
+// api/gemini-proxy.ts - v5.43 - 2026-05-02 - Precision Stabilization: Fixed streaming property access and context slicing
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -78,7 +78,7 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         }
 
         for await (const chunk of stream) {
-            const text = chunk.text;
+            const text = chunk.text; // SDK spec update: use property access
             if (text) {
                 res.write(`data: ${JSON.stringify({ text })}\n\n`);
             }
@@ -129,8 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string }, res: VercelResponse) {
     const { conversations } = payload;
-    // 重い分析では最新3件に絞り込み、トークンとクォータを節約
-    const targetConversations = conversations.slice(-3);
+    // 精度維持のため最新5件まで拡張（Plan A+）
+    const targetConversations = conversations.slice(-5);
     const historyText = targetConversations.map(c => `[${c.date}]: ${c.summary}`).join('\n---\n');
     const isSingleSession = targetConversations.length === 1;
 
@@ -163,8 +163,8 @@ ${historyText}`;
 
 async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
-    // 最新3件に絞り込み
-    const targetConversations = conversations.slice(-3);
+    // 最新5件に拡張
+    const targetConversations = conversations.slice(-5);
     const historyText = targetConversations.map(c => c.summary).join('\n');
     const prompt = `キャリアパス・コーディネーターとして現実的な適職をJSONで提案してください。
 履歴:
@@ -201,8 +201,8 @@ ${historyText}`;
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    // 最新8件に絞り込み
-    const recentMessages = messages.slice(-8);
+    // 最新10件に拡張し、文脈の安定性を向上
+    const recentMessages = messages.slice(-10);
     const systemInstruction = `名前: ${aiName}, 種別: ${aiType}, プロファイル: ${JSON.stringify(profile)}. 共感・傾聴を最優先。内省を促す。`;
     
     const contents = recentMessages.map(msg => ({
