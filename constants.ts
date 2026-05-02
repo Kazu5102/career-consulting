@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.43 - 2026-05-02 - Precision Stabilization: Corrected SDK accessors and optimized context window
+// v5.44 - 2026-05-02 - Stability Patch: Robust streaming accessor logic applied
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.43";
+export const APP_VERSION = "5.44";
 
 /**
  * AI Service Configuration

@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.43 - 2026-05-02 - Precision Stabilization: Fixed streaming property access and context slicing
+// api/gemini-proxy.ts - v5.44 - 2026-05-02 - Stability Patch: Robust streaming accessor logic
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -78,7 +78,8 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         }
 
         for await (const chunk of stream) {
-            const text = chunk.text; // SDK spec update: use property access
+            // SDKのバージョン差異に対応するためメソッドとプロパティの両方をチェック
+            const text = typeof chunk.text === 'function' ? chunk.text() : (chunk.text || "");
             if (text) {
                 res.write(`data: ${JSON.stringify({ text })}\n\n`);
             }

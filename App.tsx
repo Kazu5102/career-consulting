@@ -1,5 +1,5 @@
 
-// App.tsx - v5.43 - 2026-05-02 - Precision Stabilization Implementation
+// App.tsx - v5.44 - 2026-05-02 - Stability Patch Implementation
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

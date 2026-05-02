@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.43",
-  "description": "Precision Stabilization Patch: Resolved AI streaming runtime errors by correcting SDK accessor usage (chunk.text). Optimized history slicing context (10 chat messages / 5 analysis sessions) to provide a more stable personality and analytical depth while remaining within quota limits.",
-  "version": "5.43",
+  "name": "Career Consulting_5.44",
+  "description": "Stability Patch v5.44: Implemented robust defensive accessor logic for AI streaming chunks to handle SDK variability. Restored conversation integrity and maintained optimized context windows for quota-safe high-precision analysis.",
+  "version": "5.44",
   "prompt": "",
   "D7": [],
   "Yp": []
