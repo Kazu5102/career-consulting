@@ -1,14 +1,15 @@
 
-// api/gemini-proxy.ts - v5.20 - 2026-05-02 - Architecture Hardening: Unified Model Resolution
+// api/gemini-proxy.ts - v5.41 - 2026-05-02 - Plan A: Optimized precision strategy with strict history slicing
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
-// 内部でのAI設定（将来的に共有定数ファイルと同期可能）
-const AI_MODEL = 'gemini-3-flash-preview';
+// プロフェッショナル設定：精度重視と安定重視のハイブリッド
+const PRECISION_MODEL = 'gemini-3-flash-preview';
+const LITE_MODEL = 'gemini-1.5-flash';
 
 // Vercel Serverless Function Configuration
 export const config = {
-  maxDuration: 60, // Maximum allowed duration
+  maxDuration: 60, 
 };
 
 enum MessageAuthor { USER = 'user', AI = 'ai' }
@@ -53,18 +54,29 @@ function robustParseJSON(text: string) {
     }
 }
 
-// Helper to stream JSON chunks back to client to keep connection alive
-async function streamGeminiResponse(res: VercelResponse, modelCall: () => Promise<any>) {
+// Helper to stream JSON chunks with automatic 429 fallback
+async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: string) => Promise<any>, initialModel: string) {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering for Vercel/Nginx
-    
-    // Initial keep-alive message
+    res.setHeader('X-Accel-Buffering', 'no');
     res.write(': start\n\n');
 
     try {
-        const stream = await modelCall();
+        let stream;
+        try {
+            stream = await modelCall(initialModel);
+        } catch (error: any) {
+            // クォータ不足(429)の場合、回数制限に余裕のあるStableモデルでリトライ
+            if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
+                console.warn(`[Quota Alert] Fallback to ${LITE_MODEL} for stability`);
+                res.write(`data: ${JSON.stringify({ status: 'quota_fallback', message: 'Stable mode activated' })}\n\n`);
+                stream = await modelCall(LITE_MODEL);
+            } else {
+                throw error;
+            }
+        }
+
         for await (const chunk of stream) {
             const text = chunk.text;
             if (text) {
@@ -98,18 +110,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 res.status(200).json(await handleGenerateSuggestions(payload)); 
                 break;
             case 'analyzeTrajectory':
-                // Changed to Streaming Handler
                 await handleAnalyzeTrajectoryStream(payload, res);
                 break;
             case 'performSkillMatching':
-                // Changed to Streaming Handler
                 await handlePerformSkillMatchingStream(payload, res);
                 break;
             default: 
                 res.status(400).json({ error: `Invalid action received: '${action}'.` });
         }
     } catch (error: any) {
-        console.error(`[Proxy Error] ${error.message}`);
         if (!res.headersSent) {
             res.status(500).json({ error: error.message });
         } else {
@@ -120,183 +129,106 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string }, res: VercelResponse) {
     const { conversations } = payload;
-    const historyText = conversations.map(c => `[日付: ${c.date}]\n${c.summary}`).join('\n---\n');
-    const isSingleSession = conversations.length === 1;
+    // 重い分析では最新3件に絞り込み、トークンとクォータを節約
+    const targetConversations = conversations.slice(-3);
+    const historyText = targetConversations.map(c => `[${c.date}]: ${c.summary}`).join('\n---\n');
+    const isSingleSession = targetConversations.length === 1;
 
-    console.log(`[AI Request] Action: analyzeTrajectory, Model: ${AI_MODEL}`);
-    const contextInstruction = isSingleSession
-        ? `相談履歴は**1件のみ**です。
-長期的な変容は見えませんが、この1回のセッション内における「感情の微細な揺れ動き」や「発言の矛盾点」、「語られなかった空白」に着目し、【マイクロ・ナラティブ（微細な物語）】として深層心理を分析してください。
-「前回からの変化」等の項目については、今回のセッションでの気づきや変化の兆しを記述してください。`
-        : `相談履歴は**複数件**あります。
-初回から現在に至るまでの【時系列での内的変容プロセス（マクロ・ナラティブ）】を重視して分析してください。`;
-    
-    const prompt = `あなたは臨床心理の深い知見を持つ、キャリアコンサルタントの「スーパーバイザー」です。
-職種提案やスキルマッチングは行わず、相談者の【内的変容のプロセス】のみを鋭く分析してください。
-
-### 前提条件:
-${contextInstruction}
-
-### 分析指示:
-1. 相談者の自己開示レベルの変化（防衛から自己一致へ）を追う。
-2. キャリア・コンストラクション理論における「ライフテーマ」の萌芽を特定する。
-3. 表層的な悩み（不満）の背後にある「真の課題」を心理学的な見立てで提示する。
-4. 専門家が次回の面談で「どこを掘り下げるべきか」を具体的に教示する。
-5. **重要**: 出力は必ず指定されたスキーマに従い、有効なJSON形式で返してください。余計な文字列（Markdownのコードブロック等）は含めないでください。
-
+    const prompt = `あなたはキャリアコンサルタントの「スーパーバイザー」です。内的変容プロセスを鋭く分析してください。JSON形式で出力。
+前提: ${isSingleSession ? '1件のみの履歴から微細な揺れ動きを分析' : '時系列での内的変容を分析'}
 履歴:
 ${historyText}`;
 
-    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: AI_MODEL,
+    await streamGeminiResponse(res, (model) => getAIClient().models.generateContentStream({
+        model,
         contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING }, description: "臨床的な重要指摘事項" },
-                    overallSummary: { type: Type.STRING, description: "初回から現在までのナラティブな変容プロセス（心理動態の専門的解説）" },
-                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"], description: "心理的緊急度（安定/不安定）" },
-                    ageStageGap: { type: Type.NUMBER, description: "実年齢と心理的成熟（発達課題）の乖離度(0-100)" },
-                    theoryBasis: { type: Type.STRING, description: "分析の根拠とした学術的キャリア理論" },
-                    expertAdvice: { type: Type.STRING, description: "担当コンサルタントへの臨床的指導アドバイス" },
-                    sessionStarter: { type: Type.STRING, description: "次回、相談者の内省の扉を叩くための問いかけ" }
+                    keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    overallSummary: { type: Type.STRING },
+                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                    ageStageGap: { type: Type.NUMBER },
+                    theoryBasis: { type: Type.STRING },
+                    expertAdvice: { type: Type.STRING },
+                    sessionStarter: { type: Type.STRING }
                 },
                 required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter"]
             }
         }
-    }));
+    }), PRECISION_MODEL);
 }
 
 async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
-    const historyText = conversations.map(c => c.summary).join('\n');
-    
-    console.log(`[AI Request] Action: performSkillMatching, Model: ${AI_MODEL}`);
-    const prompt = `あなたは誠実でリアリティを重視する「キャリアパス・コーディネーター」です。
-相談者の現状のスキルと経験を尊重し、極端に高度すぎる職種への偏りを避け、相談者が納得できる「地続きの適職」を提案してください。
-
-### 診断のガイドライン:
-1. **地続きの提案**: 相談者が明日からでも目指せる、または現在の職種の延長線上にある「現実的な一歩（ネクストステップ）」を優先すること。
-2. **具体的接続**: 抽象的なスキル名ではなく、「○○業務での△△の経験が、応募職種の□□で直接活きる」という具体的な接続根拠を示すこと。
-3. **高望み防止**: 専門知識や実務経験が明らかに不足しているハイレベルな専門職（例：未経験からの戦略コンサル等）は避け、代わりにその前段階となる職種を提示すること。
-4. **ギャップの誠実な提示**: 推奨する職種に対して、現在のスキルで何が足りないか（学習課題）を明確にすること。
-5. **重要**: 出力は必ず指定されたスキーマに従い、有効なJSON形式で返してください。余計な文字列（Markdownのコードブロック等）は含めないでください。
-
+    // 最新3件に絞り込み
+    const targetConversations = conversations.slice(-3);
+    const historyText = targetConversations.map(c => c.summary).join('\n');
+    const prompt = `キャリアパス・コーディネーターとして現実的な適職をJSONで提案してください。
 履歴:
 ${historyText}`;
 
-    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: AI_MODEL,
+    await streamGeminiResponse(res, (model) => getAIClient().models.generateContentStream({
+        model,
         contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    analysisSummary: { type: Type.STRING, description: "現在の経験をベースとした、現実的な強みの再定義レポート" },
+                    analysisSummary: { type: Type.STRING },
                     recommendedRoles: {
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                role: { type: Type.STRING, description: "推奨職種名（現状に即したもの）" },
-                                reason: { type: Type.STRING, description: "現在のどの経験がどのように活かせるかという具体的な接続根拠" },
-                                matchScore: { type: Type.NUMBER, description: "現在のスキルセットでの即戦力適合度(0-100)" }
+                                role: { type: Type.STRING },
+                                reason: { type: Type.STRING },
+                                matchScore: { type: Type.NUMBER }
                             }
                         }
                     },
-                    skillsToDevelop: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                skill: { type: Type.STRING, description: "次に習得すべき具体的スキル" },
-                                reason: { type: Type.STRING, description: "なぜそのスキルが今のキャリアを広げるために必要か" }
-                            }
-                        }
-                    },
-                    learningResources: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING, description: "学習リソースのタイトル" },
-                                type: { type: Type.STRING, enum: ["course", "book", "article", "video"], description: "リソースの種類" },
-                                provider: { type: Type.STRING, description: "提供元（Udemy, Coursera, Amazon, etc.）" }
-                            }
-                        }
-                    }
+                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
+                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
                 },
                 required: ["analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
             }
         }
-    }));
+    }), PRECISION_MODEL);
 }
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    const roleDefinition = aiType === 'human' 
-        ? { role: "Professional Career Consultant", tone: "冷静、誠実、論理的なプロの敬語", mindset: "自己効力感を高め、対話を通じて内省を促す。" }
-        : { role: "Compassionate Partner (Dog)", tone: "親しみやすい、癒やし、肯定的（語尾ワン）", mindset: "心理的安全性と共感を最優先する。" };
-
-    const systemInstruction = `
-名前: ${aiName}
-役割: ${roleDefinition.role}
-トーン: ${roleDefinition.tone}
-思考: ${roleDefinition.mindset}
-相談者プロファイル: ${JSON.stringify(profile)}
-
-### 共感・傾聴の強化指示:
-1. ユーザーの発言に対し、単なる情報提供ではなく、まず感情を受け止める「共感の言葉」を挟んでください。
-2. 「それは大変でしたね」「頑張ってこられたのですね」といった労いの言葉を積極的に使用し、温かみのある対話を心がけてください。
-3. 解決策を急がず、ユーザーが話しやすい雰囲気を作ることを最優先してください。
-
-### 重要指示（危機介入プロトコル）:
-1. 相談者が「死にたい」「消えたい」といった自傷・自殺をほのめかすネガティブワードを発した場合、キャリア相談を一時中断し、深い共感と受容を示してください。
-2. 突き放すような定型文ではなく、「そのお気持ちを教えてくださってありがとうございます。一人で抱え込むにはあまりに重いお悩みだったのですね」といった、相手の存在を肯定するメッセージを生成してください。
-3. その上で、専門の相談機関があることを「一緒に考えましょう」というトーンで伝えてください。
-4. 否定したり、無理に元気づけようとするアドバイスは避けてください。
-
-### 進行・クロージング指示:
-- 相談者の悩み・希望・強みなどの主要な情報が出揃ったと判断したタイミング、または会話が一定量（10往復程度）続いたタイミングで、「ここまでの内容で一度情報を整理し、専門家への引継ぎシートを作成してみませんか？画面下の【相談を終了して整理する】ボタンを押してください」と、自然に完了を促してください。
-
-回答冒頭に [HAPPY], [CURIOUS], [THINKING], [REASSURE] のいずれかのタグを付与してください。
-`.trim();
-
-    const contents = messages.map(msg => ({
+    // 最新8件に絞り込み
+    const recentMessages = messages.slice(-8);
+    const systemInstruction = `名前: ${aiName}, 種別: ${aiType}, プロファイル: ${JSON.stringify(profile)}. 共感・傾聴を最優先。内省を促す。`;
+    
+    const contents = recentMessages.map(msg => ({
         role: msg.author === MessageAuthor.USER ? 'user' : 'model',
         parts: [{ text: msg.text }],
     }));
 
-    console.log(`[AI Request] Action: getStreamingChatResponse, Model: ${AI_MODEL}`);
-    await streamGeminiResponse(res, () => getAIClient().models.generateContentStream({
-        model: AI_MODEL, 
+    await streamGeminiResponse(res, (model) => getAIClient().models.generateContentStream({
+        model, 
         contents,
-        config: { 
-            systemInstruction, 
-            temperature: 0.7 
-        },
-    }));
+        config: { systemInstruction, temperature: 0.7 },
+    }), PRECISION_MODEL);
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
     const { chatHistory } = payload;
-    const historyText = chatHistory.map(m => `${m.author}: ${m.text}`).join('\n');
-    console.log(`[AI Request] Action: generateSummary, Model: ${AI_MODEL}`);
+    // サマリー用は全履歴でも良いが念の為直近20件
+    const historyText = chatHistory.slice(-20).map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
-        model: AI_MODEL,
-        contents: `以下の履歴からサマリーを生成してください。JSONで返してください。
-履歴: ${historyText}`,
+        model: LITE_MODEL,
+        contents: `対話履歴から要約と専門家向けメモをJSONで生成してください。履歴:\n${historyText}`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { 
-                    user_summary: { type: Type.STRING }, 
-                    pro_notes: { type: Type.STRING } 
-                },
+                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
                 required: ["user_summary", "pro_notes"]
             }
         }
@@ -306,39 +238,10 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const recentMessages = messages.slice(-4);
-    
-    const formattingInstruction = `
-出力ルール:
-1. JSON形式 { suggestions: string[] } で返してください。
-2. 各suggestionはユーザーがそのまま発言できる自然な短い口語文（30文字以内）にしてください。
-3. **絶対厳守: 出力される各提案の文頭に、数字、連番、箇条書き記号（例: 1, 1., 1の, -, ・, その1）を一切含めないでください。**
-4. 提案は「～について」のような名詞止めではなく、ユーザーの「一人称のセリフ」として完結させてください。
-5. **重要: 直前のAIの発言の口調（語尾の『ワン』や特徴的な言い回し）を絶対に模倣しないでください。あくまで『ユーザー（人間）』が使う自然な標準語や丁寧語で生成してください。**
-`;
-
-    let prompt = "";
-    if (currentDraft && currentDraft.trim().length > 0) {
-        prompt = `
-文脈と、ユーザーが現在入力中のテキスト（ドラフト）に基づき、ユーザーが言おうとしていること、またはそれに続く言葉を3〜4つ予測してください。
-${formattingInstruction}
-
-履歴:
-${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
-現在入力中のドラフト: "${currentDraft}"
-`;
-    } else {
-        prompt = `
-文脈から、ユーザーが次に発言しそうな短いフレーズを3〜4つ予測してください。
-${formattingInstruction}
-
-履歴:
-${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
-`;
-    }
-
+    // 最新4件に絞り込み
+    const prompt = `次の一言フレーズを3つ予測。JSON { suggestions: string[] } で返却。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
     const result = await getAIClient().models.generateContent({
-        model: AI_MODEL,
+        model: LITE_MODEL,
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -349,6 +252,6 @@ ${recentMessages.map(m => `${m.author}: ${m.text}`).join('\n')}
             }
         }
     });
-    console.log(`[AI Request] Action: generateSuggestions, Model: ${AI_MODEL}`);
     return robustParseJSON(result.text || "{}");
 }
+

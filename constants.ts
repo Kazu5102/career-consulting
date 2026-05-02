@@ -1,18 +1,19 @@
 
 // constants.ts
-// v5.20 - 2026-05-02 - Architecture Hardening: Centralized AI Model configuration
+// v5.41 - 2026-05-02 - Plan A: Optimized precision strategy with strict history slicing and prompt slimming
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.20";
+export const APP_VERSION = "5.41";
 
 /**
  * AI Service Configuration
- * 将来のモデルアップデートやAPI変更を吸収するための集中管理設定
+ * 精度重視のPrecisionモデルと、安定・クォータ重視のLiteモデルのハイブリッド運用
  */
 export const AI_CONFIG = {
-    PRIMARY_MODEL: 'gemini-3-flash-preview',
-    // 安定版が必要な場合のフォールバック用
-    STABLE_MODEL: 'gemini-1.5-flash',
+    // 心理分析・チャット用（高精度）
+    PRECISION_MODEL: 'gemini-3-flash-preview',
+    // 要約・サジェスト・フォールバック用（高速・低負荷）
+    LITE_MODEL: 'gemini-1.5-flash',
     // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };

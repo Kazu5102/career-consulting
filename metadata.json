@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.20",
-  "description": "Architecture Hardening Patch: Decoupled AI model resolution from functional logic by introducing a centralized AI_CONFIG. This ensures that future model deprecations or API changes can be managed from a single source of truth, minimizing regression risks.",
-  "version": "5.20",
+  "name": "Career Consulting_5.41",
+  "description": "Plan A Optimization Patch: Dramatically reduced AI requests' token footprint by slimming system instructions and strictly slicing conversation history (last 8 chat messages / last 3 analysis sessions). This strategy maximizes the usage of gemini-3-flash-preview within its quota limits while maintaining high analytical precision.",
+  "version": "5.41",
   "prompt": "",
   "D7": [],
   "Yp": []
