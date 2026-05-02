@@ -1,5 +1,5 @@
 
-// App.tsx - v5.10 - 2026-05-02 - Model Stability Implementation
+// App.tsx - v5.20 - 2026-05-02 - Architecture Hardening Implementation
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

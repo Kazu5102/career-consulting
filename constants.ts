@@ -1,9 +1,21 @@
 
 // constants.ts
-// v5.10 - 2026-05-02 - Stability Patch: Fixed 404 model errors and added server-side verification
+// v5.20 - 2026-05-02 - Architecture Hardening: Centralized AI Model configuration
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.10";
+export const APP_VERSION = "5.20";
+
+/**
+ * AI Service Configuration
+ * 将来のモデルアップデートやAPI変更を吸収するための集中管理設定
+ */
+export const AI_CONFIG = {
+    PRIMARY_MODEL: 'gemini-3-flash-preview',
+    // 安定版が必要な場合のフォールバック用
+    STABLE_MODEL: 'gemini-1.5-flash',
+    // ストリーミング接続のタイムアウト（ミリ秒）
+    STREAM_TIMEOUT: 60000,
+};
 
 // Feature Toggles (機能の有効/無効の切り替えスイッチ。本番環境への移行時に使用)
 export const FEATURES = {

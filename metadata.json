@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.10",
-  "description": "Model Correction Patch: Resolved the 404 'model not found' issue by standardizing all AI requests on the gemini-3-flash-preview model and verifying API compatibility through enhanced server logs.",
-  "version": "5.10",
+  "name": "Career Consulting_5.20",
+  "description": "Architecture Hardening Patch: Decoupled AI model resolution from functional logic by introducing a centralized AI_CONFIG. This ensures that future model deprecations or API changes can be managed from a single source of truth, minimizing regression risks.",
+  "version": "5.20",
   "prompt": "",
   "D7": [],
   "Yp": []
