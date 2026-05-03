@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.51 - 2026-05-03 - Final API Integration: Prioritizing registered GOOGLE_GENAI_API_KEY
+// api/gemini-proxy.ts - v5.52 - 2026-05-03 - Stability Fix: Robust history normalization and SDK compatibility
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -58,7 +58,7 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
-    res.write(': start\n\n');
+    res.write(': keepalive\n\n');
 
     try {
         let stream;
@@ -77,13 +77,18 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
 
         for await (const chunk of stream) {
             try {
-                // SDK v1.19.0: .text はプロパティ。メソッドではない。
-                const text = chunk.text || "";
-                if (typeof text === 'string' && text.length > 0) {
+                // SDK互換性重視: text はメソッドの場合とプロパティの場合がある
+                let text = "";
+                if (typeof chunk.text === 'function') {
+                    text = chunk.text();
+                } else {
+                    text = chunk.text || "";
+                }
+                
+                if (text && text.length > 0) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                 }
             } catch (chunkError) {
-                // チャンクパース失敗時はスキップ
                 console.error("Stream Chunk Error:", chunkError);
             }
         }
@@ -219,16 +224,48 @@ ${historyText}`;
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    const recentMessages = messages.slice(-12);
-    const systemInstruction = `あなたは「${aiName}」というキャリアコンサルタントです。
-種別: ${aiType === 'dog' ? '犬の癒やし担当' : '共感的カウンセラー'}
+    
+    // [STABILITY] Gemini APIのチャット履歴制約を遵守する
+    // 1. roleは 'user' か 'model'
+    // 2. 交互（user -> model -> user）である必要がある
+    // 3. 必ず 'user' から始まり 'user' で終わる必要がある
+    
+    let contents: { role: string, parts: { text: string }[] }[] = [];
+    
+    // 直近10メッセージを取得（履歴の整合性を確保しやすくするため）
+    const rawMessages = messages.slice(-10);
+    
+    rawMessages.forEach((msg) => {
+        const role = msg.author === MessageAuthor.USER ? 'user' : 'model';
+        const lastMsg = contents[contents.length - 1];
+        
+        if (lastMsg && lastMsg.role === role) {
+            // 同一ロールが連続した場合はテキストを結合する
+            lastMsg.parts[0].text += `\n${msg.text}`;
+        } else {
+            contents.push({ role, parts: [{ text: msg.text }] });
+        }
+    });
+
+    // 先頭がmodelなら削除（API制約）
+    if (contents.length > 0 && contents[0].role === 'model') {
+        contents.shift();
+    }
+    
+    // 末尾がmodelなら（万が一の場合）削除
+    if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
+        contents.pop();
+    }
+
+    // メッセージが空になった場合の安全策
+    if (contents.length === 0) {
+        contents.push({ role: 'user', parts: [{ text: "こんにちは！お話ししましょう。" }] });
+    }
+
+    const systemInstruction = `あなたは「${aiName}」という優秀なキャリアコンサルタントです。
+種別: ${aiType === 'dog' ? '犬の癒やし担当（語尾にワンをつけるなど可愛らしく話す）' : '共感的カウンセラー'}
 ユーザー情報: ${JSON.stringify(profile)}
 方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら答えを出せるよう優しく問いかけてください。`;
-    
-    const contents = recentMessages.map(msg => ({
-        role: msg.author === MessageAuthor.USER ? 'user' : 'model',
-        parts: [{ text: msg.text }],
-    }));
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName, 

@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.51 - 2026-05-03 - Final API Integration: Confirmed custom API key setup
+// v5.52 - 2026-05-03 - Stability Fix: Enhancing chat history resilience
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.51";
+export const APP_VERSION = "5.52";
 
 /**
  * AI Service Configuration

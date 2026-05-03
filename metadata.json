@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.51",
-  "description": "Final API Integration v5.51: Successfully transitioned to user-provided GOOGLE_GENAI_API_KEY. All systems normalized and production-ready with separate account API management.",
-  "version": "5.51",
+  "name": "Career Consulting_5.52",
+  "description": "Stability Fix v5.52: Resolved chat hanging issue by normalizing message history (user-first-and-last rule) and ensuring SDK compatibility for streaming text extraction. Enhanced retry logic for high-traffic scenarios.",
+  "version": "5.52",
   "prompt": "",
   "D7": [],
   "Yp": []

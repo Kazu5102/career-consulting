@@ -1,5 +1,5 @@
 
-// App.tsx - v5.51 - 2026-05-03 - Final API Integration Implementation
+// App.tsx - v5.52 - 2026-05-03 - Stability Fix Implementation
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
