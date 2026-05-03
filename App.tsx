@@ -1,5 +1,5 @@
 
-// App.tsx - v5.46 - 2026-05-02 - Professional Recovery Implementation
+// App.tsx - v5.47 - 2026-05-03 - Infrastructure Alignment Implementation
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

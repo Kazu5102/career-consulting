@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.73 - Robust SSE Handling and Error Recovery
+// services/geminiService.ts - v4.74 - Communication Lockdown: Removed all direct env var references from browser context
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 import * as directMockService from './mockGeminiService';
 

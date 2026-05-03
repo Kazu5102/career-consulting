@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.46",
-  "description": "Professional Recovery v5.46: Optimized with Gemini 3 series models (gemini-3-flash-preview / gemini-3.1-pro-preview) to ensure high-fidelity reasoning and stable streaming. Fixed SSE buffer handling for uninterrupted long-form trajectory analysis and empathetic chat sessions.",
-  "version": "5.46",
+  "name": "Career Consulting_5.47",
+  "description": "Infrastructure Alignment v5.47: Hardened API proxy layer with dual-mode environment variable detection (GEMINI_API_KEY/API_KEY) and reinforced client-side isolation to eliminate secret-related runtime errors. Optimized for AI Studio deployment constraints.",
+  "version": "5.47",
   "prompt": "",
   "D7": [],
   "Yp": []

@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.46 - 2026-05-02 - Professional Recovery: Fixed model alignment and stream reliability
+// api/gemini-proxy.ts - v5.47 - 2026-05-03 - Infrastructure Alignment: Hardened env var detection and centralized error handling
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -36,8 +36,9 @@ interface StoredConversation {
 let ai: GoogleGenAI | null = null;
 const getAIClient = () => {
     if (!ai) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("GEMINI_API_KEY is not set.");
+        // AI Studio環境における柔軟な環境変数検知（GEMINI_API_KEY または API_KEY）
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) throw new Error("GEMINI_API_KEY is not configured in the environment.");
         ai = new GoogleGenAI({ apiKey });
     }
     return ai;

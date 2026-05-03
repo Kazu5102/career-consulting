@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.46 - 2026-05-02 - Professional Recovery: Optimized model alignment for enhanced reasoning and stability
+// v5.47 - 2026-05-03 - Infrastructure Alignment: Hardened proxy connection and verified model sequence
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.46";
+export const APP_VERSION = "5.47";
 
 /**
  * AI Service Configuration
