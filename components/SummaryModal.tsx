@@ -160,7 +160,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 generatedAt: new Date().toISOString(),
                 userId,
                 aiAgent: aiName,
-                version: "5.60"
+                version: "5.61"
             },
             summary: parsedSummary,
             chatHistory: messages

@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.60 - 2026-05-03 - Patent Compliance: Typing fluency & Self-contained HTML export
-export const APP_VERSION = "5.60";
+// v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
+export const APP_VERSION = "5.61";
 
 /**
  * AI Service Configuration

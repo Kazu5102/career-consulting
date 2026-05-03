@@ -1,5 +1,5 @@
 
-// App.tsx - v5.60 - 2026-05-03 - Patent-Compliant Secure Data Architecture
+// App.tsx - v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -35,7 +35,8 @@ const App: React.FC = () => {
         };
         verifyServer();
 
-        // Protocol 2.0: Strict version-based consent check
+        // Protocol 3.0: Strict version-based consent check
+        // Storage keys are now dynamically versioned in constants.ts
         const hasConsented = localStorage.getItem(STORAGE_KEYS.CONSENT);
         if (!hasConsented) {
             setIsLegalModalOpen(true);
@@ -49,6 +50,7 @@ const App: React.FC = () => {
 
     const handleUserSelect = (userId: string) => setCurrentUserId(userId);
     const handleSwitchUser = () => setCurrentUserId(null);
+
     const handlePasswordSubmit = (password: string): boolean => {
         if (checkPassword(password)) { 
             setMode('admin'); 
@@ -62,20 +64,35 @@ const App: React.FC = () => {
         if (mode === 'user') {
             setIsPasswordModalOpen(true);
         } else {
-            // Exit Admin: Reset mode AND current user for security
             setMode('user');
             setCurrentUserId(null);
         }
     };
 
-    const renderUserContent = () => {
-        if (!currentUserId) return <UserSelectionView onUserSelect={handleUserSelect} />;
+    const renderMainContent = () => {
+        if (serverStatus === 'checking') {
+            return (
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Initializing Architecture...</p>
+                </div>
+            );
+        }
+
+        if (mode === 'admin') {
+            return <AdminView />;
+        }
+
+        if (!currentUserId) {
+            return <UserSelectionView onUserSelect={handleUserSelect} />;
+        }
+
         return <UserView userId={currentUserId} onSwitchUser={handleSwitchUser} />;
     };
 
     const showProtocolDetail = () => {
-        const baseMsg = `【Protocol 3.0 Verified (v${APP_VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMセルフコンテインドHTML出力（特許準拠設計）\n6. 打鍵リズム分析による心理的コンテキスト抽出`;
-        const extraMsg = isFallbackMode ? "\n\n⚠️ 現在、オフライン/デモモードで動作しています。AI応答はシミュレーションです。" : "";
+        const baseMsg = `【Secure AI Architecture v${APP_VERSION}】\n\n1. 特許等に基づく独自のAI連携プロトコル\n2. 入力ゆらぎ（打鍵間隔）による内省状態の自動推定\n3. 揮発性メモリ管理によるゼロトラスト・データ設計\n4. AES-GCM暗号化（自己完結型HTML）による専門家連携\n5. 厚労省ガイドライン準拠の秘匿性管理`;
+        const extraMsg = isFallbackMode ? "\n\n⚠️ Debug Mode: AI応答はシミュレーションが優先されます。" : "";
         alert(baseMsg + extraMsg);
     };
 
@@ -90,7 +107,7 @@ const App: React.FC = () => {
                                     onClick={showProtocolDetail}
                                     className={`${isFallbackMode ? 'bg-amber-500 hover:bg-amber-400' : 'bg-sky-500 hover:bg-sky-400'} text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm transition-colors flex items-center gap-1 normal-case`}
                                 >
-                                    <span>{isFallbackMode ? 'Demo Mode' : 'Protocol 3.0 Verified'}</span>
+                                    <span>{isFallbackMode ? 'Demo Mode' : 'Secured Arch 3.0'}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </button>
                                 <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {APP_VERSION}</span>
@@ -112,29 +129,9 @@ const App: React.FC = () => {
                 </div>
             </header>
             
-            <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
-              {serverStatus === 'ok' ? (
-                  mode === 'user' ? renderUserContent() : <AdminView />
-              ) : (
-                  <div className="h-full flex-1 flex items-center justify-center text-slate-500 p-4 text-center">
-                    {serverStatus === 'checking' ? (
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="font-black text-slate-800 uppercase tracking-widest text-xs">System Verifying...</p>
-                        </div>
-                    ) : (
-                        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-rose-100 max-w-sm">
-                            {/* Fallback code handled in useEffect, this block is theoretically unreachable now unless fallback fails */}
-                            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            </div>
-                            <p className="font-black text-xl text-slate-900 mb-2">System Critical Error</p>
-                            <button onClick={() => window.location.reload()} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition-all">Reload</button>
-                        </div>
-                    )}
-                  </div>
-              )}
-            </div>
+            <main className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
+              {renderMainContent()}
+            </main>
 
             <PasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onSubmit={handlePasswordSubmit} />
             <LegalConsentModal isOpen={isLegalModalOpen} onConfirm={handleLegalConfirm} />

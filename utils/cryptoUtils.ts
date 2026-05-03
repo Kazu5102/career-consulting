@@ -50,7 +50,7 @@ export async function encryptData(data: string, password: string): Promise<strin
   combined.set(iv, salt.length);
   combined.set(new Uint8Array(encryptedContent), salt.length + iv.length);
 
-  return btoa(String.fromCharCode(...combined));
+  return btoa(Array.from(combined).map(b => String.fromCharCode(b)).join(''));
 }
 
 /**

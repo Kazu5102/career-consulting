@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.63 - 2026-04-18 - Dynamic typing Suggestion Framework
+// views/UserView.tsx - v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -224,7 +224,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     fluency?: { mean: number; stdDev: number };
   }) => {
     setIsTyping(state.isTyping);
-    setTypingFluency(state.fluency);
+    
+    // Only update fluency when typing stops or deep silent to avoid frequent re-renders
+    if (state.isSilent || state.isDeepSilent) {
+        setTypingFluency(state.fluency);
+    }
+    
     const draft = state.currentDraft;
 
     if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {

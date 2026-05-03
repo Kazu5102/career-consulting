@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.60",
-  "description": "Patent-Compliant Update v5.60: Implements typing fluency analysis for psychological context and self-contained encrypted HTML export for zero-trust data privacy.",
-  "version": "5.60",
+  "name": "Career Consulting_5.61",
+  "description": "Secure AI Architecture v5.61: Implements secure typing fluency analysis and encrypted self-contained HTML export under zero-trust protocols.",
+  "version": "5.61",
   "prompt": "",
   "D7": [],
   "Yp": []
