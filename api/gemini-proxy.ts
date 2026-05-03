@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.54 - 2026-05-03 - Critical Fix: SDK standard iteration and systemInstruction placement
+// api/gemini-proxy.ts - v5.55 - 2026-05-03 - Comprehensive Stability & Hint Intent Correction
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -268,7 +268,20 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const prompt = `次の返答案3つをJSON { suggestions: [string] } で出せ。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
+    const historyText = messages.slice(-4).map(m => `${m.author === MessageAuthor.USER ? 'クライアント' : 'AI'}: ${m.text}`).join('\n');
+    const prompt = `あなたは相談者の視点で対話の続きを予測するアシスタントです。
+対話履歴と相談者が現在入力中のテキストを元に、相談者が次に発言したい候補を3つ、JSON形式 { "suggestions": [string] } で出力してください。
+
+【厳守】
+1. AIとしての回答（助言）は出力しない。
+2. 相談者が発話する形式（例：「〜について話したい」「どうすればいいか迷っています」）にする。
+3. 入力中の内容がある場合は、その補完フレーズを優先する。
+
+履歴:
+${historyText}
+
+入力中: ${currentDraft || '(空)'}`;
+
     const result = await getAIClient().models.generateContent({
         model: LITE_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -281,8 +294,10 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[], cur
             }
         }
     });
+
     try {
-        return JSON.parse(result.text || '{"suggestions":[]}');
+        const parsed = JSON.parse(result.text || '{"suggestions":[]}');
+        return parsed;
     } catch {
         return { suggestions: [] };
     }

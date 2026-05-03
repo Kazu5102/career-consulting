@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.54 - 2026-05-03 - Critical Stability Recovery: Robust SDK iteration
+// v5.55 - 2026-05-03 - Comprehensive Stability: Fixed suggestion intent and SDK iteration
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.54";
+export const APP_VERSION = "5.55";
 
 /**
  * AI Service Configuration

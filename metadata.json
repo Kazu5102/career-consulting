@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.54",
-  "description": "Critical Stability Recovery v5.54: Re-engineered stream iteration logic and systemInstruction schema to align with standard SDK patterns. Resolved hanging issues and restored reliable conversational flow.",
-  "version": "5.54",
+  "name": "Career Consulting_5.55",
+  "description": "Comprehensive Stability v5.55: Corrected 'NEXT STEP HINT' to predict user intent instead of AI advice. Hardened all API endpoints for reliable long-term conversational stability.",
+  "version": "5.55",
   "prompt": "",
   "D7": [],
   "Yp": []
