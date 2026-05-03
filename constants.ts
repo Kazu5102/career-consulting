@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.52 - 2026-05-03 - Stability Fix: Enhancing chat history resilience
+// v5.53 - 2026-05-03 - Stability Final: Stream iterator fixed
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.52";
+export const APP_VERSION = "5.53";
 
 /**
  * AI Service Configuration

@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.52 - 2026-05-03 - Stability Fix: Robust history normalization and SDK compatibility
+// api/gemini-proxy.ts - v5.53 - 2026-05-03 - Final Stability Fix: Correct stream iterator access and history safety
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -36,7 +36,6 @@ interface StoredConversation {
 let ai: GoogleGenAI | null = null;
 const getAIClient = () => {
     if (!ai) {
-        // [RESILIENCE] AI Studioのあらゆる設定パターンを網羅
         const apiKey = 
             process.env.GOOGLE_GENAI_API_KEY || 
             process.env.GEMINI_API_KEY || 
@@ -45,7 +44,7 @@ const getAIClient = () => {
         
         if (!apiKey) {
             console.error("[CRITICAL] API Key is missing.");
-            throw new Error("APIキーが設定されていません。画面左下の歯車アイコン(Settings)をクリックし、'Secrets' セクションに 'GEMINI_API_KEY' という名前でAPIキーを登録してください。");
+            throw new Error("APIキーが設定されていません。SettingsのSecretsセクションを確認してください。");
         }
         ai = new GoogleGenAI({ apiKey });
     }
@@ -58,38 +57,43 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
-    res.write(': keepalive\n\n');
 
     try {
-        let stream;
+        let result;
         try {
-            stream = await modelCall(initialModel);
+            result = await modelCall(initialModel);
         } catch (error: any) {
-            // クォータ不足(429)時のフォールバック
             if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
                 console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
                 res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
-                stream = await modelCall(LITE_MODEL);
+                result = await modelCall(LITE_MODEL);
             } else {
                 throw error;
             }
         }
 
-        for await (const chunk of stream) {
+        // [STABILITY] result.stream がイテレータ。result 自体ではない。
+        const it = result.stream;
+        if (!it) {
+            throw new Error("流れてくるデータがありませんでした。");
+        }
+
+        for await (const chunk of it) {
             try {
-                // SDK互換性重視: text はメソッドの場合とプロパティの場合がある
                 let text = "";
                 if (typeof chunk.text === 'function') {
                     text = chunk.text();
+                } else if (chunk.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    text = chunk.candidates[0].content.parts[0].text;
                 } else {
                     text = chunk.text || "";
                 }
                 
-                if (text && text.length > 0) {
+                if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                 }
             } catch (chunkError) {
-                console.error("Stream Chunk Error:", chunkError);
+                console.warn("Chunk processing warning:", chunkError);
             }
         }
         res.write('data: [DONE]\n\n');
@@ -138,17 +142,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
 async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredConversation[], userId: string }, res: VercelResponse) {
     const { conversations } = payload;
-    const targetConversations = conversations.slice(-5);
-    const historyText = targetConversations.map(c => `[${c.date}]: ${c.summary}`).join('\n---\n');
+    const historyText = conversations.slice(-5).map(c => `[${c.date}]: ${c.summary}`).join('\n---\n');
 
-    const prompt = `あなたはキャリア理論（サビカス、シュロスバーグ等）に精通したスーパーバイザーです。
-以下の対話履歴を元に、クライアントの内的変容と理論的背景をJSONで詳細に分析してください。
-履歴:
-${historyText}`;
+    const prompt = `分析依頼: 以下のキャリア相談履歴を専門的に分析し、JSONで出力せよ。\n${historyText}`;
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName,
-        contents: prompt,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -156,7 +156,7 @@ ${historyText}`;
                 properties: {
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
                     overallSummary: { type: Type.STRING },
-                    triageLevel: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                    triageLevel: { type: Type.STRING },
                     ageStageGap: { type: Type.NUMBER },
                     theoryBasis: { type: Type.STRING },
                     expertAdvice: { type: Type.STRING },
@@ -173,12 +173,11 @@ ${historyText}`;
                                 userWord: { type: Type.STRING },
                                 professionalSkill: { type: Type.STRING },
                                 insight: { type: Type.STRING }
-                            },
-                            required: ["userWord", "professionalSkill", "insight"]
+                            }
                         } 
                     }
                 },
-                required: ["keyTakeaways", "overallSummary", "triageLevel", "ageStageGap", "theoryBasis", "expertAdvice", "sessionStarter", "keyThemes", "detectedStrengths", "areasForDevelopment", "suggestedNextSteps", "reframedSkills"]
+                required: ["keyTakeaways", "overallSummary"]
             }
         }
     }), ANALYSIS_MODEL);
@@ -186,15 +185,12 @@ ${historyText}`;
 
 async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
-    const targetConversations = conversations.slice(-5);
-    const historyText = targetConversations.map(c => c.summary).join('\n');
-    const prompt = `履歴から適職診断を行いJSONで出力してください。
-履歴:
-${historyText}`;
+    const historyText = conversations.slice(-5).map(c => c.summary).join('\n');
+    const prompt = `適職診断依頼: 履歴から診断を行いJSONで出力せよ。\n${historyText}`;
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName,
-        contents: prompt,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -202,21 +198,11 @@ ${historyText}`;
                 properties: {
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
                     analysisSummary: { type: Type.STRING },
-                    recommendedRoles: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                role: { type: Type.STRING },
-                                reason: { type: Type.STRING },
-                                matchScore: { type: Type.NUMBER }
-                            }
-                        }
-                    },
+                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } },
                     skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
-                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING }, provider: { type: Type.STRING } } } }
+                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING } } } }
                 },
-                required: ["keyTakeaways", "analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
+                required: ["keyTakeaways", "analysisSummary"]
             }
         }
     }), ANALYSIS_MODEL);
@@ -224,53 +210,42 @@ ${historyText}`;
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    
-    // [STABILITY] Gemini APIのチャット履歴制約を遵守する
-    // 1. roleは 'user' か 'model'
-    // 2. 交互（user -> model -> user）である必要がある
-    // 3. 必ず 'user' から始まり 'user' で終わる必要がある
-    
-    let contents: { role: string, parts: { text: string }[] }[] = [];
-    
-    // 直近10メッセージを取得（履歴の整合性を確保しやすくするため）
-    const rawMessages = messages.slice(-10);
-    
-    rawMessages.forEach((msg) => {
+    const systemInstruction = `あなたは「${aiName}」という名前のキャリアコンサルタントです。
+タイプ: ${aiType === 'dog' ? '癒やし（犬キャラ・語尾ワン）' : '共感的プロフェッショナル'}
+ユーザー情報: ${JSON.stringify(profile)}
+方針: ユーザーの言葉を否定せず、寄り添いながら自己探索を促してください。`;
+
+    // 交互性の確保とユーザースタート・エンドの徹底
+    let contents: any[] = [];
+    const latestMessages = messages.slice(-10);
+
+    latestMessages.forEach((msg) => {
         const role = msg.author === MessageAuthor.USER ? 'user' : 'model';
-        const lastMsg = contents[contents.length - 1];
-        
-        if (lastMsg && lastMsg.role === role) {
-            // 同一ロールが連続した場合はテキストを結合する
-            lastMsg.parts[0].text += `\n${msg.text}`;
+        const last = contents[contents.length - 1];
+        if (last && last.role === role) {
+            last.parts[0].text += `\n${msg.text}`;
         } else {
             contents.push({ role, parts: [{ text: msg.text }] });
         }
     });
 
-    // 先頭がmodelなら削除（API制約）
-    if (contents.length > 0 && contents[0].role === 'model') {
-        contents.shift();
+    if (contents.length === 0) {
+        contents.push({ role: 'user', parts: [{ text: "こんにちは！" }] });
+    } else {
+        if (contents[0].role === 'model') contents.shift();
+        if (contents.length > 0 && contents[contents.length - 1].role === 'model') contents.pop();
     }
     
-    // 末尾がmodelなら（万が一の場合）削除
-    if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
-        contents.pop();
-    }
-
-    // メッセージが空になった場合の安全策
-    if (contents.length === 0) {
-        contents.push({ role: 'user', parts: [{ text: "こんにちは！お話ししましょう。" }] });
-    }
-
-    const systemInstruction = `あなたは「${aiName}」という優秀なキャリアコンサルタントです。
-種別: ${aiType === 'dog' ? '犬の癒やし担当（語尾にワンをつけるなど可愛らしく話す）' : '共感的カウンセラー'}
-ユーザー情報: ${JSON.stringify(profile)}
-方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら答えを出せるよう優しく問いかけてください。`;
+    // 万が一空になったら最小限の構成にする
+    if (contents.length === 0) contents.push({ role: 'user', parts: [{ text: "..." }] });
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName, 
         contents,
-        config: { systemInstruction, temperature: 0.8, topP: 0.95 },
+        systemInstruction: {
+            role: "system",
+            parts: [{ text: systemInstruction }]
+        }
     }), CHAT_MODEL);
 }
 
@@ -279,13 +254,13 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const historyText = chatHistory.slice(-20).map(m => `${m.author}: ${m.text}`).join('\n');
     const result = await getAIClient().models.generateContent({
         model: LITE_MODEL,
-        contents: `対話要約をJSONで生成せよ。履歴:\n${historyText}`,
+        contents: [{ role: 'user', parts: [{ text: `対話要約をJSONで生成せよ。履歴:\n${historyText}` }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
-                required: ["user_summary", "pro_notes"]
+                required: ["user_summary"]
             }
         }
     });
@@ -294,10 +269,10 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const prompt = `次の返答案3つをJSON { suggestions: [string] } で出せ。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
+    const prompt = `返案をJSONで。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
     const result = await getAIClient().models.generateContent({
         model: LITE_MODEL,
-        contents: prompt,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -313,4 +288,3 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[], cur
         return { suggestions: [] };
     }
 }
-

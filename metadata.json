@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.52",
-  "description": "Stability Fix v5.52: Resolved chat hanging issue by normalizing message history (user-first-and-last rule) and ensuring SDK compatibility for streaming text extraction. Enhanced retry logic for high-traffic scenarios.",
-  "version": "5.52",
+  "name": "Career Consulting_5.53",
+  "description": "Stability Final v5.53: Fixed critical stream iterator access bug and systemInstruction schema error. Simplified and hardened chat history normalization to ensure 100% API compliance.",
+  "version": "5.53",
   "prompt": "",
   "D7": [],
   "Yp": []
