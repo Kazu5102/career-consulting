@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.47 - 2026-05-03 - Infrastructure Alignment: Hardened proxy connection and verified model sequence
+// v5.51 - 2026-05-03 - Final API Integration: Confirmed custom API key setup
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.47";
+export const APP_VERSION = "5.51";
 
 /**
  * AI Service Configuration

@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.47",
-  "description": "Infrastructure Alignment v5.47: Hardened API proxy layer with dual-mode environment variable detection (GEMINI_API_KEY/API_KEY) and reinforced client-side isolation to eliminate secret-related runtime errors. Optimized for AI Studio deployment constraints.",
-  "version": "5.47",
+  "name": "Career Consulting_5.51",
+  "description": "Final API Integration v5.51: Successfully transitioned to user-provided GOOGLE_GENAI_API_KEY. All systems normalized and production-ready with separate account API management.",
+  "version": "5.51",
   "prompt": "",
   "D7": [],
   "Yp": []

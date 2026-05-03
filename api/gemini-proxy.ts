@@ -1,9 +1,9 @@
 
-// api/gemini-proxy.ts - v5.47 - 2026-05-03 - Infrastructure Alignment: Hardened env var detection and centralized error handling
+// api/gemini-proxy.ts - v5.51 - 2026-05-03 - Final API Integration: Prioritizing registered GOOGLE_GENAI_API_KEY
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
-// 最新のスキルガイドラインと要件に基づくモデル選定
+// 最新のスキルガイドラインに基づくモデル選定
 const CHAT_MODEL = 'gemini-3-flash-preview';
 const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
 const LITE_MODEL = 'gemini-3.1-flash-lite-preview';
@@ -36,9 +36,17 @@ interface StoredConversation {
 let ai: GoogleGenAI | null = null;
 const getAIClient = () => {
     if (!ai) {
-        // AI Studio環境における柔軟な環境変数検知（GEMINI_API_KEY または API_KEY）
-        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) throw new Error("GEMINI_API_KEY is not configured in the environment.");
+        // [RESILIENCE] AI Studioのあらゆる設定パターンを網羅
+        const apiKey = 
+            process.env.GOOGLE_GENAI_API_KEY || 
+            process.env.GEMINI_API_KEY || 
+            process.env.API_KEY || 
+            process.env.VITE_GEMINI_API_KEY;
+        
+        if (!apiKey) {
+            console.error("[CRITICAL] API Key is missing.");
+            throw new Error("APIキーが設定されていません。画面左下の歯車アイコン(Settings)をクリックし、'Secrets' セクションに 'GEMINI_API_KEY' という名前でAPIキーを登録してください。");
+        }
         ai = new GoogleGenAI({ apiKey });
     }
     return ai;
