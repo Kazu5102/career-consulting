@@ -23,6 +23,7 @@ interface UserProfile {
   gender?: string;
   complaint?: string;
   lifeRoles?: string[];
+  typingFluency?: { mean: number; stdDev: number };
 }
 
 interface StoredConversation {
@@ -202,10 +203,20 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
+    
+    // 特許準拠：打鍵リズムによる心理的コンテキストの抽出
+    let fluencyContext = "";
+    if (profile.typingFluency) {
+        const { mean, stdDev } = profile.typingFluency;
+        if (mean > 600) fluencyContext = "【心理的コンテキスト: 慎重/ためらい】ユーザーは入力に時間がかかっており、言葉を選んでいるか、迷いがある可能性があります。より受容的で辛抱強い態度で接してください。";
+        if (stdDev > 200) fluencyContext = "【心理的コンテキスト: 感情的動揺/葛藤】打鍵が不規則であり、内面で強い葛藤や焦燥がある可能性があります。安心感を与える言葉がけを意識してください。";
+    }
+
     const systemInstruction = `あなたは「${aiName}」という名前のプロのキャリアコンサルタントです。
 タイプ: ${aiType === 'dog' ? '癒やし（犬のキャラクターとして語尾に「ワン」などをつける可愛らしい口調）' : '共感的プロフェッショナル'}
 ユーザー情報: ${JSON.stringify(profile)}
-方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。`;
+${fluencyContext}
+方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。ユーザーのわずかな変化（打鍵リズムの乱れなど）にも配慮し、沈黙や迷いを否定せず、共にあることを伝えてください。`;
 
     // 履歴の厳格な正規化
     let contents: any[] = [];

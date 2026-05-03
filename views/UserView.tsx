@@ -121,8 +121,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isInterruptModalOpen, setIsInterruptModalOpen] = useState<boolean>(false);
   
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
-  const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
-  const [restoredNotification, setRestoredNotification] = useState(false);
+  const [typingFluency, setTypingFluency] = useState<{ mean: number; stdDev: number } | undefined>(undefined);
 
   useEffect(() => {
     if (isTyping && onboardingStep < 6) {
@@ -216,8 +215,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   };
 
-  const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; isDeepSilent: boolean; currentDraft: string }) => {
+  const handleInputStateChange = useCallback((state: { 
+    isFocused: boolean; 
+    isTyping: boolean; 
+    isSilent: boolean; 
+    isDeepSilent: boolean; 
+    currentDraft: string;
+    fluency?: { mean: number; stdDev: number };
+  }) => {
     setIsTyping(state.isTyping);
+    setTypingFluency(state.fluency);
     const draft = state.currentDraft;
 
     if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {
@@ -337,7 +344,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       setHasError(false);
       setAiMood('thinking');
       
-      const profileToUse = overrideProfile || userProfile;
+      const profileToUse = overrideProfile || { ...userProfile, typingFluency };
 
       // Add placeholder message for AI
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);

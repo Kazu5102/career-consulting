@@ -1,5 +1,5 @@
 
-// App.tsx - v5.55 - 2026-05-03 - Comprehensive Stability Implementation
+// App.tsx - v5.60 - 2026-05-03 - Patent-Compliant Secure Data Architecture
 import React, { useState, useEffect } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -74,7 +74,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        const baseMsg = `【Protocol 2.0 Verified (v${APP_VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMレポート出力`;
+        const baseMsg = `【Protocol 3.0 Verified (v${APP_VERSION})】\n\n1. 厚生労働省「キャリアコンサルティング倫理綱領」準拠\n2. AI利活用ガイドラインに基づく「人間中心の設計」\n3. ハルシネーション抑制アルゴリズムの採用\n4. データ学習利用の拒否（オプトアウト）設定済\n5. 暗号化通信およびAES-GCMセルフコンテインドHTML出力（特許準拠設計）\n6. 打鍵リズム分析による心理的コンテキスト抽出`;
         const extraMsg = isFallbackMode ? "\n\n⚠️ 現在、オフライン/デモモードで動作しています。AI応答はシミュレーションです。" : "";
         alert(baseMsg + extraMsg);
     };
@@ -90,7 +90,7 @@ const App: React.FC = () => {
                                     onClick={showProtocolDetail}
                                     className={`${isFallbackMode ? 'bg-amber-500 hover:bg-amber-400' : 'bg-sky-500 hover:bg-sky-400'} text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm transition-colors flex items-center gap-1 normal-case`}
                                 >
-                                    <span>{isFallbackMode ? 'Demo Mode' : 'Protocol 2.0 Verified'}</span>
+                                    <span>{isFallbackMode ? 'Demo Mode' : 'Protocol 3.0 Verified'}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </button>
                                 <span className="text-[10px] font-sans font-bold text-slate-400 tracking-wider">Ver {APP_VERSION}</span>

@@ -8,7 +8,9 @@ import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
 import LinkIcon from './icons/LinkIcon';
 import ExportIcon from './icons/ExportIcon';
+import LockIcon from './icons/LockIcon';
 import { StructuredSummary, SurveyConfig, ChatMessage } from '../types';
+import { generateSecureHtmlPackage } from '../utils/exportPackage';
 
 interface SummaryModalProps {
   isOpen: boolean;
@@ -65,6 +67,9 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
   const [isExported, setIsExported] = useState(false);
+  const [exportStep, setExportStep] = useState<'none' | 'password' | 'generating'>('none');
+  const [exportPassword, setExportPassword] = useState('');
+  const [exportError, setExportError] = useState('');
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -134,39 +139,54 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       setCurrentStep('referral');
   };
 
-  const handleReferralAndExport = () => {
-    // 0. Copy to Clipboard (Auto) - User Summary is best for forms
-    const textToCopy = parsedSummary.user_summary || summary;
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        console.debug('Summary copied to clipboard automatically.');
-    }).catch(e => console.warn('Auto-copy failed', e));
+  const handleReferralAndExport = async () => {
+    if (!exportPassword) {
+        setExportStep('password');
+        return;
+    }
 
-    // 1. Create Export Data
-    const exportData = {
-        meta: {
-            title: "キャリア相談 引継ぎ用データ",
-            description: "支援専門家への提供用ファイル",
-            generatedAt: new Date().toISOString(),
-            userId,
-            aiAgent: aiName
-        },
-        summary: parsedSummary,
-        chatHistory: messages
-    };
-    
-    // 2. Trigger Download
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    setExportStep('generating');
+    setExportError('');
 
-    // 3. Update state to show the link button
-    setIsExported(true);
+    try {
+        // 0. Copy to Clipboard (Auto) - User Summary is best for forms
+        const textToCopy = parsedSummary.user_summary || summary;
+        navigator.clipboard.writeText(textToCopy).catch(e => console.warn('Auto-copy failed', e));
+
+        // 1. Create Export Data
+        const exportData = {
+            meta: {
+                title: "キャリア相談 引継ぎ用データ",
+                generatedAt: new Date().toISOString(),
+                userId,
+                aiAgent: aiName,
+                version: "5.60"
+            },
+            summary: parsedSummary,
+            chatHistory: messages
+        };
+        
+        // 2. Generate Secure HTML Package
+        const htmlContent = await generateSecureHtmlPackage(exportData, exportPassword);
+        
+        // 3. Trigger Download
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // 4. Update state to show the link button
+        setIsExported(true);
+        setExportStep('none');
+    } catch (err: any) {
+        setExportError("エラーが発生しました: " + err.message);
+        setExportStep('password');
+    }
   };
 
   const createMarkup = (markdownText: string) => {
@@ -236,19 +256,60 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
             </div>
           ) : currentStep === 'referral' ? (
              <div className="flex flex-col items-center justify-center h-full space-y-8 py-6 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-2 shadow-xl shadow-sky-100/50 border-4 border-sky-100">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                </div>
-                
-                {isExported ? (
+                {exportStep === 'password' ? (
+                    <div className="w-full max-w-sm space-y-6 animate-in slide-in-from-bottom-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-amber-100">
+                                <LockIcon className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800">ファイルを保護します</h3>
+                            <p className="text-xs text-slate-500 mt-2">
+                                データの暗号化に使用するパスワードを設定してください。<br/>
+                                <strong>管理者が閲覧する際も、このパスワードが必要です。</strong>
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            <input 
+                                type="password" 
+                                placeholder="パスワードを入力..." 
+                                value={exportPassword}
+                                onChange={(e) => setExportPassword(e.target.value)}
+                                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/20 text-center font-bold"
+                                autoFocus
+                            />
+                            {exportError && <p className="text-xs text-rose-500 font-bold text-center">{exportError}</p>}
+                            <button 
+                                onClick={handleReferralAndExport}
+                                disabled={!exportPassword || exportPassword.length < 4}
+                                className="w-full py-4 bg-sky-600 text-white font-black rounded-2xl shadow-lg hover:bg-sky-700 disabled:bg-slate-300 transition-all active:scale-95"
+                            >
+                                暗号化パッケージを作成
+                            </button>
+                            <button 
+                                onClick={() => setExportStep('none')}
+                                className="w-full py-2 text-slate-400 text-sm font-bold hover:text-slate-600"
+                            >
+                                キャンセル
+                            </button>
+                        </div>
+                    </div>
+                ) : exportStep === 'generating' ? (
+                    <div className="text-center space-y-6">
+                        <div className="relative mb-8 text-sky-500">
+                            <div className="w-20 h-20 border-4 border-sky-100 rounded-full mx-auto"></div>
+                            <div className="absolute top-0 left-[calc(50%-40px)] w-20 h-20 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                        <p className="font-bold text-slate-700">暗号化を実施中...</p>
+                    </div>
+                ) : isExported ? (
                     <div className="text-center space-y-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
                             <div className="flex items-center justify-center gap-2 text-emerald-700 font-bold mb-1">
                                 <CheckIcon className="w-5 h-5"/>
-                                <span>保存とコピーが完了しました</span>
+                                <span>暗号化パッケージを保存しました</span>
                             </div>
                             <p className="text-xs text-emerald-600">
-                                相談内容がクリップボードにコピーされました。<br/>
+                                相談内容のコピーも完了しています。<br/>
                                 フォームに貼り付けて使用できます。
                             </p>
                         </div>
@@ -287,7 +348,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                             className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
                             >
                                 <ExportIcon className="w-5 h-5" />
-                                データを保存して相談を申し込む
+                                データを暗号化して相談を申し込む
                             </button>
                             
                             <div className="relative py-2">

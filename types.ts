@@ -30,6 +30,10 @@ export interface UserProfile {
     resetCount: number;
     totalTimeSeconds: number;
   };
+  typingFluency?: {
+    mean: number;
+    stdDev: number;
+  };
 }
 
 export enum MessageAuthor {

@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.55",
-  "description": "Comprehensive Stability v5.55: Corrected 'NEXT STEP HINT' to predict user intent instead of AI advice. Hardened all API endpoints for reliable long-term conversational stability.",
-  "version": "5.55",
+  "name": "Career Consulting_5.60",
+  "description": "Patent-Compliant Update v5.60: Implements typing fluency analysis for psychological context and self-contained encrypted HTML export for zero-trust data privacy.",
+  "version": "5.60",
   "prompt": "",
   "D7": [],
   "Yp": []

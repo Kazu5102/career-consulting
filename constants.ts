@@ -1,9 +1,7 @@
 
 // constants.ts
-// v5.55 - 2026-05-03 - Comprehensive Stability: Fixed suggestion intent and SDK iteration
-// Single Source of Truth for Application Constants
-
-export const APP_VERSION = "5.55";
+// v5.60 - 2026-05-03 - Patent Compliance: Typing fluency & Self-contained HTML export
+export const APP_VERSION = "5.60";
 
 /**
  * AI Service Configuration

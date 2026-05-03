@@ -10,6 +10,8 @@ import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
 import FileTextIcon from './icons/FileTextIcon';
 import CheckIcon from './icons/CheckIcon';
+import LockIcon from './icons/LockIcon';
+import ImportSecurePackageModal from './ImportSecurePackageModal';
 
 interface DataManagementModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
   const [isSuccess, setIsSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [isSecureImportOpen, setIsSecureImportOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -93,6 +96,27 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
             </div>
             <input type="file" ref={fileInputRef} onChange={handleImportSystem} accept=".json" className="hidden" />
           </section>
+
+          <section className="space-y-4">
+            <div className="text-xs font-black text-slate-400 uppercase tracking-widest">Secure Client Handoff</div>
+            <button 
+                onClick={() => setIsSecureImportOpen(true)}
+                className="w-full flex items-center justify-between p-5 rounded-2xl bg-amber-50 border border-amber-100 hover:border-amber-500 transition-all group"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-2 bg-amber-500 text-white rounded-xl shadow-sm">
+                        <LockIcon className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                        <span className="block text-sm font-bold text-amber-900">セキュアHTML読込</span>
+                        <span className="block text-[10px] text-amber-700 font-medium">ユーザー暗号化済みファイルを復号してインポート</span>
+                    </div>
+                </div>
+                <div className="text-amber-400 group-hover:translate-x-1 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
+                </div>
+            </button>
+          </section>
           <section className="space-y-4">
             <div className="text-xs font-black text-slate-400 uppercase tracking-widest">AI Intelligent Ingestion</div>
             <button onClick={() => { onClose(); onOpenAddText(); }} disabled={isProcessing} className="w-full flex items-center justify-between p-5 rounded-2xl bg-emerald-50 border border-emerald-100 hover:border-emerald-500 transition-all group disabled:opacity-50"><div className="flex items-center gap-4"><div className="p-2 bg-emerald-500 text-white rounded-xl shadow-sm"><FileTextIcon /></div><div className="text-left"><span className="block text-sm font-bold text-emerald-900">外部テキストから履歴を生成</span><span className="block text-[10px] text-emerald-700 font-medium">メールログ等をAIが要約してインポート</span></div></div><div className="text-emerald-400 group-hover:translate-x-1 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg></div></button>
@@ -100,6 +124,12 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
           {isSuccess && <div className="p-4 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 flex items-start gap-3 animate-in fade-in"><div className="mt-0.5"><CheckIcon /></div><div className="flex-1"><span className="text-xs font-bold block">{statusMessage}</span></div></div>}
         </div>
       </div>
+      
+      <ImportSecurePackageModal 
+        isOpen={isSecureImportOpen}
+        onClose={() => setIsSecureImportOpen(false)}
+        onDataRefresh={onDataRefresh}
+      />
     </div>
   );
 };

@@ -13,7 +13,14 @@ interface ChatInputProps {
   initialText: string; 
   clearSignal?: number; // 確実にクリアするための信号
   onCancelEdit: () => void;
-  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; isDeepSilent: boolean; currentDraft: string }) => void;
+  onStateChange?: (state: { 
+    isFocused: boolean; 
+    isTyping: boolean; 
+    isSilent: boolean; 
+    isDeepSilent: boolean; 
+    currentDraft: string;
+    fluency?: { mean: number; stdDev: number };
+  }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
@@ -102,6 +109,26 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     };
   }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
 
+  // 打鍵間隔の統計データを取得
+  const getFluencyStats = () => {
+    const strokes = keystrokesRef.current;
+    if (strokes.length < 3) return undefined;
+
+    const intervals: number[] = [];
+    for (let i = 1; i < strokes.length; i++) {
+       const diff = strokes[i] - strokes[i-1];
+       if (diff < 1500) intervals.push(diff);
+    }
+
+    if (intervals.length < 2) return undefined;
+
+    const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+
+    return { mean, stdDev };
+  };
+
   // 状態の外部通知
   useEffect(() => {
     onStateChange?.({
@@ -109,7 +136,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       isTyping: isActiveTyping || isListening, 
       isSilent,
       isDeepSilent,
-      currentDraft: text
+      currentDraft: text,
+      fluency: getFluencyStats()
     });
   }, [isFocused, isActiveTyping, isListening, isSilent, isDeepSilent, text, onStateChange]);
 
