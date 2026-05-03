@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.53 - 2026-05-03 - Final Stability Fix: Correct stream iterator access and history safety
+// api/gemini-proxy.ts - v5.54 - 2026-05-03 - Critical Fix: SDK standard iteration and systemInstruction placement
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -59,36 +59,28 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('X-Accel-Buffering', 'no');
 
     try {
-        let result;
+        let response;
         try {
-            result = await modelCall(initialModel);
+            response = await modelCall(initialModel);
         } catch (error: any) {
             if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
                 console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
                 res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
-                result = await modelCall(LITE_MODEL);
+                response = await modelCall(LITE_MODEL);
             } else {
                 throw error;
             }
         }
 
-        // [STABILITY] result.stream がイテレータ。result 自体ではない。
-        const it = result.stream;
-        if (!it) {
-            throw new Error("流れてくるデータがありませんでした。");
+        // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
+        if (!response) {
+            throw new Error("応答オブジェクトが空です。");
         }
 
-        for await (const chunk of it) {
+        for await (const chunk of response) {
             try {
-                let text = "";
-                if (typeof chunk.text === 'function') {
-                    text = chunk.text();
-                } else if (chunk.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    text = chunk.candidates[0].content.parts[0].text;
-                } else {
-                    text = chunk.text || "";
-                }
-                
+                // GenerateContentResponse.text はプロパティ。メソッドではない。
+                const text = chunk.text;
                 if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                 }
@@ -210,16 +202,16 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
 
 async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }, res: VercelResponse) {
     const { messages, aiType, aiName, profile } = payload;
-    const systemInstruction = `あなたは「${aiName}」という名前のキャリアコンサルタントです。
-タイプ: ${aiType === 'dog' ? '癒やし（犬キャラ・語尾ワン）' : '共感的プロフェッショナル'}
+    const systemInstruction = `あなたは「${aiName}」という名前のプロのキャリアコンサルタントです。
+タイプ: ${aiType === 'dog' ? '癒やし（犬のキャラクターとして語尾に「ワン」などをつける可愛らしい口調）' : '共感的プロフェッショナル'}
 ユーザー情報: ${JSON.stringify(profile)}
-方針: ユーザーの言葉を否定せず、寄り添いながら自己探索を促してください。`;
+方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。`;
 
-    // 交互性の確保とユーザースタート・エンドの徹底
+    // 履歴の厳格な正規化
     let contents: any[] = [];
-    const latestMessages = messages.slice(-10);
+    const recentMessages = messages.slice(-8); // 履歴を絞って安定性を高める
 
-    latestMessages.forEach((msg) => {
+    recentMessages.forEach((msg) => {
         const role = msg.author === MessageAuthor.USER ? 'user' : 'model';
         const last = contents[contents.length - 1];
         if (last && last.role === role) {
@@ -229,22 +221,26 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         }
     });
 
-    if (contents.length === 0) {
-        contents.push({ role: 'user', parts: [{ text: "こんにちは！" }] });
-    } else {
-        if (contents[0].role === 'model') contents.shift();
-        if (contents.length > 0 && contents[contents.length - 1].role === 'model') contents.pop();
+    // API制約: userから始まりuserで終わる
+    if (contents.length > 0 && contents[0].role === 'model') {
+        contents.shift();
+    }
+    if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
+        contents.pop();
     }
     
-    // 万が一空になったら最小限の構成にする
-    if (contents.length === 0) contents.push({ role: 'user', parts: [{ text: "..." }] });
+    // 空なら最小限のメッセージ
+    if (contents.length === 0) {
+        contents.push({ role: 'user', parts: [{ text: "こんにちは。相談に乗ってください。" }] });
+    }
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName, 
         contents,
-        systemInstruction: {
-            role: "system",
-            parts: [{ text: systemInstruction }]
+        config: {
+            systemInstruction,
+            temperature: 0.8,
+            topP: 0.95
         }
     }), CHAT_MODEL);
 }
@@ -259,8 +255,11 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { user_summary: { type: Type.STRING }, pro_notes: { type: Type.STRING } },
-                required: ["user_summary"]
+                properties: { 
+                    user_summary: { type: Type.STRING }, 
+                    pro_notes: { type: Type.STRING } 
+                },
+                required: ["user_summary", "pro_notes"]
             }
         }
     });
@@ -269,7 +268,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const prompt = `返案をJSONで。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
+    const prompt = `次の返答案3つをJSON { suggestions: [string] } で出せ。履歴:\n${messages.slice(-4).map(m => m.text).join('\n')}\n入力中: ${currentDraft || ''}`;
     const result = await getAIClient().models.generateContent({
         model: LITE_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],

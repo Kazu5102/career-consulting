@@ -1,9 +1,9 @@
 
 // constants.ts
-// v5.53 - 2026-05-03 - Stability Final: Stream iterator fixed
+// v5.54 - 2026-05-03 - Critical Stability Recovery: Robust SDK iteration
 // Single Source of Truth for Application Constants
 
-export const APP_VERSION = "5.53";
+export const APP_VERSION = "5.54";
 
 /**
  * AI Service Configuration

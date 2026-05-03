@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.53",
-  "description": "Stability Final v5.53: Fixed critical stream iterator access bug and systemInstruction schema error. Simplified and hardened chat history normalization to ensure 100% API compliance.",
-  "version": "5.53",
+  "name": "Career Consulting_5.54",
+  "description": "Critical Stability Recovery v5.54: Re-engineered stream iteration logic and systemInstruction schema to align with standard SDK patterns. Resolved hanging issues and restored reliable conversational flow.",
+  "version": "5.54",
   "prompt": "",
   "D7": [],
   "Yp": []
