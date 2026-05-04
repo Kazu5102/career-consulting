@@ -1,5 +1,5 @@
 
-// App.tsx - v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
+// App.tsx - v5.65 - 2026-05-04 - UX: Psychological transition & Dynamic readiness scoring
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

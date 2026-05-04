@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
-export const APP_VERSION = "5.64";
+// v5.65 - 2026-05-04 - UX: Psychological transition & Dynamic readiness scoring
+export const APP_VERSION = "5.65";
 
 /**
  * AI Service Configuration

@@ -77,7 +77,7 @@ export const performSkillMatching = (conversations: StoredConversation[]): Promi
     return activeService.performSkillMatching(conversations);
 };
 
-export const generateSuggestions = (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {
+export const generateSuggestions = (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
     trackApiUsage(messages.map(m => m.text).join('') + (currentDraft || ''), '');
     return activeService.generateSuggestions(messages, currentDraft);
 };

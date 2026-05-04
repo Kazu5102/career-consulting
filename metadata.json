@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.64",
-  "description": "Secure AI Architecture v5.64: Introducing AI-driven closure suggestions and smart summary nudging for a more fluid consultation experience.",
-  "version": "5.64",
+  "name": "Career Consulting_5.65",
+  "description": "Secure AI Architecture v5.65: Dynamic psychological phase analysis for fluid consultation closure.",
+  "version": "5.65",
   "prompt": "",
   "D7": [],
   "Yp": []

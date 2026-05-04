@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.64 - 2026-05-04 - UX Update: "Create Summary" nudge chip when context is sufficient
+// views/UserView.tsx - v5.65 - 2026-05-04 - UX: Psychological phase-based summary nudging & dynamic readiness analysis
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -91,6 +91,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false); 
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
+  const [consultationReadiness, setConsultationReadiness] = useState<number>(0);
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
@@ -217,6 +218,35 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   };
 
+    /**
+     * 対話の心理フェーズに基づいてサジェストを動的に配置する
+     */
+    const mergeSuggestionsByPhase = useCallback((baseSuggestions: string[], readiness: number) => {
+        const msgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
+        const summaryLabel = readiness >= 0.8 || msgCount >= 10 ? "✨ ここまでの話をまとめる" : "ここまでの話をまとめる";
+        
+        let result = [...baseSuggestions];
+        
+        // 統合期 (Phase 3): 先頭に固定
+        if (readiness >= 0.7 || msgCount >= 8) {
+            result = [summaryLabel, ...result];
+        }
+        // 収束期 (Phase 2): 2番目に配置
+        else if (readiness >= 0.5 || msgCount >= 5) {
+            if (result.length >= 1) {
+                result.splice(1, 0, summaryLabel);
+            } else {
+                result.push(summaryLabel);
+            }
+        }
+        // 探索期後半 (Phase 1): 最後に配置
+        else if (readiness >= 0.3 || msgCount >= 3) {
+            result.push(summaryLabel);
+        }
+        
+        return Array.from(new Set(result)).slice(0, 4); // 重複排除 & 最大4件
+    }, [messages]);
+
   const handleInputStateChange = useCallback((state: { 
     isFocused: boolean; 
     isTyping: boolean; 
@@ -259,16 +289,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 generateSuggestions(recentMessages, draft)
                     .then(resp => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                            let merged = resp.suggestions;
-                            if (isConsultationReady) {
-                                merged = ["✨ ここまでの話をまとめる", ...merged];
-                            }
+                            setConsultationReadiness(resp.readinessScore || 0);
+                            const merged = mergeSuggestionsByPhase(resp.suggestions, resp.readinessScore || 0);
                             setSuggestions(merged);
                             setSuggestionsVisible(true);
                         }
                     })
                     .catch(() => {
-                        setSuggestions(FALLBACK_SUGGESTIONS);
+                        const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                        setSuggestions(merged);
                         setSuggestionsVisible(true);
                     })
                     .finally(() => {
@@ -276,7 +305,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     });
             }
         } else {
-            setSuggestions(FALLBACK_SUGGESTIONS);
+            const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+            setSuggestions(merged);
             setSuggestionsVisible(true);
         }
     }
@@ -293,16 +323,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 }
             }
             if (!matched) {
-                // 特にマッチするものがなくても、打感を保つためフォールバックを強制表示（抜け漏れ修正）
-                setSuggestions(FALLBACK_SUGGESTIONS);
+                const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                setSuggestions(merged);
                 setSuggestionsVisible(true);
             }
         } else {
-            setSuggestions(FALLBACK_SUGGESTIONS);
+            const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+            setSuggestions(merged);
             setSuggestionsVisible(true);
         }
     }
-  }, [isLoading, onboardingStep, messages, hasError]);
+  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -320,7 +351,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           else setAiMood('neutral');
       }
 
-      if (currentMessages.length >= 4) setIsConsultationReady(true);
+      const msgCount = currentMessages.filter(m => m.author === MessageAuthor.USER).length;
+      if (msgCount >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
@@ -330,15 +362,15 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           
           generateSuggestions(recentMessages)
             .then(resp => {
-                let merged = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
-                if (isConsultationReady || currentMessages.length >= 4) {
-                    merged = ["✨ ここまでの話をまとめる", ...merged];
-                }
+                const baseSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
+                setConsultationReadiness(resp.readinessScore || 0);
+                const merged = mergeSuggestionsByPhase(baseSuggestions, resp.readinessScore || 0);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .catch(() => {
-                setSuggestions(FALLBACK_SUGGESTIONS);
+                const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .finally(() => {

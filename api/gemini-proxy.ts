@@ -284,13 +284,18 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const historyText = messages.slice(-4).map(m => `${m.author === MessageAuthor.USER ? 'クライアント' : 'AI'}: ${m.text}`).join('\n');
+    const historyText = messages.slice(-6).map(m => `${m.author === MessageAuthor.USER ? 'クライアント' : 'AI'}: ${m.text}`).join('\n');
     const prompt = `あなたは相談者の視点で対話の続きを予測するアシスタントです。
-対話履歴と相談者が現在入力中のテキストを元に、相談者が次に発言したい候補を3つ、JSON形式 { "suggestions": [string] } で出力してください。
+対話履歴と相談者が現在入力中のテキストを元に、次に発言したい候補を3つと、対話の進捗度（0.0〜1.0）をJSON形式で出力してください。
 
-【厳守】
+【進捗度(readinessScore)の基準】
+0.0-0.3: まだ挨拶や導入のみ。発散が必要。
+0.4-0.6: 主要な悩みや状況が語られ始め、具体性が増してきた。
+0.7-1.0: 悩み、背景、理想が概ね共有され、まとめや専門家への相談に適した状態。
+
+【サジェスト生成のルール】
 1. AIとしての回答（助言）は出力しない。
-2. 相談者が発話する形式（例：「〜について話したい」「どうすればいいか迷っています」）にする。
+2. 相談者が発話する形式にする。
 3. 入力中の内容がある場合は、その補完フレーズを優先する。
 
 履歴:
@@ -305,16 +310,19 @@ ${historyText}
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING } } },
-                required: ["suggestions"]
+                properties: { 
+                    suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    readinessScore: { type: Type.NUMBER }
+                },
+                required: ["suggestions", "readinessScore"]
             }
         }
     });
 
     try {
-        const parsed = JSON.parse(result.text || '{"suggestions":[]}');
+        const parsed = JSON.parse(result.text || '{"suggestions":[], "readinessScore": 0.0}');
         return parsed;
     } catch {
-        return { suggestions: [] };
+        return { suggestions: [], readinessScore: 0.0 };
     }
 }

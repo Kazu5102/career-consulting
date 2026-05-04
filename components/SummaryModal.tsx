@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
+// components/SummaryModal.tsx - v5.65 - 2026-05-04 - UX: Psychological transition & Dynamic readiness scoring
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -160,7 +160,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 generatedAt: new Date().toISOString(),
                 userId,
                 aiAgent: aiName,
-                version: "5.64"
+                version: "5.65"
             },
             summary: parsedSummary,
             chatHistory: messages
