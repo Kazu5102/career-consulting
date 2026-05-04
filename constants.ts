@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.72 - 2026-05-04 - UX: HINT stability (Persistence against typing jitter)
-export const APP_VERSION = "5.72";
+// v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence logic)
+export const APP_VERSION = "5.73";
 
 /**
  * AI Service Configuration

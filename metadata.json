@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.72",
-  "description": "Secure AI Architecture v5.72: Optimized HINT stability by preventing suggestions from disappearing during typing, ensuring context remains visible for user reflection.",
-  "version": "5.72",
+  "name": "Career Consulting_5.73",
+  "description": "Secure AI Architecture v5.73: Enhanced HINT stability by persisting suggestions during typing/scrolling and lowering trigger threshold to 10 characters for better reflection support.",
+  "version": "5.73",
   "prompt": "",
   "D7": [],
   "Yp": []

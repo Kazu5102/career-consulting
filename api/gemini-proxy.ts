@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.72 - 2026-05-04 - Stabilized HINT API integration
+// api/gemini-proxy.ts - v5.73 - 2026-05-04 - Stabilized HINT API integration (v5.73)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
