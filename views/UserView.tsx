@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.65 - 2026-05-04 - UX: Psychological phase-based summary nudging & dynamic readiness analysis
+// views/UserView.tsx - v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -263,6 +263,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     
     const draft = state.currentDraft;
+    const userMsgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
+
+    // AI返信中やエラー時はヒントを一切出さない
+    if (isLoading || hasError) {
+        setSuggestionsVisible(false);
+        return;
+    }
 
     if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {
         let matched = false;
@@ -304,10 +311,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                         isSuggestingRef.current = false; // 案X: ブロック解除
                     });
             }
-        } else {
+        } else if (userMsgCount === 0) {
+            // 初回のみデフォルトを表示、それ以外は自発的な入力を待つ
             const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
             setSuggestions(merged);
             setSuggestionsVisible(true);
+        } else {
+            setSuggestionsVisible(false);
         }
     }
     // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
@@ -327,10 +337,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             }
-        } else {
+        } else if (userMsgCount === 0) {
             const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
             setSuggestions(merged);
             setSuggestionsVisible(true);
+        } else {
+            setSuggestionsVisible(false);
         }
     }
   }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
@@ -388,6 +400,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
    */
   const executeAiTurn = async (history: ChatMessage[], overrideProfile?: UserProfile) => {
       setIsLoading(true);
+      setSuggestionsVisible(false); // 送信直後はヒントを隠す
       setHasError(false);
       setAiMood('thinking');
       
@@ -530,17 +543,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     if (onboardingStep === 1) {
         updatedProfile.stage = choice;
         setUserProfile(prev => ({ ...prev, stage: choice }));
-        nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
+        nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**世代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代（世代）**を教えていただけますか。`;
     } 
     else if (onboardingStep === 2) {
         updatedProfile.age = choice;
         setUserProfile(prev => ({ ...prev, age: choice }));
-        nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
+        nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別（自認する性）**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別（自認する性）**も伺えますでしょうか。`;
     }
     else if (onboardingStep === 3) {
         updatedProfile.gender = choice;
         setUserProfile(prev => ({ ...prev, gender: choice }));
-        nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
+        nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**意識やエネルギーはどこに多く向いているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**意識やエネルギーはどこに多く向いていますか？**（複数選択可能です）`;
     }
     else if (onboardingStep === 4) {
         const roles = choice.split('、');

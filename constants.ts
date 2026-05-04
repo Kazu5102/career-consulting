@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.65 - 2026-05-04 - UX: Psychological transition & Dynamic readiness scoring
-export const APP_VERSION = "5.65";
+// v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
+export const APP_VERSION = "5.68";
 
 /**
  * AI Service Configuration

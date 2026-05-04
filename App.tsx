@@ -1,5 +1,5 @@
 
-// App.tsx - v5.65 - 2026-05-04 - UX: Psychological transition & Dynamic readiness scoring
+// App.tsx - v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
