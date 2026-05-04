@@ -26,7 +26,7 @@ const LegalConsentModal: React.FC<LegalConsentModalProps> = ({ isOpen, onConfirm
         <header className="p-8 border-b border-slate-100 text-center bg-white relative">
           <div className="flex justify-center mb-3">
             <span className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-full shadow-lg normal-case tracking-wide">
-              Protocol 2.0 Verified
+              Protocol 3.0 Verified
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">サービス利用前の合意形成</h2>

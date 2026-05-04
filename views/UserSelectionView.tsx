@@ -1,5 +1,5 @@
 
-// views/UserSelectionView.tsx - v4.20 - Future-proofed Async Refactor
+// views/UserSelectionView.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
 import React, { useState, useEffect } from 'react';
 import { StoredConversation, UserInfo } from '../types';
 import * as userService from '../services/userService';

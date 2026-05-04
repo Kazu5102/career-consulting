@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.48 - Secure Link Opening & UX Fix
+// components/SummaryModal.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -160,7 +160,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 generatedAt: new Date().toISOString(),
                 userId,
                 aiAgent: aiName,
-                version: "5.61"
+                version: "5.63"
             },
             summary: parsedSummary,
             chatHistory: messages

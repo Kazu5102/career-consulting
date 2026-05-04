@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
-export const APP_VERSION = "5.61";
+// v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
+export const APP_VERSION = "5.63";
 
 /**
  * AI Service Configuration

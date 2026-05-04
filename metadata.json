@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.61",
-  "description": "Secure AI Architecture v5.61: Implements secure typing fluency analysis and encrypted self-contained HTML export under zero-trust protocols.",
-  "version": "5.61",
+  "name": "Career Consulting_5.63",
+  "description": "Secure AI Architecture v5.63: Fixes critical ReferenceError and optimizes state stabilization for final release.",
+  "version": "5.63",
   "prompt": "",
   "D7": [],
   "Yp": []

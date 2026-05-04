@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
+// views/UserView.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -122,6 +122,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
   const [typingFluency, setTypingFluency] = useState<{ mean: number; stdDev: number } | undefined>(undefined);
+  const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
+  const [restoredNotification, setRestoredNotification] = useState<boolean>(false);
 
   useEffect(() => {
     if (isTyping && onboardingStep < 6) {

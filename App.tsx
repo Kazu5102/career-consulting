@@ -1,6 +1,6 @@
 
-// App.tsx - v5.61 - 2026-05-03 - Fix: Navigation whiteout & rendering guard stabilization
-import React, { useState, useEffect } from 'react';
+// App.tsx - v5.63 - 2026-05-04 - Fix: Critical navigation whiteout & state stabilization
+import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
 import PasswordModal from './components/PasswordModal';
@@ -36,17 +36,16 @@ const App: React.FC = () => {
         verifyServer();
 
         // Protocol 3.0: Strict version-based consent check
-        // Storage keys are now dynamically versioned in constants.ts
         const hasConsented = localStorage.getItem(STORAGE_KEYS.CONSENT);
         if (!hasConsented) {
             setIsLegalModalOpen(true);
         }
     }, []);
 
-    const handleLegalConfirm = () => {
+    const handleLegalConfirm = useCallback(() => {
         localStorage.setItem(STORAGE_KEYS.CONSENT, 'true');
         setIsLegalModalOpen(false);
-    };
+    }, []);
 
     const handleUserSelect = (userId: string) => setCurrentUserId(userId);
     const handleSwitchUser = () => setCurrentUserId(null);
