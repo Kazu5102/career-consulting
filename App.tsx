@@ -1,5 +1,5 @@
 
-// App.tsx - v5.70 - 2026-05-04 - UX: High-grade Reflection Report (Analysis Model Integration)
+// App.tsx - v5.71 - 2026-05-04 - UX: HINT logic refined (Threshold: 20 chars, No defaults)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

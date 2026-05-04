@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.70 - 2026-05-04 - UX: High-grade Reflection Report (Analysis Model Integration)
+// views/UserView.tsx - v5.71 - 2026-05-04 - UX: HINT logic refined (Threshold: 20 chars)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -285,7 +285,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     // 【内省深堀介入領域】: 動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
-        if (draft.trim().length > 0) {
+        if (draft.trim().length >= 20) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
                 isSuggestingRef.current = true; // 案X: ブロック開始
@@ -311,18 +311,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                         isSuggestingRef.current = false; // 案X: ブロック解除
                     });
             }
-        } else if (userMsgCount === 0) {
-            // 初回のみデフォルトを表示、それ以外は自発的な入力を待つ
-            const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
-            setSuggestions(merged);
-            setSuggestionsVisible(true);
         } else {
             setSuggestionsVisible(false);
         }
     }
     // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
     else if (state.isSilent && !state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
-        if (draft.trim().length > 0) {
+        if (draft.trim().length >= 20) {
             let matched = false;
             for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
                 if (draft.includes(key)) {
@@ -333,14 +328,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 }
             }
             if (!matched) {
-                const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
-                setSuggestions(merged);
-                setSuggestionsVisible(true);
+                setSuggestionsVisible(false);
             }
-        } else if (userMsgCount === 0) {
-            const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
-            setSuggestions(merged);
-            setSuggestionsVisible(true);
         } else {
             setSuggestionsVisible(false);
         }

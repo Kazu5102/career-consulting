@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.70 - 2026-05-04 - Analysis Logic: Deep reflection engine (Gemini Pro)
+// api/gemini-proxy.ts - v5.71 - 2026-05-04 - Analysis Logic: Deep reflection engine (Gemini Pro)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
