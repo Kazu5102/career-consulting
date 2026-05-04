@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
+// components/SummaryModal.tsx - v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -160,7 +160,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 generatedAt: new Date().toISOString(),
                 userId,
                 aiAgent: aiName,
-                version: "5.63"
+                version: "5.64"
             },
             summary: parsedSummary,
             chatHistory: messages

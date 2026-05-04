@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.63",
-  "description": "Secure AI Architecture v5.63: Fixes critical ReferenceError and optimizes state stabilization for final release.",
-  "version": "5.63",
+  "name": "Career Consulting_5.64",
+  "description": "Secure AI Architecture v5.64: Introducing AI-driven closure suggestions and smart summary nudging for a more fluid consultation experience.",
+  "version": "5.64",
   "prompt": "",
   "D7": [],
   "Yp": []

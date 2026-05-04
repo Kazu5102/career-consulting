@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
-export const APP_VERSION = "5.63";
+// v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
+export const APP_VERSION = "5.64";
 
 /**
  * AI Service Configuration

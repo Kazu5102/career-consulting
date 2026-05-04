@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.55 - 2026-05-03 - Comprehensive Stability & Hint Intent Correction
+// api/gemini-proxy.ts - v5.64 - 2026-05-04 - Prompt Optimization: AI-driven closure suggestion
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -216,7 +216,12 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
 タイプ: ${aiType === 'dog' ? '癒やし（犬のキャラクターとして語尾に「ワン」などをつける可愛らしい口調）' : '共感的プロフェッショナル'}
 ユーザー情報: ${JSON.stringify(profile)}
 ${fluencyContext}
-方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。ユーザーのわずかな変化（打鍵リズムの乱れなど）にも配慮し、沈黙や迷いを否定せず、共にあることを伝えてください。`;
+方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。ユーザーのわずかな変化（打鍵リズムの乱れなど）にも配慮し、沈黙や迷いを否定せず、共にあることを伝えてください。
+
+【対話の終止符についての重要な指示】
+1. むやみに質問を繰り返してユーザーを疲れさせないでください。
+2. 対話が4往復（相談者が4回発言）程度行われ、主要な「現状」「悩み」「なりたい姿」が概ね共有されたと感じた場合は、無理に深掘りせず、「ここまでの内容を一度整理（まとめ）してみませんか？」と具体的に提案してください。
+3. ユーザーが「何を話せばいいかわからない」という雰囲気を出した際も、これまでの振り返りを提案して次のステップ（専門家との面談など）へ導いてください。`;
 
     // 履歴の厳格な正規化
     let contents: any[] = [];

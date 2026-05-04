@@ -1,5 +1,5 @@
 
-// App.tsx - v5.63 - 2026-05-04 - Fix: Critical navigation whiteout & state stabilization
+// App.tsx - v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

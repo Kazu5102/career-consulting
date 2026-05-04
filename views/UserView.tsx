@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
+// views/UserView.tsx - v5.64 - 2026-05-04 - UX Update: "Create Summary" nudge chip when context is sufficient
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -259,7 +259,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 generateSuggestions(recentMessages, draft)
                     .then(resp => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                            setSuggestions(resp.suggestions);
+                            let merged = resp.suggestions;
+                            if (isConsultationReady) {
+                                merged = ["✨ ここまでの話をまとめる", ...merged];
+                            }
+                            setSuggestions(merged);
                             setSuggestionsVisible(true);
                         }
                     })
@@ -326,7 +330,11 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           
           generateSuggestions(recentMessages)
             .then(resp => {
-                setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
+                let merged = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
+                if (isConsultationReady || currentMessages.length >= 4) {
+                    merged = ["✨ ここまでの話をまとめる", ...merged];
+                }
+                setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .catch(() => {

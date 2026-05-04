@@ -1,5 +1,5 @@
 
-// views/UserSelectionView.tsx - v5.63 - 2026-05-04 - Fix: Critical ReferenceError & state stabilization
+// views/UserSelectionView.tsx - v5.64 - 2026-05-04 - UX: AI closure suggestion & summary nudging
 import React, { useState, useEffect } from 'react';
 import { StoredConversation, UserInfo } from '../types';
 import * as userService from '../services/userService';
