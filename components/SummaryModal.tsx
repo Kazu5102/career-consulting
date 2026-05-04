@@ -73,12 +73,23 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
-      if (!summary) return { user_summary: '', pro_notes: '' };
+      if (!summary) return {};
       const parsed = JSON.parse(summary);
-      if (parsed.user_summary && parsed.pro_notes) return parsed;
-      return { user_summary: summary, pro_notes: '※この履歴には専門家向けの詳細ノートが含まれていません。' };
+      
+      // Handle legacy format v5.66
+      if (parsed.user_summary && !parsed.core_insight) {
+        return parsed;
+      }
+      
+      // Handle rich format v5.70
+      if (parsed.core_insight) {
+        return parsed;
+      }
+
+      // Final fallback
+      return { user_summary: summary };
     } catch (e) {
-      return { user_summary: summary, pro_notes: '※この履歴には専門家向けの詳細ノートが含まれていません。' };
+      return { user_summary: summary };
     }
   }, [summary]);
 
@@ -111,8 +122,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [isLoading]);
   
-  // Always show user_summary
-  const currentContent = parsedSummary.user_summary;
+  // Flatten content for copy
+  const currentContent = useMemo(() => {
+    if (parsedSummary.core_insight) {
+      const points = parsedSummary.analysis_points?.map(p => `### ${p.category}\n${p.observation}`).join('\n\n') || '';
+      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}\n\n${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
+    }
+    return parsedSummary.user_summary || '';
+  }, [parsedSummary]);
 
   const handleCopy = () => {
     if (currentContent && !isLoading) {
@@ -149,9 +166,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     setExportError('');
 
     try {
-        // 0. Copy to Clipboard (Auto) - User Summary is best for forms
-        const textToCopy = parsedSummary.user_summary || summary;
-        navigator.clipboard.writeText(textToCopy).catch(e => console.warn('Auto-copy failed', e));
+        // 0. Copy to Clipboard (Auto)
+        navigator.clipboard.writeText(currentContent).catch(e => console.warn('Auto-copy failed', e));
 
         // 1. Create Export Data
         const exportData = {
@@ -160,7 +176,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 generatedAt: new Date().toISOString(),
                 userId,
                 aiAgent: aiName,
-                version: "5.66"
+                version: "5.70"
             },
             summary: parsedSummary,
             chatHistory: messages
@@ -174,7 +190,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `career_report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -202,7 +218,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : '対話の振り返り'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -387,20 +403,61 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
               </div>
             </div>
           ) : (
-            <>
-              <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 bg-amber-50/40 border-amber-100 shadow-inner`}>
-                  <article 
-                      className={`prose max-w-none prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800
-                                 prose-h2:font-bold prose-h2:border-b-2 prose-h2:pb-3 prose-h2:mb-8
-                                 prose-p:leading-relaxed prose-p:text-slate-700`}
-                      dangerouslySetInnerHTML={createMarkup(currentContent)} 
-                  />
-              </div>
-            </>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+               {parsedSummary.core_insight ? (
+                 <div className="space-y-8">
+                   {/* Title Section */}
+                   <div className="text-center py-6 border-b-2 border-sky-100 mb-8">
+                     <span className="text-[10px] font-black tracking-widest text-sky-500 uppercase">Career Reflection Report</span>
+                     <h1 className="text-3xl font-black text-slate-800 mt-2">{parsedSummary.title}</h1>
+                   </div>
+
+                   {/* Core Insight */}
+                   <section className="bg-sky-50/50 p-6 rounded-3xl border border-sky-100 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H8.01703V12H12.017C13.1216 12 14.017 11.1046 14.017 10V5C14.017 3.89543 13.1216 3 12.017 3H5.01703C3.91246 3 3.01703 3.89543 3.01703 5V19C3.01703 20.1046 3.91246 21 5.01703 21H14.017Z"/></svg>
+                     </div>
+                     <h3 className="text-lg font-black text-sky-800 mb-4 flex items-center gap-2">
+                       <span className="w-1.5 h-6 bg-sky-500 rounded-full"></span>
+                       対話の核心
+                     </h3>
+                     <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{parsedSummary.core_insight}</p>
+                   </section>
+
+                   {/* Analysis Points Grid */}
+                   <div className="grid grid-cols-1 gap-4">
+                     {parsedSummary.analysis_points?.map((point, idx) => (
+                       <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-sky-300 transition-all group">
+                         <h4 className="text-xs font-black text-slate-400 group-hover:text-sky-500 transition-colors uppercase tracking-widest mb-2">{point.category}</h4>
+                         <p className="text-slate-800 font-bold leading-relaxed">{point.observation}</p>
+                       </div>
+                     ))}
+                   </div>
+
+                   {/* Next Inquiry */}
+                   <section className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl relative overflow-hidden group">
+                     <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-700"></div>
+                     <h3 className="text-sm font-black text-slate-400 mb-4 tracking-[0.2em]">SELF-REFLECTION</h3>
+                     <p className="text-xl font-bold leading-relaxed italic">「{parsedSummary.next_inquiry}」</p>
+                     <p className="text-xs text-slate-500 mt-6 flex items-center gap-2">
+                       <span className="w-4 h-px bg-slate-700"></span>
+                       この問いについて、またお時間のある時に考えてみてください
+                     </p>
+                   </section>
+                 </div>
+               ) : (
+                 <div className="bg-amber-50/40 p-10 rounded-3xl border border-amber-100 shadow-inner">
+                   <article 
+                       className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
+                       dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
+                   />
+                 </div>
+               )}
+            </div>
           )}
         </div>
 
-        <footer className="p-6 bg-slate-50 border-t border-slate-200 z-10">
+        <footer className="p-6 bg-white border-t border-slate-100 z-10">
            {currentStep === 'survey' ? (
              <button onClick={onClose} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセルして戻る</button>
            ) : isEditing ? (
@@ -410,20 +467,18 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
              </div>
            ) : currentStep === 'result' ? (
             <div className="flex flex-col gap-5">
-              <div className="flex gap-4">
-                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all"><EditIcon />修正・追記</button>
-                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl transition-all ${isCopied ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
+              <div className="flex gap-3">
+                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"><EditIcon />修正・追記</button>
+                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all ${isCopied ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
               </div>
-              <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
-                <div className="flex items-center gap-2">
-                    <span>整理を完了して次へ</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </div>
+              <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-3 px-4 py-5 font-black text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-100 group">
+                  <span>レポートを確定して次へ</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
               </button>
             </div>
            ) : currentStep === 'referral' ? (
              <button onClick={() => setCurrentStep('result')} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">
-                振り返り画面に戻る
+                レポート画面に戻る
              </button>
            ) : null}
         </footer>

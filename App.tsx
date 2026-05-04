@@ -1,5 +1,5 @@
 
-// App.tsx - v5.69 - 2026-05-04 - UX: Career Consulting Standards - Summary trigger delay & term normalization
+// App.tsx - v5.70 - 2026-05-04 - UX: High-grade Reflection Report (Analysis Model Integration)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

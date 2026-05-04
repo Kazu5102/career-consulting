@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.69 - 2026-05-04 - UX: Career Consulting Standards - Summary trigger delay & term normalization
+// views/UserView.tsx - v5.70 - 2026-05-04 - UX: High-grade Reflection Report (Analysis Model Integration)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';

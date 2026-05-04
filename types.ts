@@ -1,5 +1,5 @@
 
-// types.ts - v4.41
+// types.ts - v5.70
 import type React from 'react';
 
 export const STORAGE_VERSION = 1;
@@ -62,8 +62,14 @@ export interface ChatMessage {
 export type AIType = 'human' | 'dog';
 
 export interface StructuredSummary {
-  user_summary: string;
-  pro_notes: string;
+  user_summary?: string;
+  pro_notes?: string;
+  // v5.70 Rich Report Fields
+  title?: string;
+  core_insight?: string;
+  analysis_points?: { category: string; observation: string }[];
+  next_inquiry?: string;
+  professional_summary?: string;
 }
 
 export interface StoredConversation {

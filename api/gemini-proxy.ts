@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.69 - 2026-05-04 - UX: Career Consulting Standard alignment & term normalization
+// api/gemini-proxy.ts - v5.70 - 2026-05-04 - Analysis Logic: Deep reflection engine (Gemini Pro)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -266,24 +266,69 @@ ${fluencyContext}
 }
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory } = payload;
-    const historyText = chatHistory.slice(-20).map(m => `${m.author}: ${m.text}`).join('\n');
+    const { chatHistory, profile } = payload;
+    const historyText = chatHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
+    
+    const prompt = `あなたは熟練のキャリアコンサルタントとして、これまでの対話から「キャリア・リフレクション・レポート」を生成してください。
+単なるあらすじではなく、相談者が「自分以上に自分を理解してくれている」と感じるような、深い洞察（インサイト）と分析を含める必要があります。
+
+【分析の視点】
+1. 相談者が大切にしている「価値観」や「信念」は何か？
+2. 対話の端々から感じられる、本人が自覚していないかもしれない「強み」や「リソース」は何か？
+3. 相談を阻んでいる「葛藤」や「ブレーキ」の正体は何か？
+4. 今後の自己探索を深めるための「良質な問い（セルフ・リフレクション）」は何か？
+
+【制約事項】
+- キャリアコンサルティングの守秘義務と敬意を忘れないこと。
+- ユーザープロファイル（${JSON.stringify(profile)}）も加味すること。
+- 断定せず、受容的かつ仮説的に提示すること。
+
+履歴:
+${historyText}`;
+
     const result = await getAIClient().models.generateContent({
-        model: LITE_MODEL,
-        contents: [{ role: 'user', parts: [{ text: `対話要約をJSONで生成せよ。履歴:\n${historyText}` }] }],
+        model: ANALYSIS_MODEL, // 要約から分析へグレードアップ (Flash -> Pro)
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { 
-                    user_summary: { type: Type.STRING }, 
-                    pro_notes: { type: Type.STRING } 
+                    title: { type: Type.STRING }, // レポートのタイトル
+                    core_insight: { type: Type.STRING }, // 対話の核心（深掘りした文章）
+                    analysis_points: { 
+                        type: Type.ARRAY, 
+                        items: { 
+                            type: Type.OBJECT, 
+                            properties: {
+                                category: { type: Type.STRING }, // 【価値観】【強み】など
+                                observation: { type: Type.STRING } // 具体的な分析内容
+                            }
+                        } 
+                    },
+                    next_inquiry: { type: Type.STRING }, // 次への問いかけ
+                    professional_summary: { type: Type.STRING } // 専門家（管理者）向けの引き継ぎ用メモ
                 },
-                required: ["user_summary", "pro_notes"]
+                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
             }
         }
     });
-    return { text: result.text || "{}" };
+
+    // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
+    try {
+        const parsed = JSON.parse(result.text || "{}");
+        return { 
+            text: JSON.stringify(parsed)
+        };
+    } catch {
+        return { text: JSON.stringify({ 
+            title: "ここまでの振り返り",
+            core_insight: result.text || "内容の生成に失敗しました。",
+            analysis_points: [],
+            next_inquiry: "現在のお気持ちはいかがでしょうか？",
+            professional_summary: "（分析エラー）"
+        })};
+    }
 }
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {

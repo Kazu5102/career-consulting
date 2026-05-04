@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.69",
-  "description": "Secure AI Architecture v5.69: Aligned with Career Consulting standards by delaying summary suggestions (8+ turns) and normalizing terminology by removing awkward terms like 'Serve' and 'Era'.",
-  "version": "5.69",
+  "name": "Career Consulting_5.70",
+  "description": "Secure AI Architecture v5.70: Implemented rich 'Career Reflection Report' with Pro-model analysis, deep insights into values/strengths, and self-reflection inquiries.",
+  "version": "5.70",
   "prompt": "",
   "D7": [],
   "Yp": []
