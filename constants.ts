@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
-export const APP_VERSION = "5.68";
+// v5.69 - 2026-05-04 - UX: Career Consulting Standards - Summary trigger delay & term normalization
+export const APP_VERSION = "5.69";
 
 /**
  * AI Service Configuration

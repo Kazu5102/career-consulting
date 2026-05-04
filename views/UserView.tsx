@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
+// views/UserView.tsx - v5.69 - 2026-05-04 - UX: Career Consulting Standards - Summary trigger delay & term normalization
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -223,24 +223,24 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
      */
     const mergeSuggestionsByPhase = useCallback((baseSuggestions: string[], readiness: number) => {
         const msgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
-        const summaryLabel = readiness >= 0.8 || msgCount >= 10 ? "✨ ここまでの話をまとめる" : "ここまでの話をまとめる";
+        const summaryLabel = readiness >= 0.9 || msgCount >= 15 ? "✨ ここまでの話をまとめる" : "ここまでの話をまとめる";
         
         let result = [...baseSuggestions];
         
-        // 統合期 (Phase 3): 先頭に固定
-        if (readiness >= 0.7 || msgCount >= 8) {
+        // 統合期 (Phase 3): 内省が非常に深い、または15回以上の対話
+        if (readiness >= 0.85 || msgCount >= 15) {
             result = [summaryLabel, ...result];
         }
-        // 収束期 (Phase 2): 2番目に配置
-        else if (readiness >= 0.5 || msgCount >= 5) {
+        // 収束期 (Phase 2): 10回以上の対話
+        else if (readiness >= 0.7 || msgCount >= 10) {
             if (result.length >= 1) {
                 result.splice(1, 0, summaryLabel);
             } else {
                 result.push(summaryLabel);
             }
         }
-        // 探索期後半 (Phase 1): 最後に配置
-        else if (readiness >= 0.3 || msgCount >= 3) {
+        // 探索期後半 (Phase 1): 8回以上の対話から選択肢に含める（末尾）
+        else if (readiness >= 0.5 || msgCount >= 8) {
             result.push(summaryLabel);
         }
         

@@ -1,5 +1,5 @@
 
-// App.tsx - v5.68 - 2026-05-04 - UX: Refined HINT logic and fixed awkward onboarding terminology
+// App.tsx - v5.69 - 2026-05-04 - UX: Career Consulting Standards - Summary trigger delay & term normalization
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

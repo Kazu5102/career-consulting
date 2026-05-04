@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.68",
-  "description": "Secure AI Architecture v5.68: Improved onboarding naturalness and refined HINT logic suppression during user reflection.",
-  "version": "5.68",
+  "name": "Career Consulting_5.69",
+  "description": "Secure AI Architecture v5.69: Aligned with Career Consulting standards by delaying summary suggestions (8+ turns) and normalizing terminology by removing awkward terms like 'Serve' and 'Era'.",
+  "version": "5.69",
   "prompt": "",
   "D7": [],
   "Yp": []
