@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.71 - 2026-05-04 - UX: HINT logic refined (Threshold: 20 chars, No defaults)
-export const APP_VERSION = "5.71";
+// v5.72 - 2026-05-04 - UX: HINT stability (Persistence against typing jitter)
+export const APP_VERSION = "5.72";
 
 /**
  * AI Service Configuration

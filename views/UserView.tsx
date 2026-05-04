@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.71 - 2026-05-04 - UX: HINT logic refined (Threshold: 20 chars)
+// views/UserView.tsx - v5.72 - 2026-05-04 - UX: HINT stability (Persistence against typing jitter)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -281,9 +281,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 break;
             }
         }
-        if (!matched) setSuggestionsVisible(false);
+        // なぜ消さないか: 入力を再開した瞬間に既存のHINT（API由来など）を消さないため
     }
-    // 【内省深堀介入領域】: 動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
+    // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
         if (draft.trim().length >= 20) {
             if (draft !== lastApiDraftRef.current) {
@@ -327,12 +327,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     break;
                 }
             }
-            if (!matched) {
-                setSuggestionsVisible(false);
-            }
-        } else {
+            // matchedでない場合も、APIから届いた既存のHINTを消さないようにする
+        } else if (draft.trim().length === 0) {
             setSuggestionsVisible(false);
         }
+    }
+    // 入力が消されたら一律非表示
+    else if (draft.trim().length === 0) {
+        setSuggestionsVisible(false);
     }
   }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
 

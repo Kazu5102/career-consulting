@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.71",
-  "description": "Secure AI Architecture v5.71: Refined HINT logic by removing default suggestions and setting a 20-character threshold to prevent input flickering and respect user reflection.",
-  "version": "5.71",
+  "name": "Career Consulting_5.72",
+  "description": "Secure AI Architecture v5.72: Optimized HINT stability by preventing suggestions from disappearing during typing, ensuring context remains visible for user reflection.",
+  "version": "5.72",
   "prompt": "",
   "D7": [],
   "Yp": []

@@ -1,5 +1,5 @@
 
-// App.tsx - v5.71 - 2026-05-04 - UX: HINT logic refined (Threshold: 20 chars, No defaults)
+// App.tsx - v5.72 - 2026-05-04 - UX: HINT stability (No flickering)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
