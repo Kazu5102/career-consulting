@@ -1,7 +1,7 @@
 {
   "name": "ai-career-consulting-support",
   "private": true,
-  "version": "5.80",
+  "version": "5.73",
   "type": "module",
   "scripts": {
     "dev": "vite",

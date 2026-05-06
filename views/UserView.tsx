@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.80 - 2026-05-06 - Quota Optimized Architecture (8s Throttling)
+// views/UserView.tsx - v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -101,7 +101,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
   const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
-  const lastSuggestionTimeRef = useRef<number>(0); // 案X: クォータ保護用タイムスタンプ
   const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
@@ -126,7 +125,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [typingFluency, setTypingFluency] = useState<{ mean: number; stdDev: number } | undefined>(undefined);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
   const [restoredNotification, setRestoredNotification] = useState<boolean>(false);
-  const [systemNotice, setSystemNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (isTyping && onboardingStep < 6) {
@@ -287,18 +285,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
-        const now = Date.now();
-        // 8秒以内の再リクエストを禁止（クォータを厳格に保護）
-        if (now - lastSuggestionTimeRef.current < 8000) return;
-
         if (draft.trim().length >= 10) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
                 isSuggestingRef.current = true; // 案X: ブロック開始
-                lastSuggestionTimeRef.current = now;
                 
-                // 履歴を直近「1ラリー（2件）」に極小化してクォータ負荷を低減
-                const recentMessages = messages.slice(-2);
+                // 案V: 無駄な履歴を削ぎ落とし、直近2ラリー（最大4件）だけを文脈として渡す
+                const recentMessages = messages.slice(-4);
                 
                 generateSuggestions(recentMessages, draft)
                     .then(resp => {
@@ -365,16 +358,10 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (msgCount >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
-          const now = Date.now();
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
-          const waitTime = now - lastSuggestionTimeRef.current;
-          if (waitTime < 8000) return; // ターン終了時も8秒ルールを適用
-
-          isSuggestingRef.current = true;
-          lastSuggestionTimeRef.current = now;
-
-          // 履歴を直近「1ラリー（2件）」に極小化
-          const recentMessages = currentMessages.slice(-2);
+          isSuggestingRef.current = true; // 案X: ブロック開始
+          // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
+          const recentMessages = currentMessages.slice(-4);
           
           generateSuggestions(recentMessages)
             .then(resp => {
@@ -424,14 +411,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 const { done, value } = await reader.read();
                 if (done) break;
                 if (value.error) throw new Error(value.error.message);
-                
-                // [RESILIENCY] インフラ混雑時のフォールバック通知を処理
-                if (value.status === 'system_fallback') {
-                    setSystemNotice(value.message || "システム負荷を検知しました。代替エンジンに接続しています...");
-                    setTimeout(() => setSystemNotice(null), 4000);
-                    continue;
-                }
-
                 if (value.text) {
                     aiResponseText += value.text;
                     setMessages(prev => {
@@ -671,13 +650,6 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-sky-600 text-white px-6 py-3 rounded-full shadow-xl z-[150] animate-in slide-in-from-top-4 duration-500 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className="font-bold text-sm">前回の続きから再開しました</span>
-          </div>
-      )}
-
-      {systemNotice && (
-          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-amber-500 text-white px-6 py-3 rounded-full shadow-xl z-[150] animate-in slide-in-from-top-4 duration-500 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              <span className="font-bold text-sm">{systemNotice}</span>
           </div>
       )}
 

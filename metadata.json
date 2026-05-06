@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.80",
-  "description": "Secure AI Architecture v5.80: Quota-optimized for stability. Implemented strictly throttled API calls (8s cooldown for suggestions) and trimmed payloads to maintain feature availability under tight rate limits.",
-  "version": "5.80",
+  "name": "Career Consulting_5.73",
+  "description": "Secure AI Architecture v5.73: Enhanced HINT stability by persisting suggestions during typing/scrolling and lowering trigger threshold to 10 characters for better reflection support.",
+  "version": "5.73",
   "prompt": "",
   "D7": [],
   "Yp": []

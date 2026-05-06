@@ -1,14 +1,12 @@
 
-// api/gemini-proxy.ts - v5.80 - 2026-05-06 - Simple Stability: Optimized fallback chain (Pro -> Flash -> Lite)
+// api/gemini-proxy.ts - v5.73 - 2026-05-04 - Stabilized HINT API integration (v5.73)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
-// 429クォータエラー対策: 優先順位に基づいた安定運用
-const ANALYSIS_MODEL = 'gemini-3.1-pro-preview'; 
-const CHAT_MODEL = 'gemini-3-flash-preview';    
-const STABLE_FALLBACK = 'gemini-1.5-flash'; 
-
-const MODEL_CHAIN = [ANALYSIS_MODEL, CHAT_MODEL, STABLE_FALLBACK];
+// 最新のスキルガイドラインに基づくモデル選定
+const CHAT_MODEL = 'gemini-3-flash-preview';
+const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
+const LITE_MODEL = 'gemini-3.1-flash-lite-preview';
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -62,11 +60,27 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('X-Accel-Buffering', 'no');
 
     try {
-        const response = await modelCall(initialModel);
-        if (!response) throw new Error("応答オブジェクトが空です。");
+        let response;
+        try {
+            response = await modelCall(initialModel);
+        } catch (error: any) {
+            if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
+                console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
+                res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
+                response = await modelCall(LITE_MODEL);
+            } else {
+                throw error;
+            }
+        }
+
+        // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
+        if (!response) {
+            throw new Error("応答オブジェクトが空です。");
+        }
 
         for await (const chunk of response) {
             try {
+                // GenerateContentResponse.text はプロパティ。メソッドではない。
                 const text = chunk.text;
                 if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
@@ -78,7 +92,6 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         res.write('data: [DONE]\n\n');
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
-        // エラー時はフォールバック通知ではなく、直接エラーをクライアントに返す
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
     } finally {
         res.end();
@@ -254,79 +267,52 @@ ${fluencyContext}
 
 async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
     const { chatHistory, profile } = payload;
-    const historyText = chatHistory.slice(-40).map(m => `${m.author}: ${m.text}`).join('\n');
+    const historyText = chatHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
     
-    const prompt = `あなたは世界最高峰のキャリア心理学者およびシニア・キャリアコンサルタントとして、これまでの対話から「キャリア・リフレクション・レポート」を執筆してください。
-単なる経過報告ではなく、相談者が「自分一人では到達できなかった深さ」まで自分を見つめ直せるような、構造的かつ情熱的な分析を提供してください。
+    const prompt = `あなたは熟練のキャリアコンサルタントとして、これまでの対話から「キャリア・リフレクション・レポート」を生成してください。
+単なるあらすじではなく、相談者が「自分以上に自分を理解してくれている」と感じるような、深い洞察（インサイト）と分析を含める必要があります。
 
-【執筆の要件】
-1. 【対話の核心】: 相談者が言葉にできなかった「願い」や「恐れ」を言語化し、この対話がどのような意味を持ったのかを400文字程度で深く考察してください。
-2. 【構造的分析】: 以下の4つの観点で、対話中の具体的な発言を根拠に分析してください。
-   - 【価値観・信念】: 根底にある譲れないこだわり、大切にしている世界観。
-   - 【潜在的リソース】: 本人が当たり前だと思っているが、実は類まれな強みや資質。
-   - 【内的葛藤の構図】: 変化を拒んでいる要因や、ジレンマの構造。
-   - 【自己効力感の芽】: 対話の中で少しでも前向きになった瞬間や、希望の兆し。
-3. 【次への問いかけ】: 答えを教えるのではなく、一晩かけて考えたくなるような、本質を突いた問いを1つ提示してください。
-4. 【専門的提言】: 管理者（カウンセラー）が次のセッションでどこに焦点を当てるべきか、キャリア理論の観点から具体的に助言してください。
+【分析の視点】
+1. 相談者が大切にしている「価値観」や「信念」は何か？
+2. 対話の端々から感じられる、本人が自覚していないかもしれない「強み」や「リソース」は何か？
+3. 相談を阻んでいる「葛藤」や「ブレーキ」の正体は何か？
+4. 今後の自己探索を深めるための「良質な問い（セルフ・リフレクション）」は何か？
 
 【制約事項】
-- 返答は必ず指定されたJSON形式に厳格に従うこと。
-- ユーザープロファイル（${JSON.stringify(profile)}）を分析の文脈に組み込むこと。
-- 受容的、支持的でありつつも、専門家としての鋭い洞察を恐れないこと。
+- キャリアコンサルティングの守秘義務と敬意を忘れないこと。
+- ユーザープロファイル（${JSON.stringify(profile)}）も加味すること。
+- 断定せず、受容的かつ仮説的に提示すること。
 
 履歴:
 ${historyText}`;
 
-    const config = {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: { 
-                title: { type: Type.STRING },
-                core_insight: { type: Type.STRING },
-                analysis_points: { 
-                    type: Type.ARRAY, 
-                    items: { 
-                        type: Type.OBJECT, 
-                        properties: {
-                            category: { type: Type.STRING }, 
-                            observation: { type: Type.STRING } 
-                        }
-                    } 
+    const result = await getAIClient().models.generateContent({
+        model: ANALYSIS_MODEL, // 要約から分析へグレードアップ (Flash -> Pro)
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: { 
+                    title: { type: Type.STRING }, // レポートのタイトル
+                    core_insight: { type: Type.STRING }, // 対話の核心（深掘りした文章）
+                    analysis_points: { 
+                        type: Type.ARRAY, 
+                        items: { 
+                            type: Type.OBJECT, 
+                            properties: {
+                                category: { type: Type.STRING }, // 【価値観】【強み】など
+                                observation: { type: Type.STRING } // 具体的な分析内容
+                            }
+                        } 
+                    },
+                    next_inquiry: { type: Type.STRING }, // 次への問いかけ
+                    professional_summary: { type: Type.STRING } // 専門家（管理者）向けの引き継ぎ用メモ
                 },
-                next_inquiry: { type: Type.STRING },
-                professional_summary: { type: Type.STRING }
-            },
-            required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
-        }
-    };
-
-    const tryModel = async (modelIdx: number): Promise<any> => {
-        const modelName = MODEL_CHAIN[modelIdx] || ANALYSIS_MODEL;
-        try {
-            return await getAIClient().models.generateContent({
-                model: modelName,
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config
-            });
-        } catch (e: any) {
-            const isRetryable = e.message?.includes('503') || e.message?.includes('429') || e.message?.includes('UNAVAILABLE');
-            if (isRetryable && modelIdx < MODEL_CHAIN.length - 1) {
-                console.warn(`[Summary Fallback] ${modelName} failed. Trying ${MODEL_CHAIN[modelIdx + 1]}...`);
-                return tryModel(modelIdx + 1);
+                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
             }
-            throw e;
         }
-    };
-
-    let result;
-    try {
-        const startIdx = MODEL_CHAIN.indexOf(ANALYSIS_MODEL);
-        result = await tryModel(startIdx === -1 ? 0 : startIdx);
-    } catch (e: any) {
-        console.error("[Summary Final Error] Analysis failed after fallbacks:", e.message);
-        throw e;
-    }
+    });
 
     // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
     try {

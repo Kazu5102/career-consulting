@@ -1,16 +1,20 @@
 
 // constants.ts
-// v5.80 - 2026-05-06 - Quota Optimized Architecture: Strict throttling and lean payloads
-export const APP_VERSION = "5.80";
+// v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence logic)
+export const APP_VERSION = "5.73";
 
 /**
  * AI Service Configuration
- * v5.80: クォータ制限(429)を回避するため、リクエスト頻度を物理的に抑制。
+ * 最新のAI Studioガイドラインに基づき、性能・安定性のバランスが取れたモデルを採用
  */
 export const AI_CONFIG = {
+    // 対話用: 高速かつ高精度
     CHAT_MODEL: 'gemini-3-flash-preview',
+    // 分析用: 高度な推論
     ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
-    LITE_MODEL: 'gemini-3-flash-preview',
+    // 補助・要約用: 低遅延・低コスト
+    LITE_MODEL: 'gemini-3.1-flash-lite-preview',
+    // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };
 
