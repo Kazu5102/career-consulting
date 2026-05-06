@@ -1,15 +1,14 @@
 
-// api/gemini-proxy.ts - v5.78 - 2026-05-06 - True Resiliency: Model alignment with Gemini 3 series
+// api/gemini-proxy.ts - v5.80 - 2026-05-06 - Simple Stability: Optimized fallback chain (Pro -> Flash -> Lite)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
-// 最新のインフラ状況（503エラー）への究極の対策: 階層型フォールバック
-const ANALYSIS_MODEL = 'gemini-3.1-pro-preview'; // 高度な分析（優先）
-const CHAT_MODEL = 'gemini-3-flash-preview';    // 対話・中級分析（高速）
-const LITE_MODEL = 'gemini-3-flash-preview';    // バックアップ（最安定）
+// 429クォータエラー対策: 優先順位に基づいた安定運用
+const ANALYSIS_MODEL = 'gemini-3.1-pro-preview'; 
+const CHAT_MODEL = 'gemini-3-flash-preview';    
+const STABLE_FALLBACK = 'gemini-1.5-flash'; 
 
-// フォールバックチェーンの定義
-const MODEL_CHAIN = [ANALYSIS_MODEL, CHAT_MODEL, LITE_MODEL];
+const MODEL_CHAIN = [ANALYSIS_MODEL, CHAT_MODEL, STABLE_FALLBACK];
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -62,39 +61,24 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    const tryModel = async (modelIdx: number): Promise<void> => {
-        const modelName = MODEL_CHAIN[modelIdx] || initialModel;
-        try {
-            const response = await modelCall(modelName);
-            if (!response) throw new Error("応答オブジェクトが空です。");
-
-            for await (const chunk of response) {
-                try {
-                    const text = chunk.text;
-                    if (text) {
-                        res.write(`data: ${JSON.stringify({ text })}\n\n`);
-                    }
-                } catch (chunkError) {
-                    console.warn("Chunk processing warning:", chunkError);
-                }
-            }
-            res.write('data: [DONE]\n\n');
-        } catch (error: any) {
-            const isRetryable = error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('UNAVAILABLE') || error.message?.includes('overloaded');
-            if (isRetryable && modelIdx < MODEL_CHAIN.length - 1) {
-                console.warn(`[Proxy Fallback] ${modelName} failed (${error.message}). Trying ${MODEL_CHAIN[modelIdx + 1]}...`);
-                res.write(`data: ${JSON.stringify({ status: 'system_fallback', message: 'インフラ混雑のため、より安定したエンジンに切り替えています...' })}\n\n`);
-                return tryModel(modelIdx + 1);
-            }
-            throw error;
-        }
-    };
-
     try {
-        const startIdx = MODEL_CHAIN.indexOf(initialModel);
-        await tryModel(startIdx === -1 ? 0 : startIdx);
+        const response = await modelCall(initialModel);
+        if (!response) throw new Error("応答オブジェクトが空です。");
+
+        for await (const chunk of response) {
+            try {
+                const text = chunk.text;
+                if (text) {
+                    res.write(`data: ${JSON.stringify({ text })}\n\n`);
+                }
+            } catch (chunkError) {
+                console.warn("Chunk processing warning:", chunkError);
+            }
+        }
+        res.write('data: [DONE]\n\n');
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
+        // エラー時はフォールバック通知ではなく、直接エラーをクライアントに返す
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
     } finally {
         res.end();

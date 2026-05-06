@@ -1,5 +1,5 @@
 
-// App.tsx - v5.78 - 2026-05-06 - True Resiliency (Model Alignment)
+// App.tsx - v5.79 - 2026-05-06 - Quota Protection Architecture
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.78 - 2026-05-06 - True Resiliency (Model Alignment)
+// views/UserView.tsx - v5.80 - 2026-05-06 - Quota Optimized Architecture (8s Throttling)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -101,6 +101,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
   const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
+  const lastSuggestionTimeRef = useRef<number>(0); // 案X: クォータ保護用タイムスタンプ
   const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
@@ -286,13 +287,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
+        const now = Date.now();
+        // 8秒以内の再リクエストを禁止（クォータを厳格に保護）
+        if (now - lastSuggestionTimeRef.current < 8000) return;
+
         if (draft.trim().length >= 10) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
                 isSuggestingRef.current = true; // 案X: ブロック開始
+                lastSuggestionTimeRef.current = now;
                 
-                // 案V: 無駄な履歴を削ぎ落とし、直近2ラリー（最大4件）だけを文脈として渡す
-                const recentMessages = messages.slice(-4);
+                // 履歴を直近「1ラリー（2件）」に極小化してクォータ負荷を低減
+                const recentMessages = messages.slice(-2);
                 
                 generateSuggestions(recentMessages, draft)
                     .then(resp => {
@@ -359,10 +365,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       if (msgCount >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
+          const now = Date.now();
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
-          isSuggestingRef.current = true; // 案X: ブロック開始
-          // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
-          const recentMessages = currentMessages.slice(-4);
+          const waitTime = now - lastSuggestionTimeRef.current;
+          if (waitTime < 8000) return; // ターン終了時も8秒ルールを適用
+
+          isSuggestingRef.current = true;
+          lastSuggestionTimeRef.current = now;
+
+          // 履歴を直近「1ラリー（2件）」に極小化
+          const recentMessages = currentMessages.slice(-2);
           
           generateSuggestions(recentMessages)
             .then(resp => {

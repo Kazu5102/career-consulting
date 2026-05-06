@@ -1,20 +1,16 @@
 
 // constants.ts
-// v5.78 - 2026-05-06 - True Resiliency: Model alignment with Gemini 3 series (Pro -> Flash)
-export const APP_VERSION = "5.78";
+// v5.80 - 2026-05-06 - Quota Optimized Architecture: Strict throttling and lean payloads
+export const APP_VERSION = "5.80";
 
 /**
  * AI Service Configuration
- * v5.78: Prohibited gemini-1.5 names removed. Using gemini-3 series for full compatibility.
+ * v5.80: クォータ制限(429)を回避するため、リクエスト頻度を物理的に抑制。
  */
 export const AI_CONFIG = {
-    // 対話用: 高速かつ高精度
     CHAT_MODEL: 'gemini-3-flash-preview',
-    // 分析用: 高度な推論（失敗時は自動フォールバック）
     ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
-    // 補助・要約用
     LITE_MODEL: 'gemini-3-flash-preview',
-    // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };
 

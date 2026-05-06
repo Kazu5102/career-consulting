@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.78",
-  "description": "Secure AI Architecture v5.78: Aligned models with Gemini 3 series (Pro & Flash) to resolve 404 errors while maintaining the multi-tier resiliency fallback logic.",
-  "version": "5.78",
+  "name": "Career Consulting_5.80",
+  "description": "Secure AI Architecture v5.80: Quota-optimized for stability. Implemented strictly throttled API calls (8s cooldown for suggestions) and trimmed payloads to maintain feature availability under tight rate limits.",
+  "version": "5.80",
   "prompt": "",
   "D7": [],
   "Yp": []
