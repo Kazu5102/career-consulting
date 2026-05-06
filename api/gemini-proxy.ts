@@ -1,12 +1,15 @@
 
-// api/gemini-proxy.ts - v5.74 - 2026-05-06 - Analysis Logic: High-grade Career Reflection (Gemini Pro Full Analysis)
+// api/gemini-proxy.ts - v5.77 - 2026-05-06 - True Resiliency: Multi-tier fallback (Pro -> Flash -> Lite) with recursive retry
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
-// 最新のスキルガイドラインに基づくモデル選定
-const CHAT_MODEL = 'gemini-3-flash-preview';
-const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
-const LITE_MODEL = 'gemini-3.1-flash-lite-preview';
+// 最新のインフラ状況（503エラー）への究極の対策: 階層型フォールバック
+const ANALYSIS_MODEL = 'gemini-1.5-pro'; // 高度な分析（優先）
+const CHAT_MODEL = 'gemini-1.5-flash';    // 対話・中級分析（高速）
+const LITE_MODEL = 'gemini-1.5-flash';    // バックアップ（最安定）
+
+// フォールバックチェーンの定義
+const MODEL_CHAIN = [ANALYSIS_MODEL, CHAT_MODEL, LITE_MODEL];
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -59,37 +62,37 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    try {
-        let response;
+    const tryModel = async (modelIdx: number): Promise<void> => {
+        const modelName = MODEL_CHAIN[modelIdx] || initialModel;
         try {
-            response = await modelCall(initialModel);
-        } catch (error: any) {
-            if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
-                console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
-                res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
-                response = await modelCall(LITE_MODEL);
-            } else {
-                throw error;
-            }
-        }
+            const response = await modelCall(modelName);
+            if (!response) throw new Error("応答オブジェクトが空です。");
 
-        // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
-        if (!response) {
-            throw new Error("応答オブジェクトが空です。");
-        }
-
-        for await (const chunk of response) {
-            try {
-                // GenerateContentResponse.text はプロパティ。メソッドではない。
-                const text = chunk.text;
-                if (text) {
-                    res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            for await (const chunk of response) {
+                try {
+                    const text = chunk.text;
+                    if (text) {
+                        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+                    }
+                } catch (chunkError) {
+                    console.warn("Chunk processing warning:", chunkError);
                 }
-            } catch (chunkError) {
-                console.warn("Chunk processing warning:", chunkError);
             }
+            res.write('data: [DONE]\n\n');
+        } catch (error: any) {
+            const isRetryable = error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('UNAVAILABLE') || error.message?.includes('overloaded');
+            if (isRetryable && modelIdx < MODEL_CHAIN.length - 1) {
+                console.warn(`[Proxy Fallback] ${modelName} failed (${error.message}). Trying ${MODEL_CHAIN[modelIdx + 1]}...`);
+                res.write(`data: ${JSON.stringify({ status: 'system_fallback', message: 'インフラ混雑のため、より安定したエンジンに切り替えています...' })}\n\n`);
+                return tryModel(modelIdx + 1);
+            }
+            throw error;
         }
-        res.write('data: [DONE]\n\n');
+    };
+
+    try {
+        const startIdx = MODEL_CHAIN.indexOf(initialModel);
+        await tryModel(startIdx === -1 ? 0 : startIdx);
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
@@ -290,33 +293,56 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 履歴:
 ${historyText}`;
 
-    const result = await getAIClient().models.generateContent({
-        model: ANALYSIS_MODEL,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: { 
-                    title: { type: Type.STRING },
-                    core_insight: { type: Type.STRING },
-                    analysis_points: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: {
-                                category: { type: Type.STRING }, // 例: 「価値観」「強み」「葛藤」
-                                observation: { type: Type.STRING } // 詳細な分析文
-                            }
-                        } 
-                    },
-                    next_inquiry: { type: Type.STRING },
-                    professional_summary: { type: Type.STRING }
+    const config = {
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.OBJECT,
+            properties: { 
+                title: { type: Type.STRING },
+                core_insight: { type: Type.STRING },
+                analysis_points: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                        type: Type.OBJECT, 
+                        properties: {
+                            category: { type: Type.STRING }, 
+                            observation: { type: Type.STRING } 
+                        }
+                    } 
                 },
-                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
-            }
+                next_inquiry: { type: Type.STRING },
+                professional_summary: { type: Type.STRING }
+            },
+            required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
         }
-    });
+    };
+
+    const tryModel = async (modelIdx: number): Promise<any> => {
+        const modelName = MODEL_CHAIN[modelIdx] || ANALYSIS_MODEL;
+        try {
+            return await getAIClient().models.generateContent({
+                model: modelName,
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config
+            });
+        } catch (e: any) {
+            const isRetryable = e.message?.includes('503') || e.message?.includes('429') || e.message?.includes('UNAVAILABLE');
+            if (isRetryable && modelIdx < MODEL_CHAIN.length - 1) {
+                console.warn(`[Summary Fallback] ${modelName} failed. Trying ${MODEL_CHAIN[modelIdx + 1]}...`);
+                return tryModel(modelIdx + 1);
+            }
+            throw e;
+        }
+    };
+
+    let result;
+    try {
+        const startIdx = MODEL_CHAIN.indexOf(ANALYSIS_MODEL);
+        result = await tryModel(startIdx === -1 ? 0 : startIdx);
+    } catch (e: any) {
+        console.error("[Summary Final Error] Analysis failed after fallbacks:", e.message);
+        throw e;
+    }
 
     // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
     try {

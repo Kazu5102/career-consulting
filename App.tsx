@@ -1,5 +1,5 @@
 
-// App.tsx - v5.74 - 2026-05-06 - UX: Higher-grade Reflection Report
+// App.tsx - v5.77 - 2026-05-06 - True Resiliency
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

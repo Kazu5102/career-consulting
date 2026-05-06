@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.74",
-  "description": "Secure AI Architecture v5.74: Upgraded Career Reflection Report with deeper structural analysis (Values, Strengths, Conflict Patterns) and enhanced Pro-model prompting for insight generation.",
-  "version": "5.74",
+  "name": "Career Consulting_5.77",
+  "description": "Secure AI Architecture v5.77: Implemented True Resiliency using a multi-tier model fallback chain (Pro -> Flash -> Lite) with recursive retry logic to handle 503 infrastructure errors automatically.",
+  "version": "5.77",
   "prompt": "",
   "D7": [],
   "Yp": []
