@@ -1,12 +1,12 @@
 
-// api/gemini-proxy.ts - v5.77 - 2026-05-06 - True Resiliency: Multi-tier fallback (Pro -> Flash -> Lite) with recursive retry
+// api/gemini-proxy.ts - v5.78 - 2026-05-06 - True Resiliency: Model alignment with Gemini 3 series
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // 最新のインフラ状況（503エラー）への究極の対策: 階層型フォールバック
-const ANALYSIS_MODEL = 'gemini-1.5-pro'; // 高度な分析（優先）
-const CHAT_MODEL = 'gemini-1.5-flash';    // 対話・中級分析（高速）
-const LITE_MODEL = 'gemini-1.5-flash';    // バックアップ（最安定）
+const ANALYSIS_MODEL = 'gemini-3.1-pro-preview'; // 高度な分析（優先）
+const CHAT_MODEL = 'gemini-3-flash-preview';    // 対話・中級分析（高速）
+const LITE_MODEL = 'gemini-3-flash-preview';    // バックアップ（最安定）
 
 // フォールバックチェーンの定義
 const MODEL_CHAIN = [ANALYSIS_MODEL, CHAT_MODEL, LITE_MODEL];

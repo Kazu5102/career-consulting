@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.77",
-  "description": "Secure AI Architecture v5.77: Implemented True Resiliency using a multi-tier model fallback chain (Pro -> Flash -> Lite) with recursive retry logic to handle 503 infrastructure errors automatically.",
-  "version": "5.77",
+  "name": "Career Consulting_5.78",
+  "description": "Secure AI Architecture v5.78: Aligned models with Gemini 3 series (Pro & Flash) to resolve 404 errors while maintaining the multi-tier resiliency fallback logic.",
+  "version": "5.78",
   "prompt": "",
   "D7": [],
   "Yp": []

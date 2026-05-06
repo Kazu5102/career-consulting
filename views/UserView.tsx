@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.77 - 2026-05-06 - True Resiliency (Multi-tier Fallback support)
+// views/UserView.tsx - v5.78 - 2026-05-06 - True Resiliency (Model Alignment)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';

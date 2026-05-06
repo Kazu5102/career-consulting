@@ -1,5 +1,5 @@
 
-// App.tsx - v5.77 - 2026-05-06 - True Resiliency
+// App.tsx - v5.78 - 2026-05-06 - True Resiliency (Model Alignment)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

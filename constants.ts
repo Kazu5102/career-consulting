@@ -1,20 +1,19 @@
 
 // constants.ts
-// v5.77 - 2026-05-06 - True Resiliency: Multi-tier fallback (Pro -> Flash -> Lite)
-export const APP_VERSION = "5.77";
+// v5.78 - 2026-05-06 - True Resiliency: Model alignment with Gemini 3 series (Pro -> Flash)
+export const APP_VERSION = "5.78";
 
 /**
  * AI Service Configuration
- * v5.77: 高度な分析に gemini-1.5-pro を再導入。
- * ただし503エラー発生時は即座に Flash へ切り替えるレジリエンス機構を搭載。
+ * v5.78: Prohibited gemini-1.5 names removed. Using gemini-3 series for full compatibility.
  */
 export const AI_CONFIG = {
     // 対話用: 高速かつ高精度
-    CHAT_MODEL: 'gemini-1.5-flash',
+    CHAT_MODEL: 'gemini-3-flash-preview',
     // 分析用: 高度な推論（失敗時は自動フォールバック）
-    ANALYSIS_MODEL: 'gemini-1.5-pro',
+    ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
     // 補助・要約用
-    LITE_MODEL: 'gemini-1.5-flash',
+    LITE_MODEL: 'gemini-3-flash-preview',
     // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };
