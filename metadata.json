@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.73",
-  "description": "Secure AI Architecture v5.73: Enhanced HINT stability by persisting suggestions during typing/scrolling and lowering trigger threshold to 10 characters for better reflection support.",
-  "version": "5.73",
+  "name": "Career Consulting_5.74",
+  "description": "Secure AI Architecture v5.74: Upgraded Career Reflection Report with deeper structural analysis (Values, Strengths, Conflict Patterns) and enhanced Pro-model prompting for insight generation.",
+  "version": "5.74",
   "prompt": "",
   "D7": [],
   "Yp": []

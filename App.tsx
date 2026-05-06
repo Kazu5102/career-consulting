@@ -1,5 +1,5 @@
 
-// App.tsx - v5.73 - 2026-05-04 - UX: HINT stability (No flickering, 10 chars threshold)
+// App.tsx - v5.74 - 2026-05-06 - UX: Higher-grade Reflection Report
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

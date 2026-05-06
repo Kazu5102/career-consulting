@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence)
+// views/UserView.tsx - v5.74 - 2026-05-06 - UX: Higher-grade Reflection Report (Deep analysis)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';

@@ -89,8 +89,15 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     await delay(2000);
     const mockStructured = {
-        user_summary: `## 💡 今日の気づき\n大切な一歩を踏み出せましたね。`,
-        pro_notes: `### キャリア分析ノート\n- **発達段階**: 確立期における再探索。`
+        title: "自己変革への物語：一歩を踏み出す勇気",
+        core_insight: "対話の全編を通じて、あなたは「現状の安定」と「未知への渇望」の間で激しく揺れ動いていることが見て取れました。しかし、言葉の端々に表れるのは、決して悲観ではなく、新しい自分に出会いたいという純粋な希望です。あなたは今、これまでのキャリアの重しを捨て、軽やかに羽ばたくための『脱皮』のプロセスにいます。",
+        analysis_points: [
+            { category: "価値観・信念", observation: "社会的なステータスよりも、日々の手応えや『自分が誰かの役に立っている』という実感を重視する利他的な信念が根底にあります。" },
+            { category: "潜在的リソース", observation: "困難な状況でもユーモアを忘れず、周囲との調和を保ちながら着実に合意形成を進める力は、高度なマネジメント能力の証です。" },
+            { category: "内的葛藤の構図", observation: "『期待に応えなければならない』という義務感と、『自分らしくありたい』という欲求が拮抗し、決断を阻むブレーキとなっています。" }
+        ],
+        next_inquiry: "もし、明日から誰の期待にも応える必要がないとしたら、あなたは一番最初に何を始めますか？",
+        professional_summary: "【引継ぎメモ】ユーザーは高い社会適応性を持ちますが、アイデンティティの拡散状態にあります。次回のセッションでは、具体的な行動目標よりも、まずは本人の『真実の欲求』を言語化する支援を優先してください。"
     };
     return JSON.stringify(mockStructured);
 };

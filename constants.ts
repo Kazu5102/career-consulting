@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence logic)
-export const APP_VERSION = "5.73";
+// v5.74 - 2026-05-06 - UX: Higher-grade Reflection Report (Structure analysis)
+export const APP_VERSION = "5.74";
 
 /**
  * AI Service Configuration
