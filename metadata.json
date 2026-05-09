@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.76",
-  "description": "Secure AI Architecture v5.76: AI - 分析（軌跡・適職）の出力を明示的に日本語化",
-  "version": "5.76",
+  "name": "Career Consulting_5.77",
+  "description": "Secure AI Architecture v5.77: AI - APIエラーハンドリングの強化（リトライとフォールバック処理の追加）",
+  "version": "5.77",
   "prompt": "",
   "D7": [],
   "Yp": []

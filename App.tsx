@@ -1,5 +1,5 @@
 
-// App.tsx - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+// App.tsx - v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

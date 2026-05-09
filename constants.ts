@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
-export const APP_VERSION = "5.76";
+// v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
+export const APP_VERSION = "5.77";
 
 /**
  * AI Service Configuration

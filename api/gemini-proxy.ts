@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+// api/gemini-proxy.ts - v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -60,22 +60,44 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('X-Accel-Buffering', 'no');
 
     try {
-        let response;
-        try {
-            response = await modelCall(initialModel);
-        } catch (error: any) {
-            if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
-                console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
-                res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
-                response = await modelCall(LITE_MODEL);
-            } else {
-                throw error;
+        let response = null;
+        let currentModel = initialModel;
+        const MAX_RETRIES = 3;
+        
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                if (attempt > 0) {
+                    const waitTimeArgs = Math.pow(2, attempt) * 500 + Math.random() * 500;
+                    console.warn(`[Retry] Attempt ${attempt+1} waiting ${Math.round(waitTimeArgs)}ms for model ${currentModel}`);
+                    await new Promise(r => setTimeout(r, waitTimeArgs));
+                }
+                response = await modelCall(currentModel);
+                break; // 成功したらループを抜ける
+            } catch (error: any) {
+                const isTransientError = error.status === 503 || error.status === 429 || 
+                    error.message?.includes('429') || error.message?.includes('503') || 
+                    error.message?.includes('UNAVAILABLE') || error.message?.includes('fetch failed');
+                
+                console.error(`[Stream Error] Attempt ${attempt+1} failed:`, error.message || error);
+                
+                if (!isTransientError || attempt === MAX_RETRIES - 1) {
+                    throw error; // 最後のリトライか、非一時的なエラーなら投げる
+                }
+                
+                // 次のモデルへフォールバック
+                if (currentModel === ANALYSIS_MODEL) {
+                    currentModel = CHAT_MODEL;
+                    res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、高速モデルで再試行しています...]\n' })}\n\n`);
+                } else if (currentModel === CHAT_MODEL) {
+                    currentModel = LITE_MODEL;
+                    res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、軽量モデルで再試行しています...]\n' })}\n\n`);
+                }
             }
         }
 
         // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
         if (!response) {
-            throw new Error("応答オブジェクトが空です。");
+            throw new Error("APIサーバーからの応答がありませんでした（リトライオーバー）。");
         }
 
         for await (const chunk of response) {
@@ -92,7 +114,7 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         res.write('data: [DONE]\n\n');
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: error.message || "An unexpected error occurred during generation." })}\n\n`);
     } finally {
         res.end();
     }
