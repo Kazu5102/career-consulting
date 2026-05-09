@@ -1,5 +1,5 @@
 
-// App.tsx - v5.73 - 2026-05-04 - UX: HINT stability (No flickering, 10 chars threshold)
+// App.tsx - v5.75 - 2026-05-09 - Auth: マスターパスワードの複数設定（カンマ区切り）に対応
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

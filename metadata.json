@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.73",
-  "description": "Secure AI Architecture v5.73: Enhanced HINT stability by persisting suggestions during typing/scrolling and lowering trigger threshold to 10 characters for better reflection support.",
-  "version": "5.73",
+  "name": "Career Consulting_5.75",
+  "description": "Secure AI Architecture v5.75: Auth - マスターパスワードの複数設定（カンマ区切り）に対応し、Vercel等の環境変数での管理を強化。",
+  "version": "5.75",
   "prompt": "",
   "D7": [],
   "Yp": []
