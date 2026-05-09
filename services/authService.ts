@@ -1,25 +1,23 @@
 
 // services/authService.ts
-const STORAGE_KEY = 'adminPassword_v1';
+// v5.75 - 2026-05-09 - Auth: マスターパスワードの複数設定（カンマ区切り）に対応
 const DEFAULT_PASSWORD = '1qazxcv';
-const DEVELOPER_PASSWORD = 'nomusan1010';
 
-export const getStoredPassword = (): string => {
-    return localStorage.getItem(STORAGE_KEY) || DEFAULT_PASSWORD;
+export const getStoredPasswords = (): string[] => {
+    // 環境変数が設定されていない場合はデフォルトを使用
+    const envPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+    if (!envPassword) {
+        return [DEFAULT_PASSWORD];
+    }
+    // カンマ区切りで複数のパスワードを配列として返す
+    return envPassword.split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
 };
 
 export const checkPassword = (password: string): boolean => {
-    // 開発者用パスワードまたは保存されたパスワードのいずれかに一致すればOK
-    return password === DEVELOPER_PASSWORD || password === getStoredPassword();
+    // 複数のパスワードのいずれかに一致するか確認
+    return getStoredPasswords().includes(password);
 };
 
 export const setPassword = (newPassword: string, currentPassword: string): { success: boolean; message: string } => {
-    if (!checkPassword(currentPassword)) {
-        return { success: false, message: '現在のパスワードが正しくありません。' };
-    }
-    if (newPassword.length < 4) {
-        return { success: false, message: '新しいパスワードは4文字以上で設定してください。' };
-    }
-    localStorage.setItem(STORAGE_KEY, newPassword);
-    return { success: true, message: 'パスワードが正常に変更されました。' };
+    return { success: false, message: '現在のシステム設定では、パスワードの変更はサーバー（環境変数）からのみ可能です。対象の環境変数(VITE_ADMIN_PASSWORD)にカンマ区切りで追加してください。' };
 };

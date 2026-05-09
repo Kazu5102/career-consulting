@@ -1,10 +1,11 @@
-
 {
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_4.51",
-  "description": "Fix: Erasure button error handling and complete data deletion logic.",
-  "version": "4.51",
-  "prompt": ""
+  "name": "Career Consulting_5.76",
+  "description": "Secure AI Architecture v5.76: AI - 分析（軌跡・適職）の出力を明示的に日本語化",
+  "version": "5.76",
+  "prompt": "",
+  "D7": [],
+  "Yp": []
 }

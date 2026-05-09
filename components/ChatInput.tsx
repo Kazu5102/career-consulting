@@ -1,5 +1,5 @@
 
-// components/ChatInput.tsx - v2.41 - Rapid Response Tuning
+// components/ChatInput.tsx - v4.63 - 2026-04-18 - Dynamic typing pace learning
 import React, { useState, useEffect, useRef } from 'react';
 import SendIcon from './icons/SendIcon';
 import MicrophoneIcon from './icons/MicrophoneIcon';
@@ -13,29 +13,64 @@ interface ChatInputProps {
   initialText: string; 
   clearSignal?: number; // 確実にクリアするための信号
   onCancelEdit: () => void;
-  onStateChange?: (state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => void;
+  onStateChange?: (state: { 
+    isFocused: boolean; 
+    isTyping: boolean; 
+    isSilent: boolean; 
+    isDeepSilent: boolean; 
+    currentDraft: string;
+    fluency?: { mean: number; stdDev: number };
+  }) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 128;
-const SILENCE_TIMEOUT = 600; // 1500ms -> 600ms に短縮し、入力停止後の反応を高速化
+const SILENCE_TIMEOUT = 600; // 通常入力領域（ローカル辞書検索用）
+const DEEP_SILENCE_TIMEOUT_DEFAULT = 2500; // 動的学習の初期値
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, initialText, clearSignal = 0, onCancelEdit, onStateChange }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSilent, setIsSilent] = useState(false);
+  const [isDeepSilent, setIsDeepSilent] = useState(false);
   const [isActiveTyping, setIsActiveTyping] = useState(false); 
   const [isListening, setIsListening] = useState(false);
   const [micError, setMicError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
+  const keystrokesRef = useRef<number[]>([]); // 打鍵時間の記録用
+
+  // 打鍵間隔の平均μと標準偏差σに基づく推敲待機時間の動的計算
+  const calculateDynamicTimeout = (): number => {
+    const strokes = keystrokesRef.current;
+    if (strokes.length < 3) return DEEP_SILENCE_TIMEOUT_DEFAULT;
+
+    const intervals: number[] = [];
+    for (let i = 1; i < strokes.length; i++) {
+       const diff = strokes[i] - strokes[i-1];
+       // 1.5秒以上の極端な停止は「推敲」とみなし学習データ（通常タイピング速度）から除外
+       if (diff < 1500) intervals.push(diff);
+    }
+
+    if (intervals.length < 2) return DEEP_SILENCE_TIMEOUT_DEFAULT;
+
+    const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+
+    // 推敲係数β: 平均 + (標準偏差 * 3)。最低1.5秒、最大4.0秒に丸める
+    const dynamicTimeout = mean + (stdDev * 3);
+    return Math.min(Math.max(dynamicTimeout, 1500), 4000);
+  };
 
   // clearSignalが更新されたら問答無用でクリア
   useEffect(() => {
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
+    setIsDeepSilent(false);
   }, [clearSignal]);
 
   // 編集開始時などの同期
@@ -45,24 +80,54 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     }
   }, [initialText]);
   
-  // 静止判定ロジックの改善
+  // 静止判定ロジックの改善（領域分離アルゴリズム）
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (deepSilenceTimerRef.current) clearTimeout(deepSilenceTimerRef.current);
     
     // 静止判定の対象外
     if (!isFocused || isLoading || isEditing || isListening || isActiveTyping) {
       setIsSilent(false);
+      setIsDeepSilent(false);
       return;
     }
 
+    // 第一領域：通常入力領域判定（0.6秒）
     silenceTimerRef.current = setTimeout(() => {
       setIsSilent(true);
     }, SILENCE_TIMEOUT);
 
+    // 第二領域：内省深堀介入領域判定（動的待機時間）
+    const dynamicTimeout = calculateDynamicTimeout();
+    deepSilenceTimerRef.current = setTimeout(() => {
+      setIsDeepSilent(true);
+    }, dynamicTimeout);
+
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (deepSilenceTimerRef.current) clearTimeout(deepSilenceTimerRef.current);
     };
   }, [isFocused, text, isLoading, isEditing, isListening, isActiveTyping]);
+
+  // 打鍵間隔の統計データを取得
+  const getFluencyStats = () => {
+    const strokes = keystrokesRef.current;
+    if (strokes.length < 3) return undefined;
+
+    const intervals: number[] = [];
+    for (let i = 1; i < strokes.length; i++) {
+       const diff = strokes[i] - strokes[i-1];
+       if (diff < 1500) intervals.push(diff);
+    }
+
+    if (intervals.length < 2) return undefined;
+
+    const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
+    const stdDev = Math.sqrt(variance);
+
+    return { mean, stdDev };
+  };
 
   // 状態の外部通知
   useEffect(() => {
@@ -70,9 +135,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
       isFocused,
       isTyping: isActiveTyping || isListening, 
       isSilent,
-      currentDraft: text
+      isDeepSilent,
+      currentDraft: text,
+      fluency: getFluencyStats()
     });
-  }, [isFocused, isActiveTyping, isListening, isSilent, text, onStateChange]);
+  }, [isFocused, isActiveTyping, isListening, isSilent, isDeepSilent, text, onStateChange]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -88,7 +155,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     const val = e.target.value;
     setText(val);
     setIsSilent(false);
+    setIsDeepSilent(false);
     
+    // 打鍵タイムスタンプを記録（直近15回まで）
+    keystrokesRef.current.push(Date.now());
+    if (keystrokesRef.current.length > 15) {
+        keystrokesRef.current.shift();
+    }
+
     setIsActiveTyping(true);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
@@ -137,6 +211,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     setText('');
     setIsActiveTyping(false);
     setIsSilent(false);
+    setIsDeepSilent(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

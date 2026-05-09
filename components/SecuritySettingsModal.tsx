@@ -1,5 +1,5 @@
 
-// components/SecuritySettingsModal.tsx - v3.71 - Survey Governance Default OFF Strict
+// components/SecuritySettingsModal.tsx - v5.74 - 2026-05-09 - Auth: 環境変数ベースのマスターパスワード機能（UI変更不可）に変更
 import React, { useState, useEffect } from 'react';
 import { setPassword } from '../services/authService';
 import LockIcon from './icons/LockIcon';
@@ -105,48 +105,22 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
             <div className="flex items-center gap-2 text-[10px] font-black text-rose-600 uppercase tracking-widest mb-2">
                <LockIcon className="w-3.5 h-3.5" /> Identity Management
             </div>
-            {success ? (
-              <div className="py-4 flex flex-col items-center justify-center text-emerald-600 animate-in fade-in zoom-in">
-                <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mb-2">
-                  <CheckIcon />
-                </div>
-                <p className="text-sm font-bold">パスワードを変更しました</p>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-100 rounded-xl border border-slate-200">
+                <p className="text-sm text-slate-600 font-medium">セキュリティ保護層（V5.74）</p>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  マスターパスワードは現在、サーバーの環境変数（VITE_ADMIN_PASSWORD）によって安全に一元管理されています。この端末からのパスワード変更は無効化されています。
+                </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <input
-                  type="password"
-                  value={currentPwd}
-                  onChange={e => setCurrentPwd(e.target.value)}
-                  placeholder="現在のパスワード"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all text-sm"
-                  required
-                />
-                <input
-                  type="password"
-                  value={newPwd}
-                  onChange={e => setNewPwd(e.target.value)}
-                  placeholder="新しいパスワード (4文字以上)"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all text-sm"
-                  required
-                />
-                <input
-                  type="password"
-                  value={confirmPwd}
-                  onChange={e => setConfirmPwd(e.target.value)}
-                  placeholder="パスワードの確認"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all text-sm"
-                  required
-                />
-                {error && <p className="text-[10px] text-rose-500 font-bold px-1">{error}</p>}
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-black transition-all active:scale-[0.98] shadow-lg mt-2 text-sm"
-                >
-                  Update Password
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                disabled
+                className="w-full py-4 bg-slate-300 text-slate-500 font-bold rounded-2xl shadow-none mt-2 text-sm cursor-not-allowed"
+              >
+                Managed by Server
+              </button>
+            </div>
           </form>
         </div>
         

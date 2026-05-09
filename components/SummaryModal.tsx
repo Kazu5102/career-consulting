@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v4.48 - Secure Link Opening & UX Fix
+// components/SummaryModal.tsx - v5.66 - 2026-05-04 - UX: AI-turn suggestion guard & thought-provoking hint logic
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -8,7 +8,9 @@ import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
 import LinkIcon from './icons/LinkIcon';
 import ExportIcon from './icons/ExportIcon';
+import LockIcon from './icons/LockIcon';
 import { StructuredSummary, SurveyConfig, ChatMessage } from '../types';
+import { generateSecureHtmlPackage } from '../utils/exportPackage';
 
 interface SummaryModalProps {
   isOpen: boolean;
@@ -65,15 +67,29 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
   const [isExported, setIsExported] = useState(false);
+  const [exportStep, setExportStep] = useState<'none' | 'password' | 'generating'>('none');
+  const [exportPassword, setExportPassword] = useState('');
+  const [exportError, setExportError] = useState('');
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
-      if (!summary) return { user_summary: '', pro_notes: '' };
+      if (!summary) return {};
       const parsed = JSON.parse(summary);
-      if (parsed.user_summary && parsed.pro_notes) return parsed;
-      return { user_summary: summary, pro_notes: '※この履歴には専門家向けの詳細ノートが含まれていません。' };
+      
+      // Handle legacy format v5.66
+      if (parsed.user_summary && !parsed.core_insight) {
+        return parsed;
+      }
+      
+      // Handle rich format v5.70
+      if (parsed.core_insight) {
+        return parsed;
+      }
+
+      // Final fallback
+      return { user_summary: summary };
     } catch (e) {
-      return { user_summary: summary, pro_notes: '※この履歴には専門家向けの詳細ノートが含まれていません。' };
+      return { user_summary: summary };
     }
   }, [summary]);
 
@@ -106,8 +122,14 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [isLoading]);
   
-  // Always show user_summary
-  const currentContent = parsedSummary.user_summary;
+  // Flatten content for copy
+  const currentContent = useMemo(() => {
+    if (parsedSummary.core_insight) {
+      const points = parsedSummary.analysis_points?.map(p => `### ${p.category}\n${p.observation}`).join('\n\n') || '';
+      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}\n\n${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
+    }
+    return parsedSummary.user_summary || '';
+  }, [parsedSummary]);
 
   const handleCopy = () => {
     if (currentContent && !isLoading) {
@@ -134,39 +156,53 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       setCurrentStep('referral');
   };
 
-  const handleReferralAndExport = () => {
-    // 0. Copy to Clipboard (Auto) - User Summary is best for forms
-    const textToCopy = parsedSummary.user_summary || summary;
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        console.debug('Summary copied to clipboard automatically.');
-    }).catch(e => console.warn('Auto-copy failed', e));
+  const handleReferralAndExport = async () => {
+    if (!exportPassword) {
+        setExportStep('password');
+        return;
+    }
 
-    // 1. Create Export Data
-    const exportData = {
-        meta: {
-            title: "キャリア相談 引継ぎ用データ",
-            description: "支援専門家への提供用ファイル",
-            generatedAt: new Date().toISOString(),
-            userId,
-            aiAgent: aiName
-        },
-        summary: parsedSummary,
-        chatHistory: messages
-    };
-    
-    // 2. Trigger Download
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `career_handoff_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    setExportStep('generating');
+    setExportError('');
 
-    // 3. Update state to show the link button
-    setIsExported(true);
+    try {
+        // 0. Copy to Clipboard (Auto)
+        navigator.clipboard.writeText(currentContent).catch(e => console.warn('Auto-copy failed', e));
+
+        // 1. Create Export Data
+        const exportData = {
+            meta: {
+                title: "キャリア相談 引継ぎ用データ",
+                generatedAt: new Date().toISOString(),
+                userId,
+                aiAgent: aiName,
+                version: "5.70"
+            },
+            summary: parsedSummary,
+            chatHistory: messages
+        };
+        
+        // 2. Generate Secure HTML Package
+        const htmlContent = await generateSecureHtmlPackage(exportData, exportPassword);
+        
+        // 3. Trigger Download
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `career_report_${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // 4. Update state to show the link button
+        setIsExported(true);
+        setExportStep('none');
+    } catch (err: any) {
+        setExportError("エラーが発生しました: " + err.message);
+        setExportStep('password');
+    }
   };
 
   const createMarkup = (markdownText: string) => {
@@ -182,7 +218,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : '対話の振り返り'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -236,19 +272,60 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
             </div>
           ) : currentStep === 'referral' ? (
              <div className="flex flex-col items-center justify-center h-full space-y-8 py-6 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-2 shadow-xl shadow-sky-100/50 border-4 border-sky-100">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                </div>
-                
-                {isExported ? (
+                {exportStep === 'password' ? (
+                    <div className="w-full max-w-sm space-y-6 animate-in slide-in-from-bottom-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-amber-100">
+                                <LockIcon className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800">ファイルを保護します</h3>
+                            <p className="text-xs text-slate-500 mt-2">
+                                データの暗号化に使用するパスワードを設定してください。<br/>
+                                <strong>管理者が閲覧する際も、このパスワードが必要です。</strong>
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            <input 
+                                type="password" 
+                                placeholder="パスワードを入力..." 
+                                value={exportPassword}
+                                onChange={(e) => setExportPassword(e.target.value)}
+                                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/20 text-center font-bold"
+                                autoFocus
+                            />
+                            {exportError && <p className="text-xs text-rose-500 font-bold text-center">{exportError}</p>}
+                            <button 
+                                onClick={handleReferralAndExport}
+                                disabled={!exportPassword || exportPassword.length < 4}
+                                className="w-full py-4 bg-sky-600 text-white font-black rounded-2xl shadow-lg hover:bg-sky-700 disabled:bg-slate-300 transition-all active:scale-95"
+                            >
+                                暗号化パッケージを作成
+                            </button>
+                            <button 
+                                onClick={() => setExportStep('none')}
+                                className="w-full py-2 text-slate-400 text-sm font-bold hover:text-slate-600"
+                            >
+                                キャンセル
+                            </button>
+                        </div>
+                    </div>
+                ) : exportStep === 'generating' ? (
+                    <div className="text-center space-y-6">
+                        <div className="relative mb-8 text-sky-500">
+                            <div className="w-20 h-20 border-4 border-sky-100 rounded-full mx-auto"></div>
+                            <div className="absolute top-0 left-[calc(50%-40px)] w-20 h-20 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                        <p className="font-bold text-slate-700">暗号化を実施中...</p>
+                    </div>
+                ) : isExported ? (
                     <div className="text-center space-y-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
                             <div className="flex items-center justify-center gap-2 text-emerald-700 font-bold mb-1">
                                 <CheckIcon className="w-5 h-5"/>
-                                <span>保存とコピーが完了しました</span>
+                                <span>暗号化パッケージを保存しました</span>
                             </div>
                             <p className="text-xs text-emerald-600">
-                                相談内容がクリップボードにコピーされました。<br/>
+                                相談内容のコピーも完了しています。<br/>
                                 フォームに貼り付けて使用できます。
                             </p>
                         </div>
@@ -287,7 +364,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                             className="flex items-center justify-center gap-3 w-full py-4 bg-sky-600 text-white font-bold rounded-2xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-100 active:scale-95 group"
                             >
                                 <ExportIcon className="w-5 h-5" />
-                                データを保存して相談を申し込む
+                                データを暗号化して相談を申し込む
                             </button>
                             
                             <div className="relative py-2">
@@ -326,20 +403,61 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
               </div>
             </div>
           ) : (
-            <>
-              <div className={`p-6 sm:p-10 rounded-2xl border transition-all duration-700 animate-in fade-in slide-in-from-bottom-4 bg-amber-50/40 border-amber-100 shadow-inner`}>
-                  <article 
-                      className={`prose max-w-none prose-slate prose-h2:text-amber-900 prose-h2:border-amber-200 prose-h2:text-2xl prose-h3:text-amber-800
-                                 prose-h2:font-bold prose-h2:border-b-2 prose-h2:pb-3 prose-h2:mb-8
-                                 prose-p:leading-relaxed prose-p:text-slate-700`}
-                      dangerouslySetInnerHTML={createMarkup(currentContent)} 
-                  />
-              </div>
-            </>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+               {parsedSummary.core_insight ? (
+                 <div className="space-y-8">
+                   {/* Title Section */}
+                   <div className="text-center py-6 border-b-2 border-sky-100 mb-8">
+                     <span className="text-[10px] font-black tracking-widest text-sky-500 uppercase">Career Reflection Report</span>
+                     <h1 className="text-3xl font-black text-slate-800 mt-2">{parsedSummary.title}</h1>
+                   </div>
+
+                   {/* Core Insight */}
+                   <section className="bg-sky-50/50 p-6 rounded-3xl border border-sky-100 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H8.01703V12H12.017C13.1216 12 14.017 11.1046 14.017 10V5C14.017 3.89543 13.1216 3 12.017 3H5.01703C3.91246 3 3.01703 3.89543 3.01703 5V19C3.01703 20.1046 3.91246 21 5.01703 21H14.017Z"/></svg>
+                     </div>
+                     <h3 className="text-lg font-black text-sky-800 mb-4 flex items-center gap-2">
+                       <span className="w-1.5 h-6 bg-sky-500 rounded-full"></span>
+                       対話の核心
+                     </h3>
+                     <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{parsedSummary.core_insight}</p>
+                   </section>
+
+                   {/* Analysis Points Grid */}
+                   <div className="grid grid-cols-1 gap-4">
+                     {parsedSummary.analysis_points?.map((point, idx) => (
+                       <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-sky-300 transition-all group">
+                         <h4 className="text-xs font-black text-slate-400 group-hover:text-sky-500 transition-colors uppercase tracking-widest mb-2">{point.category}</h4>
+                         <p className="text-slate-800 font-bold leading-relaxed">{point.observation}</p>
+                       </div>
+                     ))}
+                   </div>
+
+                   {/* Next Inquiry */}
+                   <section className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl relative overflow-hidden group">
+                     <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-700"></div>
+                     <h3 className="text-sm font-black text-slate-400 mb-4 tracking-[0.2em]">SELF-REFLECTION</h3>
+                     <p className="text-xl font-bold leading-relaxed italic">「{parsedSummary.next_inquiry}」</p>
+                     <p className="text-xs text-slate-500 mt-6 flex items-center gap-2">
+                       <span className="w-4 h-px bg-slate-700"></span>
+                       この問いについて、またお時間のある時に考えてみてください
+                     </p>
+                   </section>
+                 </div>
+               ) : (
+                 <div className="bg-amber-50/40 p-10 rounded-3xl border border-amber-100 shadow-inner">
+                   <article 
+                       className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
+                       dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
+                   />
+                 </div>
+               )}
+            </div>
           )}
         </div>
 
-        <footer className="p-6 bg-slate-50 border-t border-slate-200 z-10">
+        <footer className="p-6 bg-white border-t border-slate-100 z-10">
            {currentStep === 'survey' ? (
              <button onClick={onClose} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセルして戻る</button>
            ) : isEditing ? (
@@ -349,20 +467,18 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
              </div>
            ) : currentStep === 'result' ? (
             <div className="flex flex-col gap-5">
-              <div className="flex gap-4">
-                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all"><EditIcon />修正・追記</button>
-                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl transition-all ${isCopied ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
+              <div className="flex gap-3">
+                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"><EditIcon />修正・追記</button>
+                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all ${isCopied ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
               </div>
-              <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-2 px-4 py-4 font-bold text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 shadow-lg">
-                <div className="flex items-center gap-2">
-                    <span>整理を完了して次へ</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </div>
+              <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-3 px-4 py-5 font-black text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-100 group">
+                  <span>レポートを確定して次へ</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
               </button>
             </div>
            ) : currentStep === 'referral' ? (
              <button onClick={() => setCurrentStep('result')} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">
-                振り返り画面に戻る
+                レポート画面に戻る
              </button>
            ) : null}
         </footer>

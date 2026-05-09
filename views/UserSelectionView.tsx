@@ -1,5 +1,5 @@
 
-// views/UserSelectionView.tsx - v4.20 - Future-proofed Async Refactor
+// views/UserSelectionView.tsx - v5.66 - 2026-05-04 - UX: AI-turn suggestion guard & thought-provoking hint logic
 import React, { useState, useEffect } from 'react';
 import { StoredConversation, UserInfo } from '../types';
 import * as userService from '../services/userService';

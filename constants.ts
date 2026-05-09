@@ -1,8 +1,29 @@
 
 // constants.ts
-// Single Source of Truth for Application Constants
+// v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+export const APP_VERSION = "5.76";
 
-export const APP_VERSION = "4.51";
+/**
+ * AI Service Configuration
+ * 最新のAI Studioガイドラインに基づき、性能・安定性のバランスが取れたモデルを採用
+ */
+export const AI_CONFIG = {
+    // 対話用: 高速かつ高精度
+    CHAT_MODEL: 'gemini-3-flash-preview',
+    // 分析用: 高度な推論
+    ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
+    // 補助・要約用: 低遅延・低コスト
+    LITE_MODEL: 'gemini-3.1-flash-lite-preview',
+    // ストリーミング接続のタイムアウト（ミリ秒）
+    STREAM_TIMEOUT: 60000,
+};
+
+// Feature Toggles (機能の有効/無効の切り替えスイッチ。本番環境への移行時に使用)
+export const FEATURES = {
+  // trueの場合：API消費の記録を行い、管理者画面にシミュレーターを表示します。
+  // falseの場合：完全に隠蔽され、トラッキングの負荷も無効化されます（本番リリース用推奨）。
+  ENABLE_USAGE_TRACKING: true,
+};
 
 // Storage Keys
 export const STORAGE_KEYS = {

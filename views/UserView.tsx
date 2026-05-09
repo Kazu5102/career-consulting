@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v4.32 - Single ID Session Persistence
+// views/UserView.tsx - v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence)
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -58,8 +58,12 @@ const INSTANT_KEYWORDS: Record<string, string[]> = {
     '将来': ['将来が不安', 'キャリアプラン', '5年後の自分', 'ロールモデルがない'],
     '給料': ['給与への不満', '評価制度について', '年収アップ', '待遇改善'],
     'スキル': ['スキル不足を感じる', '新しい技術', '資格取得', '学習方法'],
-    '疲れ': ['仕事に疲れれた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
-    '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング']
+    '疲れ': ['仕事に疲れた', 'リフレッシュしたい', 'メンタルヘルス', '休職について'],
+    '辞め': ['辞めたい', '退職交渉', '引き止めにあっている', '退職のタイミング'],
+    '不安': ['漠然とした不安', 'このままでいいのか', '自信がない', '今後の生活'],
+    '強み': ['自分の強みを知りたい', 'アピールポイント', '向いている仕事', '適性検査'],
+    '時間': ['残業が多い', 'ワークライフバランス', '自分の時間が欲しい', '時間管理'],
+    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について']
 };
 
 const FALLBACK_SUGGESTIONS = [
@@ -87,6 +91,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [hasError, setHasError] = useState<boolean>(false); 
   const [isTyping, setIsTyping] = useState<boolean>(false); 
   const [isConsultationReady, setIsConsultationReady] = useState<boolean>(false);
+  const [consultationReadiness, setConsultationReadiness] = useState<number>(0);
   const [aiName, setAiName] = useState<string>('');
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
@@ -95,6 +100,8 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
+  const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
+  const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
   const [backCount, setBackCount] = useState(0);
@@ -115,8 +122,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [isInterruptModalOpen, setIsInterruptModalOpen] = useState<boolean>(false);
   
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
+  const [typingFluency, setTypingFluency] = useState<{ mean: number; stdDev: number } | undefined>(undefined);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState<boolean>(false);
-  const [restoredNotification, setRestoredNotification] = useState(false);
+  const [restoredNotification, setRestoredNotification] = useState<boolean>(false);
 
   useEffect(() => {
     if (isTyping && onboardingStep < 6) {
@@ -210,9 +218,58 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
   };
 
-  const handleInputStateChange = useCallback((state: { isFocused: boolean; isTyping: boolean; isSilent: boolean; currentDraft: string }) => {
+    /**
+     * 対話の心理フェーズに基づいてサジェストを動的に配置する
+     */
+    const mergeSuggestionsByPhase = useCallback((baseSuggestions: string[], readiness: number) => {
+        const msgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
+        const summaryLabel = readiness >= 0.9 || msgCount >= 15 ? "✨ ここまでの話をまとめる" : "ここまでの話をまとめる";
+        
+        let result = [...baseSuggestions];
+        
+        // 統合期 (Phase 3): 内省が非常に深い、または15回以上の対話
+        if (readiness >= 0.85 || msgCount >= 15) {
+            result = [summaryLabel, ...result];
+        }
+        // 収束期 (Phase 2): 10回以上の対話
+        else if (readiness >= 0.7 || msgCount >= 10) {
+            if (result.length >= 1) {
+                result.splice(1, 0, summaryLabel);
+            } else {
+                result.push(summaryLabel);
+            }
+        }
+        // 探索期後半 (Phase 1): 8回以上の対話から選択肢に含める（末尾）
+        else if (readiness >= 0.5 || msgCount >= 8) {
+            result.push(summaryLabel);
+        }
+        
+        return Array.from(new Set(result)).slice(0, 4); // 重複排除 & 最大4件
+    }, [messages]);
+
+  const handleInputStateChange = useCallback((state: { 
+    isFocused: boolean; 
+    isTyping: boolean; 
+    isSilent: boolean; 
+    isDeepSilent: boolean; 
+    currentDraft: string;
+    fluency?: { mean: number; stdDev: number };
+  }) => {
     setIsTyping(state.isTyping);
+    
+    // Only update fluency when typing stops or deep silent to avoid frequent re-renders
+    if (state.isSilent || state.isDeepSilent) {
+        setTypingFluency(state.fluency);
+    }
+    
     const draft = state.currentDraft;
+    const userMsgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
+
+    // AI返信中やエラー時はヒントを一切出さない
+    if (isLoading || hasError) {
+        setSuggestionsVisible(false);
+        return;
+    }
 
     if (state.isTyping && draft.trim().length > 0 && onboardingStep >= 6) {
         let matched = false;
@@ -224,24 +281,62 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 break;
             }
         }
-        if (!matched) setSuggestionsVisible(false);
+        // なぜ消さないか: 入力を再開した瞬間に既存のHINT（API由来など）を消さないため
     }
-    else if (state.isSilent && !isLoading && !hasError && onboardingStep >= 6) {
-        if (draft.trim().length > 0) {
-            generateSuggestions(messages, draft)
-                .then(resp => {
-                    if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                        setSuggestions(resp.suggestions);
+    // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
+    else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
+        if (draft.trim().length >= 10) {
+            if (draft !== lastApiDraftRef.current) {
+                lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
+                isSuggestingRef.current = true; // 案X: ブロック開始
+                
+                // 案V: 無駄な履歴を削ぎ落とし、直近2ラリー（最大4件）だけを文脈として渡す
+                const recentMessages = messages.slice(-4);
+                
+                generateSuggestions(recentMessages, draft)
+                    .then(resp => {
+                        if (resp && resp.suggestions && resp.suggestions.length > 0) {
+                            setConsultationReadiness(resp.readinessScore || 0);
+                            const merged = mergeSuggestionsByPhase(resp.suggestions, resp.readinessScore || 0);
+                            setSuggestions(merged);
+                            setSuggestionsVisible(true);
+                        }
+                    })
+                    .catch(() => {
+                        const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                        setSuggestions(merged);
                         setSuggestionsVisible(true);
-                    }
-                })
-                .catch(() => {});
-        } else if (suggestions.length === 0) {
-            setSuggestions(FALLBACK_SUGGESTIONS);
-            setSuggestionsVisible(true);
+                    })
+                    .finally(() => {
+                        isSuggestingRef.current = false; // 案X: ブロック解除
+                    });
+            }
+        } else if (draft.trim().length === 0) {
+            setSuggestionsVisible(false);
         }
     }
-  }, [isLoading, onboardingStep, suggestions.length, messages, hasError]);
+    // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
+    else if (state.isSilent && !state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
+        if (draft.trim().length >= 10) {
+            let matched = false;
+            for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
+                if (draft.includes(key)) {
+                    setSuggestions(list);
+                    setSuggestionsVisible(true);
+                    matched = true;
+                    break;
+                }
+            }
+            // matchedでない場合も、APIから届いた既存のHINTを消さないようにする
+        } else if (draft.trim().length === 0) {
+            setSuggestionsVisible(false);
+        }
+    }
+    // 入力が消されたら一律非表示
+    else if (draft.trim().length === 0) {
+        setSuggestionsVisible(false);
+    }
+  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -259,17 +354,30 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           else setAiMood('neutral');
       }
 
-      if (currentMessages.length >= 4) setIsConsultationReady(true);
+      const msgCount = currentMessages.filter(m => m.author === MessageAuthor.USER).length;
+      if (msgCount >= 4) setIsConsultationReady(true);
       
       if (onboardingStep >= 6) {
-          generateSuggestions(currentMessages)
+          // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
+          isSuggestingRef.current = true; // 案X: ブロック開始
+          // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
+          const recentMessages = currentMessages.slice(-4);
+          
+          generateSuggestions(recentMessages)
             .then(resp => {
-                setSuggestions(resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS);
+                const baseSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
+                setConsultationReadiness(resp.readinessScore || 0);
+                const merged = mergeSuggestionsByPhase(baseSuggestions, resp.readinessScore || 0);
+                setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .catch(() => {
-                setSuggestions(FALLBACK_SUGGESTIONS);
+                const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                setSuggestions(merged);
                 setSuggestionsVisible(true);
+            })
+            .finally(() => {
+                isSuggestingRef.current = false; // 案X: ブロック解除
             });
       }
   };
@@ -283,90 +391,134 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
    */
   const executeAiTurn = async (history: ChatMessage[], overrideProfile?: UserProfile) => {
       setIsLoading(true);
+      setSuggestionsVisible(false); // 送信直後はヒントを隠す
       setHasError(false);
       setAiMood('thinking');
       
-      const profileToUse = overrideProfile || userProfile;
+      const profileToUse = overrideProfile || { ...userProfile, typingFluency };
 
       // Add placeholder message for AI
       setMessages(prev => [...prev, { author: MessageAuthor.AI, text: '' }]);
 
-      try {
-        const stream = await getStreamingChatResponse(history, aiType, aiName, profileToUse);
-        if (!stream) throw new Error("Connection failed: No stream returned");
-        
-        let aiResponseText = '';
-        const reader = stream.getReader();
-        
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value.error) throw new Error(value.error.message);
-            if (value.text) {
-                aiResponseText += value.text;
-                setMessages(prev => {
-                    const updated = [...prev];
-                    const lastMsg = updated[updated.length - 1];
-                    // Ensure we are updating the AI message
-                    if (lastMsg.author === MessageAuthor.AI) {
-                        lastMsg.text = aiResponseText;
+        try {
+            const stream = await getStreamingChatResponse(history, aiType, aiName, profileToUse);
+            if (!stream) throw new Error("Connection failed: No stream returned");
+            
+            let aiResponseText = '';
+            const reader = stream.getReader();
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value.error) throw new Error(value.error.message);
+                if (value.text) {
+                    aiResponseText += value.text;
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        const lastMsg = updated[updated.length - 1];
+                        // Ensure we are updating the AI message
+                        if (lastMsg.author === MessageAuthor.AI) {
+                            lastMsg.text = aiResponseText;
+                        }
+                        return updated;
+                    });
+                }
+            }
+            
+            if (!aiResponseText) throw new Error("Empty response received");
+            await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+
+        } catch (error) {
+            console.error("Chat Execution Error, attempting Mock Fallback:", error);
+            try {
+                // 429等のエラー時はMockサービスへ自動的にフォールバックするフェイルセーフ機構
+                const mockStream = await directMockService.getStreamingChatResponse(history, aiType, aiName, profileToUse);
+                if (!mockStream) throw new Error("Mock stream unavailable");
+                
+                let aiResponseText = '';
+                const reader = mockStream.getReader();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    if (value.text) {
+                        aiResponseText += value.text;
+                        setMessages(prev => {
+                            const updated = [...prev];
+                            const lastMsg = updated[updated.length - 1];
+                            if (lastMsg.author === MessageAuthor.AI) {
+                                lastMsg.text = aiResponseText;
+                            }
+                            return updated;
+                        });
                     }
-                    return updated;
-                });
+                }
+                await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+                // Mockフォールバック成功時はエラーボックスを見せず、警告のみ
+                console.warn("Service is currently in fallback mode.");
+            } catch (mockError) {
+                console.error("Mock Fallback also failed:", mockError);
+                setIsLoading(false);
+                setHasError(true);
+                setAiMood('thinking'); 
+                // 最終的に失敗した場合はプレースホルダーを削除
+                setMessages(prev => prev.filter(m => m.text !== ''));
             }
         }
+    };
+
+    const handleSendMessage = async (text: string) => {
+        if (!text.trim() || isLoading) return;
+        setInputClearSignal(prev => prev + 1);
+        lastApiDraftRef.current = ''; // 意図的な送信時にキャッシュをリセット
         
-        if (!aiResponseText) throw new Error("Empty response received");
-        await finalizeAiTurn([...history, { author: MessageAuthor.AI, text: aiResponseText }]);
+        if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
+            handleGenerateSummary();
+            return;
+        }
+        
+        const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
+        if (hasCrisisWord) {
+            setCrisisCount(prev => prev + 1);
+            setIsCrisisModalOpen(true);
+            setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
+            return;
+        }
+        
+        // Mockエラーメッセージが出ている状態で新しく送信された場合、直前のAIエラーメッセージを履歴から消す
+        let currentHistory = [...messages];
+        if (hasError && currentHistory.length > 0 && currentHistory[currentHistory.length - 1].author === MessageAuthor.AI) {
+            currentHistory.pop();
+        }
 
-      } catch (error) {
-          console.error("Chat Execution Error:", error);
-          setIsLoading(false);
-          setHasError(true);
-          setAiMood('thinking'); 
-          
-          // Remove the failed AI placeholder so the chat log stays clean
-          setMessages(prev => prev.filter(m => m.text !== ''));
-      }
-  };
+        // Optimistic Update: Add user message immediately
+        const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
+        const newHistory = [...currentHistory, userMessage];
+        setMessages(newHistory);
+        
+        setSuggestionsVisible(false); 
+        setHasError(false);
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
-    setInputClearSignal(prev => prev + 1);
-    if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
-        handleGenerateSummary();
-        return;
-    }
-    const hasCrisisWord = CRISIS_KEYWORDS.some(regex => regex.test(text));
-    if (hasCrisisWord) {
-        setCrisisCount(prev => prev + 1);
-        setIsCrisisModalOpen(true);
-        setMessages(prev => [...prev, { author: MessageAuthor.USER, text }]);
-        return;
-    }
-    
-    // Optimistic Update: Add user message immediately
-    const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
-    const newHistory = [...messages, userMessage];
-    setMessages(newHistory);
-    
-    setSuggestionsVisible(false); 
-    setHasError(false);
+        if (onboardingStep >= 1 && onboardingStep <= 5) {
+            await processOnboarding(text, newHistory);
+            return;
+        }
+        
+        // Normal chat flow
+        await executeAiTurn(newHistory);
+    };
 
-    if (onboardingStep >= 1 && onboardingStep <= 5) {
-        await processOnboarding(text, newHistory);
-        return;
-    }
-    
-    // Normal chat flow
-    await executeAiTurn(newHistory);
-  };
-
-  const handleRetry = () => {
-      // Retry using the existing message history (which already contains the user's last message)
-      if (messages.length === 0) return;
-      executeAiTurn(messages);
-  };
+    const handleRetry = () => {
+        let currentHistory = [...messages];
+        // エラー時のAI謝罪メッセージがあれば除去してからリトライ
+        if (hasError && currentHistory.length > 0 && currentHistory[currentHistory.length - 1].author === MessageAuthor.AI) {
+            currentHistory.pop();
+            setMessages(currentHistory);
+        }
+        if (currentHistory.length === 0) return;
+        setHasError(false);
+        executeAiTurn(currentHistory);
+    };
 
   const processOnboarding = async (choice: string, history: ChatMessage[]) => {
     setOnboardingHistory(prev => [...prev, { ...userProfile }]);
@@ -382,17 +534,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     if (onboardingStep === 1) {
         updatedProfile.stage = choice;
         setUserProfile(prev => ({ ...prev, stage: choice }));
-        nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**年代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代**を教えていただけますか。`;
+        nextText = isDog ? `[HAPPY] ありがとうワン！次に、あなたの**世代**を教えてほしいワン。` : `[HAPPY] ありがとうございます。次に、ご自身の**年代（世代）**を教えていただけますか。`;
     } 
     else if (onboardingStep === 2) {
         updatedProfile.age = choice;
         setUserProfile(prev => ({ ...prev, age: choice }));
-        nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別**も伺えますでしょうか。`;
+        nextText = isDog ? `[REASSURE] わかったワン。差し支えなければ、**性別（自認する性）**も教えてほしいワン！` : `[REASSURE] 承知いたしました。差し支えなければ、**性別（自認する性）**も伺えますでしょうか。`;
     }
     else if (onboardingStep === 3) {
         updatedProfile.gender = choice;
         setUserProfile(prev => ({ ...prev, gender: choice }));
-        nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**エネルギーはどこに多く使われているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**エネルギーはどこに多く注がれていますか？**（複数選択可能です）`;
+        nextText = isDog ? `[CURIOUS] 教えてくれてありがとうワン！今、あなたの**意識やエネルギーはどこに多く向いているかな？**（複数選べるワン）` : `[CURIOUS] ありがとうございます。今、あなたの**意識やエネルギーはどこに多く向いていますか？**（複数選択可能です）`;
     }
     else if (onboardingStep === 4) {
         const roles = choice.split('、');
@@ -460,6 +612,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             const result = await generateSummary(messages, aiType, aiName, userProfile);
             setSummary(result);
         } catch (e) {
+            console.warn("API Error during summary generation, falling back to mock:", e);
             try {
                 setSummary(await directMockService.generateSummary(messages, aiType, aiName, userProfile));
             } catch {
