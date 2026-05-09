@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.75",
-  "description": "Secure AI Architecture v5.75: Auth - マスターパスワードの複数設定（カンマ区切り）に対応し、Vercel等の環境変数での管理を強化。",
-  "version": "5.75",
+  "name": "Career Consulting_5.76",
+  "description": "Secure AI Architecture v5.76: AI - 分析（軌跡・適職）の出力を明示的に日本語化",
+  "version": "5.76",
   "prompt": "",
   "D7": [],
   "Yp": []

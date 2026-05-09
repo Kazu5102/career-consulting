@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.73 - 2026-05-04 - Stabilized HINT API integration (v5.73)
+// api/gemini-proxy.ts - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -137,7 +137,9 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
     const { conversations } = payload;
     const historyText = conversations.slice(-5).map(c => `[${c.date}]: ${c.summary}`).join('\n---\n');
 
-    const prompt = `分析依頼: 以下のキャリア相談履歴を専門的に分析し、JSONで出力せよ。\n${historyText}`;
+    const prompt = `分析依頼: 以下のキャリア相談履歴を専門的に分析し、JSONで出力せよ。
+必ずすべての値（テキスト）を日本語で記述してください。
+\n${historyText}`;
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName,
@@ -179,7 +181,9 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
 async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
     const historyText = conversations.slice(-5).map(c => c.summary).join('\n');
-    const prompt = `適職診断依頼: 履歴から診断を行いJSONで出力せよ。\n${historyText}`;
+    const prompt = `適職診断依頼: 履歴から診断を行いJSONで出力せよ。
+必ずすべての値（テキスト）を日本語で記述してください。
+\n${historyText}`;
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName,

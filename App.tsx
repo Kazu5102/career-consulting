@@ -1,5 +1,5 @@
 
-// App.tsx - v5.75 - 2026-05-09 - Auth: マスターパスワードの複数設定（カンマ区切り）に対応
+// App.tsx - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

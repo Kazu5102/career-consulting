@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.75 - 2026-05-09 - Auth: マスターパスワードの複数設定（カンマ区切り）に対応
-export const APP_VERSION = "5.75";
+// v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+export const APP_VERSION = "5.76";
 
 /**
  * AI Service Configuration
