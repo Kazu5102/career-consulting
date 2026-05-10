@@ -1,5 +1,5 @@
 
-// App.tsx - v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
+// App.tsx - v5.80 - 2026-05-10 - 秘匿性管理の文言修正（キャリアコンサルタント倫理綱領準拠）
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -90,7 +90,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        const baseMsg = `【Secure AI Architecture v${APP_VERSION}】\n\n1. 特許等に基づく独自のAI連携プロトコル\n2. 入力ゆらぎ（打鍵間隔）による内省状態の自動推定\n3. 揮発性メモリ管理によるゼロトラスト・データ設計\n4. AES-GCM暗号化（自己完結型HTML）による専門家連携\n5. 厚労省ガイドライン準拠の秘匿性管理`;
+        const baseMsg = `【Secure AI Architecture v${APP_VERSION}】\n\n1. 特許等に基づく独自のAI連携プロトコル\n2. 入力ゆらぎ（打鍵間隔）による内省状態の自動推定\n3. 揮発性メモリ管理によるゼロトラスト・データ設計\n4. AES-GCM暗号化（自己完結型HTML）による専門家連携\n5. キャリアコンサルタント倫理綱領（特定非営利活動法人キャリアコンサルティング協議会）準拠`;
         const extraMsg = isFallbackMode ? "\n\n⚠️ Debug Mode: AI応答はシミュレーションが優先されます。" : "";
         alert(baseMsg + extraMsg);
     };

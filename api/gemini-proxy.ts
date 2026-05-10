@@ -1,12 +1,12 @@
 
-// api/gemini-proxy.ts - v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
+// api/gemini-proxy.ts - v5.79 - 2026-05-10 - AI: LITEモデルをFlashへ統合し、予測機能の安定性を確保
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // 最新のスキルガイドラインに基づくモデル選定
 const CHAT_MODEL = 'gemini-3-flash-preview';
 const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
-const LITE_MODEL = 'gemini-3.1-flash-lite-preview';
+const LITE_MODEL = 'gemini-3-flash-preview'; // Flash Liteの不安定さを回避するため、安定性の高いFlashに統合
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -51,6 +51,37 @@ const getAIClient = () => {
     }
     return ai;
 };
+
+// Retry helper for non-streaming requests
+async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<any>, initialModel: string, fallbackModel?: string) {
+    let currentModel = initialModel;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 0) {
+                const waitTimeArgs = Math.pow(2, attempt) * 500 + Math.random() * 500;
+                await new Promise(r => setTimeout(r, waitTimeArgs));
+            }
+            return await modelCall(currentModel);
+        } catch (error: any) {
+             const isTransientError = error.status === 503 || error.status === 429 || 
+                 error.message?.includes('429') || error.message?.includes('503') || 
+                 error.message?.includes('UNAVAILABLE') || error.message?.includes('fetch failed') ||
+                 error.message?.includes('not found') || error.status === 404;
+             
+             console.error(`[Generate Error] Attempt ${attempt+1} failed for model ${currentModel}:`, error.message || error);
+             
+             if (!isTransientError || attempt === MAX_RETRIES - 1) {
+                 if (fallbackModel && currentModel !== fallbackModel) {
+                     currentModel = fallbackModel;
+                     console.warn(`[Generate Fallback] Switching to ${fallbackModel}`);
+                     continue;
+                 }
+                 throw error;
+             }
+        }
+    }
+}
 
 // SSE streaming helper
 async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: string) => Promise<any>, initialModel: string) {
@@ -312,8 +343,8 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
 履歴:
 ${historyText}`;
 
-    const result = await getAIClient().models.generateContent({
-        model: ANALYSIS_MODEL, // 要約から分析へグレードアップ (Flash -> Pro)
+    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
+        model: modelName, // 要約から分析へグレードアップ (Flash -> Pro)
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
@@ -338,7 +369,7 @@ ${historyText}`;
                 required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
             }
         }
-    });
+    }), ANALYSIS_MODEL, CHAT_MODEL);
 
     // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
     try {
@@ -378,8 +409,8 @@ ${historyText}
 
 入力中: ${currentDraft || '(空)'}`;
 
-    const result = await getAIClient().models.generateContent({
-        model: LITE_MODEL,
+    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
@@ -392,7 +423,7 @@ ${historyText}
                 required: ["suggestions", "readinessScore"]
             }
         }
-    });
+    }), LITE_MODEL, CHAT_MODEL);
 
     try {
         const parsed = JSON.parse(result.text || '{"suggestions":[], "readinessScore": 0.0}');

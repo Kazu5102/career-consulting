@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.77",
-  "description": "Secure AI Architecture v5.77: AI - APIエラーハンドリングの強化（リトライとフォールバック処理の追加）",
-  "version": "5.77",
+  "name": "Career Consulting_5.80",
+  "description": "Secure AI Architecture v5.80: 秘匿性管理の文言修正（キャリアコンサルタント倫理綱領準拠）",
+  "version": "5.80",
   "prompt": "",
   "D7": [],
   "Yp": []

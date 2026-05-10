@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.77 - 2026-05-09 - AI: APIエラーハンドリングの強化（リトライとフォールバック処理の追加）
-export const APP_VERSION = "5.77";
+// v5.80 - 2026-05-10 - 秘匿性管理の文言修正（キャリアコンサルタント倫理綱領準拠）
+export const APP_VERSION = "5.80";
 
 /**
  * AI Service Configuration
@@ -12,8 +12,8 @@ export const AI_CONFIG = {
     CHAT_MODEL: 'gemini-3-flash-preview',
     // 分析用: 高度な推論
     ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
-    // 補助・要約用: 低遅延・低コスト
-    LITE_MODEL: 'gemini-3.1-flash-lite-preview',
+    // 補助・要約用: 低遅延・低コスト（安定性重視でFlashに統合）
+    LITE_MODEL: 'gemini-3-flash-preview',
     // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };
