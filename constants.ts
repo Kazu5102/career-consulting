@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.82 - 2026-05-10 - UX: HINT表示ロジック修正（フォーカス移動時の維持・タイピング開始時の非表示対応）
-export const APP_VERSION = "5.82";
+// v5.83 - 2026-05-10 - UX: HINTの完全常時表示対応（キーワード非合致時も基本HINTを復元して維持）
+export const APP_VERSION = "5.83";
 
 /**
  * AI Service Configuration

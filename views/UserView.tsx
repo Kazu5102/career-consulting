@@ -286,9 +286,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 break;
             }
         }
-        // なぜ消さないか: 入力を再開した瞬間に既存のHINT（API由来など）を消さないため
-        if (!matched) {
-            setSuggestionsVisible(false);
+        // キーワードにマッチしない場合でも、HINT表示を維持する（フォーカス時やタイピング時）
+        if (!matched && textChanged) {
+            if (onboardingStep >= 6) {
+                setSuggestions(baseSuggestions);
+                setSuggestionsVisible(baseSuggestions.length > 0);
+            }
         }
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
@@ -306,12 +309,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
                             setConsultationReadiness(resp.readinessScore || 0);
                             const merged = mergeSuggestionsByPhase(resp.suggestions, resp.readinessScore || 0);
+                            setBaseSuggestions(merged); // APIから届いたHINTを維持するためにbaseに保存
                             setSuggestions(merged);
                             setSuggestionsVisible(true);
                         }
                     })
                     .catch(() => {
                         const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                        setBaseSuggestions(merged);
                         setSuggestions(merged);
                         setSuggestionsVisible(true);
                     })
@@ -342,7 +347,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     break;
                 }
             }
-            // matchedでない場合も、APIから届いた既存のHINTを消さないようにする
+            // matchedでない場合も、APIから届いた既存のHINTや基本HINTを維持する
+            if (!matched && textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                }
+            }
         } else if (draft.trim().length === 0) {
             if (textChanged) {
                 if (onboardingStep >= 6) {

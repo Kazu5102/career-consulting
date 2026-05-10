@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.82",
-  "description": "Secure AI Architecture v5.82: UX: HINT表示ロジック修正（フォーカス移動時の維持・タイピング開始時の非表示対応）",
-  "version": "5.82",
+  "name": "Career Consulting_5.83",
+  "description": "Secure AI Architecture v5.83: UX: HINTの完全常時表示対応（キーワード非合致時も基本HINTを復元して維持）",
+  "version": "5.83",
   "prompt": "",
   "D7": [],
   "Yp": []

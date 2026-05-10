@@ -1,5 +1,5 @@
 
-// App.tsx - v5.82 - 2026-05-10 - UX: HINT表示ロジック修正（フォーカス移動時の維持・タイピング開始時の非表示対応）
+// App.tsx - v5.83 - 2026-05-10 - UX: HINTの完全常時表示対応（キーワード非合致時も基本HINTを復元して維持）
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
