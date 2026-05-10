@@ -337,7 +337,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
     else if (state.isSilent && !state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
-        if (draft.trim().length >= 10) {
+        if (draft.trim().length >= 2) {
             let matched = false;
             for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
                 if (draft.includes(key)) {
@@ -401,6 +401,12 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       
       if (onboardingStep >= 6) {
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
+          // APIからの応答を待つ間、ひとまず基本のHINTを提示しておく（システム負荷を考慮したUX向上）
+          const initialMerged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+          setBaseSuggestions(initialMerged);
+          setSuggestions(initialMerged);
+          setSuggestionsVisible(true);
+
           isSuggestingRef.current = true; // 案X: ブロック開始
           // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
           const recentMessages = currentMessages.slice(-4);

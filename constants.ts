@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.86 - 2026-05-10 - 規約表示の適正化（特定の団体名を避けた汎用的・専門的倫理基準に基づく表現への修正）
-export const APP_VERSION = "5.86";
+// v5.87 - 2026-05-10 - HINT表示の安定化・システム負荷を抑えたUX改善策（案B適用）
+export const APP_VERSION = "5.87";
 
 /**
  * AI Service Configuration
