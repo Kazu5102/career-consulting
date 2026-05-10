@@ -1,5 +1,5 @@
 
-// App.tsx - v5.87 - 2026-05-10 - HINT表示の安定化・システム負荷を抑えたUX改善策（案B適用）
+// App.tsx - v5.88 - 2026-05-10 - 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

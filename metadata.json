@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.87",
-  "description": "Secure AI Architecture v5.87: HINT表示の安定化・システム負荷を抑えたUX改善策（案B適用）",
-  "version": "5.87",
+  "name": "Career Consulting_5.88",
+  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
+  "version": "5.88",
   "prompt": "",
   "D7": [],
   "Yp": []

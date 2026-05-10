@@ -6,7 +6,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 // 最新のスキルガイドラインに基づくモデル選定
 const CHAT_MODEL = 'gemini-3-flash-preview';
 const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
-const LITE_MODEL = 'gemini-3-flash-preview'; // Flash Liteの不安定さを回避するため、安定性の高いFlashに統合
+const LITE_MODEL = 'gemini-3.1-flash-lite';
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -72,9 +72,13 @@ async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<an
              console.error(`[Generate Error] Attempt ${attempt+1} failed for model ${currentModel}:`, error.message || error);
              
              if (!isTransientError || attempt === MAX_RETRIES - 1) {
-                 if (fallbackModel && currentModel !== fallbackModel) {
-                     currentModel = fallbackModel;
-                     console.warn(`[Generate Fallback] Switching to ${fallbackModel}`);
+                 if (currentModel === ANALYSIS_MODEL) {
+                     currentModel = CHAT_MODEL;
+                     console.warn(`[Generate Fallback] Switching to ${CHAT_MODEL}`);
+                     continue;
+                 } else if (currentModel === CHAT_MODEL && LITE_MODEL !== CHAT_MODEL) {
+                     currentModel = LITE_MODEL;
+                     console.warn(`[Generate Fallback] Switching to ${LITE_MODEL}`);
                      continue;
                  }
                  throw error;
@@ -119,9 +123,11 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
                 if (currentModel === ANALYSIS_MODEL) {
                     currentModel = CHAT_MODEL;
                     res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、高速モデルで再試行しています...]\n' })}\n\n`);
-                } else if (currentModel === CHAT_MODEL) {
+                } else if (currentModel === CHAT_MODEL && CHAT_MODEL !== LITE_MODEL) {
                     currentModel = LITE_MODEL;
                     res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、軽量モデルで再試行しています...]\n' })}\n\n`);
+                } else {
+                    throw error;
                 }
             }
         }
@@ -145,7 +151,14 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         res.write('data: [DONE]\n\n');
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
-        res.write(`data: ${JSON.stringify({ error: error.message || "An unexpected error occurred during generation." })}\n\n`);
+        
+        let errorDetails = "An unexpected error occurred during generation.";
+        if (error.message) {
+            errorDetails = error.message;
+        } else if (typeof error === 'string') {
+            errorDetails = error;
+        }
+        res.write(`data: ${JSON.stringify({ error: errorDetails })}\n\n`);
     } finally {
         res.end();
     }
@@ -315,7 +328,7 @@ ${fluencyContext}
         model: modelName, 
         contents,
         config: {
-            systemInstruction,
+            systemInstruction: { role: 'system', parts: [{ text: systemInstruction }] },
             temperature: 0.8,
             topP: 0.95
         }

@@ -63,7 +63,9 @@ const INSTANT_KEYWORDS: Record<string, string[]> = {
     '不安': ['漠然とした不安', 'このままでいいのか', '自信がない', '今後の生活'],
     '強み': ['自分の強みを知りたい', 'アピールポイント', '向いている仕事', '適性検査'],
     '時間': ['残業が多い', 'ワークライフバランス', '自分の時間が欲しい', '時間管理'],
-    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について']
+    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について'],
+    '起業': ['起業に興味がある', '独立を考えている', 'アイデアを形にしたい', '事業計画の立て方'],
+    '企業': ['企業選びの軸', '自分に合う企業', '大企業かベンチャーか', '会社の将来性']
 };
 
 const FALLBACK_SUGGESTIONS = [
@@ -296,7 +298,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
-        if (draft.trim().length >= 10) {
+        if (draft.trim().length >= 2) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
                 isSuggestingRef.current = true; // 案X: ブロック開始
