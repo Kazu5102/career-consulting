@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.80",
-  "description": "Secure AI Architecture v5.80: 秘匿性管理の文言修正（キャリアコンサルタント倫理綱領準拠）",
-  "version": "5.80",
+  "name": "Career Consulting_5.82",
+  "description": "Secure AI Architecture v5.82: UX: HINT表示ロジック修正（フォーカス移動時の維持・タイピング開始時の非表示対応）",
+  "version": "5.82",
   "prompt": "",
   "D7": [],
   "Yp": []

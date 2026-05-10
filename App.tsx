@@ -1,5 +1,5 @@
 
-// App.tsx - v5.80 - 2026-05-10 - 秘匿性管理の文言修正（キャリアコンサルタント倫理綱領準拠）
+// App.tsx - v5.82 - 2026-05-10 - UX: HINT表示ロジック修正（フォーカス移動時の維持・タイピング開始時の非表示対応）
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

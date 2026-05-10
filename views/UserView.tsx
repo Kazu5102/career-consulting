@@ -96,11 +96,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [baseSuggestions, setBaseSuggestions] = useState<string[]>([]);
   const [suggestionsVisible, setSuggestionsVisible] = useState<boolean>(false); 
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
   const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
+  const lastDraftRawRef = useRef<string>(''); // 入力テキストの変更検知用
   const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
@@ -263,11 +265,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     
     const draft = state.currentDraft;
+    const textChanged = draft !== lastDraftRawRef.current;
+    
     const userMsgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
 
     // AI返信中やエラー時はヒントを一切出さない
     if (isLoading || hasError) {
         setSuggestionsVisible(false);
+        lastDraftRawRef.current = draft;
         return;
     }
 
@@ -282,6 +287,9 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             }
         }
         // なぜ消さないか: 入力を再開した瞬間に既存のHINT（API由来など）を消さないため
+        if (!matched) {
+            setSuggestionsVisible(false);
+        }
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
@@ -312,7 +320,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     });
             }
         } else if (draft.trim().length === 0) {
-            setSuggestionsVisible(false);
+            if (textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                } else {
+                    setSuggestionsVisible(false);
+                }
+            }
         }
     }
     // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
@@ -329,14 +344,30 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
             }
             // matchedでない場合も、APIから届いた既存のHINTを消さないようにする
         } else if (draft.trim().length === 0) {
-            setSuggestionsVisible(false);
+            if (textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                } else {
+                    setSuggestionsVisible(false);
+                }
+            }
         }
     }
     // 入力が消されたら一律非表示
     else if (draft.trim().length === 0) {
-        setSuggestionsVisible(false);
+        if (textChanged) {
+            if (onboardingStep >= 6) {
+                setSuggestions(baseSuggestions);
+                setSuggestionsVisible(baseSuggestions.length > 0);
+            } else {
+                setSuggestionsVisible(false);
+            }
+        }
     }
-  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
+    
+    lastDraftRawRef.current = draft;
+  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness, baseSuggestions]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -365,14 +396,16 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           
           generateSuggestions(recentMessages)
             .then(resp => {
-                const baseSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
+                const fetchedSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
                 setConsultationReadiness(resp.readinessScore || 0);
-                const merged = mergeSuggestionsByPhase(baseSuggestions, resp.readinessScore || 0);
+                const merged = mergeSuggestionsByPhase(fetchedSuggestions, resp.readinessScore || 0);
+                setBaseSuggestions(merged);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .catch(() => {
                 const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                setBaseSuggestions(merged);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
