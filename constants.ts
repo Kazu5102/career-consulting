@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.83 - 2026-05-10 - UX: HINTの完全常時表示対応（キーワード非合致時も基本HINTを復元して維持）
-export const APP_VERSION = "5.83";
+// v5.86 - 2026-05-10 - 規約表示の適正化（特定の団体名を避けた汎用的・専門的倫理基準に基づく表現への修正）
+export const APP_VERSION = "5.86";
 
 /**
  * AI Service Configuration

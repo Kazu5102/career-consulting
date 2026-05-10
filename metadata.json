@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.83",
-  "description": "Secure AI Architecture v5.83: UX: HINTの完全常時表示対応（キーワード非合致時も基本HINTを復元して維持）",
-  "version": "5.83",
+  "name": "Career Consulting_5.86",
+  "description": "Secure AI Architecture v5.86: 規約表示の適正化（特定の団体名を避けた汎用的・専門的倫理基準に基づく表現への修正）",
+  "version": "5.86",
   "prompt": "",
   "D7": [],
   "Yp": []
