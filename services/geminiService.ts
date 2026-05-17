@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v4.74 - Communication Lockdown: Removed all direct env var references from browser context
+// services/geminiService.ts - v5.89 - Adding missing methods
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 import * as directMockService from './mockGeminiService';
 
@@ -192,10 +192,44 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
     }
 };
 
-export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {
+export const reviseSummary = async (originalSummary: string, correctionRequest: string): Promise<string> => {
+    try {
+        const data = await fetchFromProxy('reviseSummary', { originalSummary, correctionRequest });
+        return data.text || "";
+    } catch (e) {
+        return "";
+    }
+};
+
+export const analyzeConversations = async (summaries: StoredConversation[]): Promise<AnalysisData> => {
+    try {
+        return await fetchStreamAndAccumulateJSON('analyzeConversations', { summaries });
+    } catch (e) {
+        return await directMockService.analyzeConversations(summaries);
+    }
+};
+
+export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
+    try {
+        return await fetchStreamAndAccumulateJSON('findHiddenPotential', { conversations, userId });
+    } catch (e) {
+        return await directMockService.findHiddenPotential(conversations, userId);
+    }
+};
+
+export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
+    try {
+        const data = await fetchFromProxy('generateSummaryFromText', { textToAnalyze });
+        return data.text || "";
+    } catch (e) {
+        return "";
+    }
+};
+
+export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
     try {
         return await fetchFromProxy('generateSuggestions', { messages, currentDraft });
     } catch (e) {
-        return { suggestions: [] };
+        return { suggestions: [], readinessScore: 0 };
     }
 };

@@ -1,5 +1,5 @@
 
-// App.tsx - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+// App.tsx - v5.89 - 2026-05-17 - 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
@@ -90,7 +90,7 @@ const App: React.FC = () => {
     };
 
     const showProtocolDetail = () => {
-        const baseMsg = `【Secure AI Architecture v${APP_VERSION}】\n\n1. 特許等に基づく独自のAI連携プロトコル\n2. 入力ゆらぎ（打鍵間隔）による内省状態の自動推定\n3. 揮発性メモリ管理によるゼロトラスト・データ設計\n4. AES-GCM暗号化（自己完結型HTML）による専門家連携\n5. 厚労省ガイドライン準拠の秘匿性管理`;
+        const baseMsg = `【Secure AI Architecture v${APP_VERSION}】\n\n1. 特許等に基づく独自のAI連携プロトコル\n2. 入力ゆらぎ（打鍵間隔）による内省状態の自動推定\n3. 揮発性メモリ管理によるゼロトラスト・データ設計\n4. AES-GCM暗号化（自己完結型HTML）による専門家連携\n5. キャリアコンサルティングの専門的倫理基準・ガイドライン準拠`;
         const extraMsg = isFallbackMode ? "\n\n⚠️ Debug Mode: AI応答はシミュレーションが優先されます。" : "";
         alert(baseMsg + extraMsg);
     };

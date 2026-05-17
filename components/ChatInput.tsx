@@ -171,8 +171,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
   };
 
   const handleMicClick = () => {
+    setMicError('');
+
     if (isListening) {
-      recognitionRef.current?.stop();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
       setIsListening(false);
       return;
     }
@@ -180,26 +184,54 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading, isEditing, i
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognitionAPI) {
       try {
+          if (recognitionRef.current) {
+              try { recognitionRef.current.abort(); } catch (e) {}
+          }
           const recognition = new SpeechRecognitionAPI();
           recognition.continuous = false;
+          recognition.interimResults = false;
           recognition.lang = 'ja-JP';
+          
           recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setText(prev => (prev ? prev + ' ' : '') + transcript);
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript) {
+               setText(prev => (prev ? prev + ' ' : '') + finalTranscript);
+            }
           };
-          recognition.onerror = () => {
-            setMicError('音声認識エラーが発生しました。');
+          
+          recognition.onerror = (event: any) => {
+            if (event.error === 'no-speech') {
+                setMicError('');
+            } else if (event.error === 'not-allowed') {
+                setMicError('マイクが許可されていません。設定を確認してください。');
+            } else if (event.error === 'network') {
+                setMicError('ネットワークエラーで音声認識が停止しました。');
+            } else {
+                setMicError(`音声認識エラーが発生しました (${event.error})`);
+            }
             setIsListening(false);
           };
+          
           recognition.onend = () => setIsListening(false);
+          
           recognitionRef.current = recognition;
           recognition.start();
           setIsListening(true);
-      } catch (err) {
-          setMicError('音声入力の初期化に失敗しました。');
+      } catch (err: any) {
+          if (err.name === 'NotAllowedError') {
+             setMicError('マイクへのアクセスがブロックされています。');
+          } else {
+             setMicError('マイクを起動できませんでした。リロードしてお試しください。');
+          }
+          setIsListening(false);
       }
     } else {
-      setMicError('お使いのブラウザは音声入力に対応していません。');
+      setMicError('お使いのブラウザは音声入力に対応していません。別のブラウザをお試しください。');
     }
   };
 

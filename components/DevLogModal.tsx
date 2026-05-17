@@ -1,5 +1,5 @@
 
-// components/DevLogModal.tsx - v4.12 - Audit Visualization
+// components/DevLogModal.tsx - v5.90 - Unified Download Utility
 import React, { useState, useEffect } from 'react';
 import * as devLogService from '../services/devLogService';
 import { DevLogEntry } from '../services/devLogService';
@@ -32,25 +32,17 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleExportLogs = () => {
+  const handleExportLogs = async () => {
     const logsData = devLogService.getLogs();
     if (logsData.entries.length === 0) {
       alert("エクスポートするログがありません。");
       return;
     }
     const blob = new Blob([JSON.stringify(logsData, null, 2)], { type: 'application/json' });
-    const date = new Date().toISOString().split('T')[0];
-    const suggestedName = `audit_log_${date}.json`;
-
     try {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = suggestedName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const { downloadFile, getLocalIsoDateString } = await import('../utils/downloadUtils');
+        const suggestedName = `audit_log_${getLocalIsoDateString()}.json`;
+        downloadFile(blob, suggestedName);
     } catch (err) {
         alert(`ログのエクスポート中にエラーが発生しました。`);
     }

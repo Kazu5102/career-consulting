@@ -1,5 +1,5 @@
 
-// utils/cryptoUtils.ts - v1.0.0 - Patent-Compliant Encryption
+// utils/cryptoUtils.ts - v5.89 - Patent-Compliant Encryption
 // Uses Web Crypto API for client-side encryption
 
 /**
@@ -18,7 +18,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   return window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt.buffer as ArrayBuffer,
       iterations: 100000,
       hash: 'SHA-256'
     },

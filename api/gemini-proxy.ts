@@ -1,12 +1,12 @@
 
-// api/gemini-proxy.ts - v5.76 - 2026-05-09 - AI: 分析（軌跡・適職）の出力を明示的に日本語化
+// api/gemini-proxy.ts - v5.89 - 2026-05-17 - AI: 分析・適職診断の揺らぎを防止するためtemperatureを0に固定
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // 最新のスキルガイドラインに基づくモデル選定
 const CHAT_MODEL = 'gemini-3-flash-preview';
 const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
-const LITE_MODEL = 'gemini-3.1-flash-lite-preview';
+const LITE_MODEL = 'gemini-3.1-flash-lite';
 
 // Vercel Serverless Function Configuration
 export const config = {
@@ -52,6 +52,41 @@ const getAIClient = () => {
     return ai;
 };
 
+// Retry helper for non-streaming requests
+async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<any>, initialModel: string, fallbackModel?: string) {
+    let currentModel = initialModel;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 0) {
+                const waitTimeArgs = Math.pow(2, attempt) * 500 + Math.random() * 500;
+                await new Promise(r => setTimeout(r, waitTimeArgs));
+            }
+            return await modelCall(currentModel);
+        } catch (error: any) {
+             const isTransientError = error.status === 503 || error.status === 429 || 
+                 error.message?.includes('429') || error.message?.includes('503') || 
+                 error.message?.includes('UNAVAILABLE') || error.message?.includes('fetch failed') ||
+                 error.message?.includes('not found') || error.status === 404;
+             
+             console.error(`[Generate Error] Attempt ${attempt+1} failed for model ${currentModel}:`, error.message || error);
+             
+             if (!isTransientError || attempt === MAX_RETRIES - 1) {
+                 if (currentModel === ANALYSIS_MODEL) {
+                     currentModel = CHAT_MODEL;
+                     console.warn(`[Generate Fallback] Switching to ${CHAT_MODEL}`);
+                     continue;
+                 } else if (currentModel === CHAT_MODEL && (LITE_MODEL as string) !== (CHAT_MODEL as string)) {
+                     currentModel = LITE_MODEL;
+                     console.warn(`[Generate Fallback] Switching to ${LITE_MODEL}`);
+                     continue;
+                 }
+                 throw error;
+             }
+        }
+    }
+}
+
 // SSE streaming helper
 async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: string) => Promise<any>, initialModel: string) {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -60,22 +95,46 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
     res.setHeader('X-Accel-Buffering', 'no');
 
     try {
-        let response;
-        try {
-            response = await modelCall(initialModel);
-        } catch (error: any) {
-            if (error.message?.includes('429') && initialModel !== LITE_MODEL) {
-                console.warn(`[Quota Alert] Fallback to ${LITE_MODEL}`);
-                res.write(`data: ${JSON.stringify({ status: 'quota_fallback' })}\n\n`);
-                response = await modelCall(LITE_MODEL);
-            } else {
-                throw error;
+        let response = null;
+        let currentModel = initialModel;
+        const MAX_RETRIES = 3;
+        
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                if (attempt > 0) {
+                    const waitTimeArgs = Math.pow(2, attempt) * 500 + Math.random() * 500;
+                    console.warn(`[Retry] Attempt ${attempt+1} waiting ${Math.round(waitTimeArgs)}ms for model ${currentModel}`);
+                    await new Promise(r => setTimeout(r, waitTimeArgs));
+                }
+                response = await modelCall(currentModel);
+                break; // 成功したらループを抜ける
+            } catch (error: any) {
+                const isTransientError = error.status === 503 || error.status === 429 || 
+                    error.message?.includes('429') || error.message?.includes('503') || 
+                    error.message?.includes('UNAVAILABLE') || error.message?.includes('fetch failed');
+                
+                console.error(`[Stream Error] Attempt ${attempt+1} failed:`, error.message || error);
+                
+                if (!isTransientError || attempt === MAX_RETRIES - 1) {
+                    throw error; // 最後のリトライか、非一時的なエラーなら投げる
+                }
+                
+                // 次のモデルへフォールバック
+                if (currentModel === ANALYSIS_MODEL) {
+                    currentModel = CHAT_MODEL;
+                    res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、高速モデルで再試行しています...]\n' })}\n\n`);
+                } else if (currentModel === CHAT_MODEL && (CHAT_MODEL as string) !== (LITE_MODEL as string)) {
+                    currentModel = LITE_MODEL;
+                    res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、軽量モデルで再試行しています...]\n' })}\n\n`);
+                } else {
+                    throw error;
+                }
             }
         }
 
         // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
         if (!response) {
-            throw new Error("応答オブジェクトが空です。");
+            throw new Error("APIサーバーからの応答がありませんでした（リトライオーバー）。");
         }
 
         for await (const chunk of response) {
@@ -92,7 +151,14 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
         res.write('data: [DONE]\n\n');
     } catch (error: any) {
         console.error("Proxy Stream Error:", error);
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        
+        let errorDetails = "An unexpected error occurred during generation.";
+        if (error.message) {
+            errorDetails = error.message;
+        } else if (typeof error === 'string') {
+            errorDetails = error;
+        }
+        res.write(`data: ${JSON.stringify({ error: errorDetails })}\n\n`);
     } finally {
         res.end();
     }
@@ -173,7 +239,9 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
                     }
                 },
                 required: ["keyTakeaways", "overallSummary"]
-            }
+            },
+            temperature: 0.0,
+            topP: 0.8
         }
     }), ANALYSIS_MODEL);
 }
@@ -200,7 +268,9 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
                     learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING } } } }
                 },
                 required: ["keyTakeaways", "analysisSummary"]
-            }
+            },
+            temperature: 0.0,
+            topP: 0.8
         }
     }), ANALYSIS_MODEL);
 }
@@ -262,7 +332,7 @@ ${fluencyContext}
         model: modelName, 
         contents,
         config: {
-            systemInstruction,
+            systemInstruction: { role: 'system', parts: [{ text: systemInstruction }] },
             temperature: 0.8,
             topP: 0.95
         }
@@ -273,25 +343,31 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const { chatHistory, profile } = payload;
     const historyText = chatHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
     
-    const prompt = `あなたは熟練のキャリアコンサルタントとして、これまでの対話から「キャリア・リフレクション・レポート」を生成してください。
-単なるあらすじではなく、相談者が「自分以上に自分を理解してくれている」と感じるような、深い洞察（インサイト）と分析を含める必要があります。
+    const prompt = `あなたは熟練のキャリアコンサルタントおよびメンターとして、これまでの対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
+今回は、AI（コンサルタント）が一方的に分析・評価するのではなく、「相談者とAIが共に話し合い、悩み、歩みを進めて作り上げた」という【共創感】と【労いのトーン】を重視してください。
+各セクションの文章量は十分に書き込み、相談者が読んでいて「自分の想いがしっかり受け止められている」「一緒に伴走してくれた」と温かい気持ちになる、手紙のような丁寧なレポートにしてください。
 
-【分析の視点】
-1. 相談者が大切にしている「価値観」や「信念」は何か？
-2. 対話の端々から感じられる、本人が自覚していないかもしれない「強み」や「リソース」は何か？
-3. 相談を阻んでいる「葛藤」や「ブレーキ」の正体は何か？
-4. 今後の自己探索を深めるための「良質な問い（セルフ・リフレクション）」は何か？
+【記載のポイント（重点事項）】
+1. **共に作り上げた実感の醸成**: 「〜というお話を伺い、私自身も深く考えさせられました」「ご自身の言葉で語っていただいたことで、はっきりと見えてきましたね」といった、伴走者としての温かい表現を用いる。
+2. **想いの受容と肯定**: 相談者が抱えていた葛藤や不安を丁寧に言語化し、それに立ち向かったり、話してくれたことへの敬意と労いをたっぷりと含める。
+3. **深い洞察（インサイト）**:
+  a. 対話を通じて明らかになった、相談者が「本当に大切にしている価値観（コア）」や「信念」
+  b. ご自身が気付いていなかったかもしれない、対話の端々から感じられる素晴らしい「強み」や「リソース」
+  c. 相談を阻んでいた「葛藤」や「ブレーキ」の正体
+4. **具体的なエピソードの引用**: 単なる一般論ではなく、対話の中で相談者が語ってくれた象徴的な言葉や気づきを織り交ぜる。
+5. **未来への問い（贈り物）**: レポートの最後には、相談者がご自身のペースでさらに自己探索を深められるような「温かく、良質な問い（セルフ・リフレクション）」をプレゼントする。
 
 【制約事項】
-- キャリアコンサルティングの守秘義務と敬意を忘れないこと。
-- ユーザープロファイル（${JSON.stringify(profile)}）も加味すること。
-- 断定せず、受容的かつ仮説的に提示すること。
+- キャリアコンサルティングの守秘義務と敬意を徹底すること。
+- ユーザープロファイル（${JSON.stringify(profile)}）を加味し、相談者の現在のフェーズや状況に寄り添うこと。
+- 評価や断定ではなく、受容と提案（「〜かもしれないですね」など）のトーンにし、各項目の文章量はしっかりと充実させること。
+- 管理者向けの「professional_summary」のみ、カウンセラー視点での客観的・専門的な引き継ぎメモとして簡潔かつ的確に記述すること。
 
 履歴:
 ${historyText}`;
 
-    const result = await getAIClient().models.generateContent({
-        model: ANALYSIS_MODEL, // 要約から分析へグレードアップ (Flash -> Pro)
+    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
+        model: modelName, // 要約から分析へグレードアップ (Flash -> Pro)
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
@@ -316,7 +392,7 @@ ${historyText}`;
                 required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
             }
         }
-    });
+    }), ANALYSIS_MODEL, CHAT_MODEL);
 
     // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
     try {
@@ -356,8 +432,8 @@ ${historyText}
 
 入力中: ${currentDraft || '(空)'}`;
 
-    const result = await getAIClient().models.generateContent({
-        model: LITE_MODEL,
+    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
@@ -370,7 +446,7 @@ ${historyText}
                 required: ["suggestions", "readinessScore"]
             }
         }
-    });
+    }), LITE_MODEL, CHAT_MODEL);
 
     try {
         const parsed = JSON.parse(result.text || '{"suggestions":[], "readinessScore": 0.0}');

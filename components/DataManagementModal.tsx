@@ -1,5 +1,5 @@
 
-// components/DataManagementModal.tsx - v4.20 - Unified Persistence Logic
+// components/DataManagementModal.tsx - v5.90 - Unified Download Utility
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
@@ -42,14 +42,8 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
       const conversations = await conversationService.getAllConversations();
       const backupData: StoredData = { version: STORAGE_VERSION, users, data: conversations, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `career_backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const { downloadFile, getLocalIsoDateString } = await import('../utils/downloadUtils');
+      downloadFile(blob, `career_backup_${getLocalIsoDateString()}.json`);
       showStatus("データをエクスポートしました。");
     } catch { alert("エラーが発生しました。"); }
   };

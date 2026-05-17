@@ -1,4 +1,4 @@
-// services/index.ts - v4.70 - Hook usage tracking
+// services/index.ts - v5.89 - Hook usage tracking
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
 import { trackApiUsage } from './usageTrackingService';

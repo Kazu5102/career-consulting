@@ -1,5 +1,5 @@
 
-// services/cryptoService.ts - v3.80 - Robust Large Data Encryption
+// services/cryptoService.ts - v5.89 - Robust Large Data Encryption
 const getPasswordKey = async (password: string, salt: Uint8Array): Promise<CryptoKey> => {
     const encoder = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
@@ -13,7 +13,7 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
     return window.crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt: salt,
+            salt: salt.buffer as ArrayBuffer,
             iterations: 100, // Standard developer-friendly iterations for quick local tests
             hash: 'SHA-256',
         },
@@ -27,7 +27,7 @@ const getPasswordKey = async (password: string, salt: Uint8Array): Promise<Crypt
 /**
  * Fast and robust hex conversion for large ArrayBuffers
  */
-const toHex = (buffer: ArrayBuffer): string => {
+const toHex = (buffer: ArrayBuffer | Uint8Array): string => {
     const bytes = new Uint8Array(buffer);
     let hex = '';
     for (let i = 0; i < bytes.length; i++) {

@@ -63,7 +63,9 @@ const INSTANT_KEYWORDS: Record<string, string[]> = {
     '不安': ['漠然とした不安', 'このままでいいのか', '自信がない', '今後の生活'],
     '強み': ['自分の強みを知りたい', 'アピールポイント', '向いている仕事', '適性検査'],
     '時間': ['残業が多い', 'ワークライフバランス', '自分の時間が欲しい', '時間管理'],
-    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について']
+    '評価': ['正当に評価されない', '目標設定が厳しい', 'フィードバックがない', '昇進について'],
+    '起業': ['起業に興味がある', '独立を考えている', 'アイデアを形にしたい', '事業計画の立て方'],
+    '企業': ['企業選びの軸', '自分に合う企業', '大企業かベンチャーか', '会社の将来性']
 };
 
 const FALLBACK_SUGGESTIONS = [
@@ -96,11 +98,13 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
   const [aiType, setAiType] = useState<AIType>('dog');
   const [aiAvatarKey, setAiAvatarKey] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [baseSuggestions, setBaseSuggestions] = useState<string[]>([]);
   const [suggestionsVisible, setSuggestionsVisible] = useState<boolean>(false); 
   const [aiMood, setAiMood] = useState<Mood>('neutral');
 
   const [inputClearSignal, setInputClearSignal] = useState<number>(0);
   const lastApiDraftRef = useRef<string>(''); // API無限ループ防止用キャッシュ
+  const lastDraftRawRef = useRef<string>(''); // 入力テキストの変更検知用
   const isSuggestingRef = useRef<boolean>(false); // 案X: 並行通信ブロック用フラグ
 
   const startTimeRef = useRef<number>(0);
@@ -263,11 +267,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
     }
     
     const draft = state.currentDraft;
+    const textChanged = draft !== lastDraftRawRef.current;
+    
     const userMsgCount = messages.filter(m => m.author === MessageAuthor.USER).length;
 
     // AI返信中やエラー時はヒントを一切出さない
     if (isLoading || hasError) {
         setSuggestionsVisible(false);
+        lastDraftRawRef.current = draft;
         return;
     }
 
@@ -281,11 +288,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 break;
             }
         }
-        // なぜ消さないか: 入力を再開した瞬間に既存のHINT（API由来など）を消さないため
+        // キーワードにマッチしない場合でも、HINT表示を維持する（フォーカス時やタイピング時）
+        if (!matched && textChanged) {
+            if (onboardingStep >= 6) {
+                setSuggestions(baseSuggestions);
+                setSuggestionsVisible(baseSuggestions.length > 0);
+            }
+        }
     }
     // 【内省深堀介入領域】: 動動的学習待機時間(T)超過時 - APIへ推敲文脈の予測（第2段階 HINT）を要求
     else if (state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6 && !isSuggestingRef.current) {
-        if (draft.trim().length >= 10) {
+        if (draft.trim().length >= 2) {
             if (draft !== lastApiDraftRef.current) {
                 lastApiDraftRef.current = draft; // 呼び出し前にキャッシュを更新しループ遮断
                 isSuggestingRef.current = true; // 案X: ブロック開始
@@ -298,12 +311,14 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
                             setConsultationReadiness(resp.readinessScore || 0);
                             const merged = mergeSuggestionsByPhase(resp.suggestions, resp.readinessScore || 0);
+                            setBaseSuggestions(merged); // APIから届いたHINTを維持するためにbaseに保存
                             setSuggestions(merged);
                             setSuggestionsVisible(true);
                         }
                     })
                     .catch(() => {
                         const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                        setBaseSuggestions(merged);
                         setSuggestions(merged);
                         setSuggestionsVisible(true);
                     })
@@ -312,12 +327,19 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     });
             }
         } else if (draft.trim().length === 0) {
-            setSuggestionsVisible(false);
+            if (textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                } else {
+                    setSuggestionsVisible(false);
+                }
+            }
         }
     }
     // 【通常入力領域】: 0.6秒のタイピング小休止時はAPI通信を防ぎつつ、ローカル辞書で打感を保つ
     else if (state.isSilent && !state.isDeepSilent && !isLoading && !hasError && onboardingStep >= 6) {
-        if (draft.trim().length >= 10) {
+        if (draft.trim().length >= 2) {
             let matched = false;
             for (const [key, list] of Object.entries(INSTANT_KEYWORDS)) {
                 if (draft.includes(key)) {
@@ -327,16 +349,38 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                     break;
                 }
             }
-            // matchedでない場合も、APIから届いた既存のHINTを消さないようにする
+            // matchedでない場合も、APIから届いた既存のHINTや基本HINTを維持する
+            if (!matched && textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                }
+            }
         } else if (draft.trim().length === 0) {
-            setSuggestionsVisible(false);
+            if (textChanged) {
+                if (onboardingStep >= 6) {
+                    setSuggestions(baseSuggestions);
+                    setSuggestionsVisible(baseSuggestions.length > 0);
+                } else {
+                    setSuggestionsVisible(false);
+                }
+            }
         }
     }
     // 入力が消されたら一律非表示
     else if (draft.trim().length === 0) {
-        setSuggestionsVisible(false);
+        if (textChanged) {
+            if (onboardingStep >= 6) {
+                setSuggestions(baseSuggestions);
+                setSuggestionsVisible(baseSuggestions.length > 0);
+            } else {
+                setSuggestionsVisible(false);
+            }
+        }
     }
-  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness]);
+    
+    lastDraftRawRef.current = draft;
+  }, [isLoading, onboardingStep, messages, hasError, mergeSuggestionsByPhase, consultationReadiness, baseSuggestions]);
 
   const finalizeAiTurn = async (currentMessages: ChatMessage[]) => {
       setIsLoading(false);
@@ -359,20 +403,28 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
       
       if (onboardingStep >= 6) {
           // AIターン直後: 最初の一歩をアシストするAPI予測（第1段階 HINT）
+          // APIからの応答を待つ間、ひとまず基本のHINTを提示しておく（システム負荷を考慮したUX向上）
+          const initialMerged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+          setBaseSuggestions(initialMerged);
+          setSuggestions(initialMerged);
+          setSuggestionsVisible(true);
+
           isSuggestingRef.current = true; // 案X: ブロック開始
           // 案V: 履歴を直前の2ラリー（4件）に限定してペイロードを削減
           const recentMessages = currentMessages.slice(-4);
           
           generateSuggestions(recentMessages)
             .then(resp => {
-                const baseSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
+                const fetchedSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
                 setConsultationReadiness(resp.readinessScore || 0);
-                const merged = mergeSuggestionsByPhase(baseSuggestions, resp.readinessScore || 0);
+                const merged = mergeSuggestionsByPhase(fetchedSuggestions, resp.readinessScore || 0);
+                setBaseSuggestions(merged);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
             .catch(() => {
                 const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
+                setBaseSuggestions(merged);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
             })
