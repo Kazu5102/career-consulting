@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.90",
-  "description": "Secure AI Architecture v5.90: ダウンロード機能の共通化・安定化モジュールの導入（案A）",
-  "version": "5.90",
+  "name": "Career Consulting_5.91",
+  "description": "Secure AI Architecture v5.91: Secured Arch 3.0へのアップグレード（プロトコル統一）",
+  "version": "5.91",
   "prompt": "",
   "D7": [],
   "Yp": []

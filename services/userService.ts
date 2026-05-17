@@ -1,5 +1,5 @@
 
-// services/userService.ts - v4.20 - Future-proofed Async Interfaces
+// services/userService.ts - v5.91 - 2026-05-17 - Protocol 3.0: Future-proofed Async Interfaces Upgrade
 import { UserInfo } from '../types';
 // Fix: Import STORAGE_KEYS from constants.ts instead of types.ts
 import { STORAGE_KEYS } from '../constants';

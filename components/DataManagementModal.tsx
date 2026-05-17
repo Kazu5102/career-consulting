@@ -1,5 +1,5 @@
 
-// components/DataManagementModal.tsx - v5.90 - Unified Download Utility
+// components/DataManagementModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Data Management
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';

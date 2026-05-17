@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v5.90 - 2026-05-17 - Unified Download Utility
+// components/SummaryModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Unified Download Integration
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';

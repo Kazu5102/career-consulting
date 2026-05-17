@@ -1,5 +1,5 @@
 
-// components/SecuritySettingsModal.tsx - v5.74 - 2026-05-09 - Auth: 環境変数ベースのマスターパスワード機能（UI変更不可）に変更
+// components/SecuritySettingsModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Identity & Governance
 import React, { useState, useEffect } from 'react';
 import { setPassword } from '../services/authService';
 import LockIcon from './icons/LockIcon';
@@ -126,7 +126,7 @@ const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({ isOpen, o
         
         <footer className="p-6 bg-slate-50 border-t border-slate-100 text-center">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Protocol 2.0 Identity & Governance
+                Protocol 3.0 Identity & Governance
             </p>
         </footer>
       </div>

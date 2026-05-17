@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v5.89 - Adding missing methods
+// services/geminiService.ts - v5.91 - 2026-05-17 - Protocol 3.0: Adding missing methods Upgrade
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 import * as directMockService from './mockGeminiService';
 

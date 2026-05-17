@@ -1,6 +1,6 @@
 
 // services/authService.ts
-// v5.75 - 2026-05-09 - Auth: マスターパスワードの複数設定（カンマ区切り）に対応
+// v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0 Upgrade
 const DEFAULT_PASSWORD = '1qazxcv';
 
 export const getStoredPasswords = (): string[] => {
