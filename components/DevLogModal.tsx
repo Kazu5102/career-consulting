@@ -1,5 +1,5 @@
 
-// components/DevLogModal.tsx - v5.90 - Unified Download Utility
+// components/DevLogModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Compliance Record
 import React, { useState, useEffect } from 'react';
 import * as devLogService from '../services/devLogService';
 import { DevLogEntry } from '../services/devLogService';
@@ -82,7 +82,7 @@ const DevLogModal: React.FC<DevLogModalProps> = ({ isOpen, onClose }) => {
              <div className="p-2 bg-slate-100 rounded-lg"><LogIcon className="w-5 h-5 text-slate-600"/></div>
              <div>
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">System Audit Logs</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 2.0 Compliance Record</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol 3.0 Compliance Record</p>
              </div>
           </div>
           <div className="flex items-center gap-2">

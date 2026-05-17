@@ -1,5 +1,5 @@
 
-// services/reportService.ts - v4.42 - Full Detail Report
+// services/reportService.ts - v5.91 - 2026-05-17 - Protocol 3.0 Security Verified
 import { encryptData } from './cryptoService';
 import { StoredConversation, AnalysisHistoryEntry, TrajectoryAnalysisData, SkillMatchingResult } from '../types';
 import { marked } from 'marked';
@@ -49,7 +49,7 @@ export const generateReport = async (data: ReportData, password: string): Promis
                 </button>
                 <div id="error" class="text-rose-500 text-xs font-bold text-center mt-4 h-4"></div>
             </form>
-            <p class="mt-8 text-[10px] text-slate-300 text-center uppercase font-black tracking-[0.2em]">Protocol 2.0 Security Verified</p>
+            <p class="mt-8 text-[10px] text-slate-300 text-center uppercase font-black tracking-[0.2em]">Protocol 3.0 Security Verified</p>
         </div>
     </div>
 

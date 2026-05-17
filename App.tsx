@@ -1,5 +1,5 @@
 
-// App.tsx - v5.89 - 2026-05-17 - 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート
+// App.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0へのアップグレード
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

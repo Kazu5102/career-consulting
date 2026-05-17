@@ -1,5 +1,5 @@
 
-// components/AddTextModal.tsx - v4.44 - Security Validation Added
+// components/AddTextModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Security Verified
 import React, { useState, useEffect } from 'react';
 import { StoredConversation } from '../types';
 import { generateSummaryFromText } from '../services/index';
@@ -17,7 +17,7 @@ const INVALID_KEYWORDS = [
     "レポート閲覧認証",
     "Unlock Report",
     "高度に暗号化されています",
-    "Protocol 2.0 Security Verified",
+    "Protocol 3.0 Security Verified",
     "encryptedData =",
     "decryptData"
 ];

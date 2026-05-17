@@ -1,5 +1,5 @@
 
-// services/cryptoService.ts - v5.89 - Robust Large Data Encryption
+// services/cryptoService.ts - v5.91 - 2026-05-17 - Protocol 3.0: Robust Large Data Encryption Upgrade
 const getPasswordKey = async (password: string, salt: Uint8Array): Promise<CryptoKey> => {
     const encoder = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(

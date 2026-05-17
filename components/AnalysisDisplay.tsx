@@ -1,5 +1,5 @@
 
-// components/AnalysisDisplay.tsx - v4.23 - Realistic Loading Visualization
+// components/AnalysisDisplay.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Analysis Engine
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { TrajectoryAnalysisData, AnalysisStateItem, SkillMatchingResult } from '../types';
@@ -121,7 +121,7 @@ const ProgressiveAnalysisLoader: React.FC<{ type: 'trajectory' | 'skillMatching'
                     </p>
                     <div className={`flex items-center gap-3 mt-4 pt-4 border-t ${type === 'trajectory' ? 'border-sky-100' : 'border-emerald-100'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${type === 'trajectory' ? 'bg-sky-400' : 'bg-emerald-400'}`}></div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocol 2.0 Analysis Engine</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocol 3.0 Analysis Engine</p>
                     </div>
                 </div>
             </div>

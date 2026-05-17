@@ -1,4 +1,4 @@
-// utils/downloadUtils.ts - v5.90 - Unified Download Utility
+// utils/downloadUtils.ts - v5.91 - 2026-05-17 - Unified Download Utility (Protocol 3.0)
 /**
  * セキュアかつブラウザごとの非同期ダウンロードブロックを回避する共通関数
  */

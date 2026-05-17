@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.90 - 2026-05-17 - ダウンロード機能の共通化・安定化モジュールの導入（案A）
-export const APP_VERSION = "5.90";
+// v5.91 - 2026-05-17 - Protocol 2.0から3.0への表記統一
+export const APP_VERSION = "5.91";
 
 /**
  * AI Service Configuration

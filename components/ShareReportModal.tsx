@@ -1,5 +1,5 @@
 
-// components/ShareReportModal.tsx - v5.90 - Unified Download Utility
+// components/ShareReportModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0
 import React, { useState, useEffect, useRef } from 'react';
 import { StoredConversation, AnalysisHistoryEntry } from '../types';
 import { generateReport } from '../services/reportService';
