@@ -1,5 +1,5 @@
 
-// components/ShareReportModal.tsx - v4.47 - UX Improvements
+// components/ShareReportModal.tsx - v5.90 - Unified Download Utility
 import React, { useState, useEffect, useRef } from 'react';
 import { StoredConversation, AnalysisHistoryEntry } from '../types';
 import { generateReport } from '../services/reportService';
@@ -65,17 +65,11 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ isOpen, onClose, us
             const history = getAnalysisHistory(userId);
             
             const blob = await generateReport({ userId, conversations, analysisHistory: history }, password);
-            const date = new Date().toISOString().split('T')[0];
+            const { downloadFile, getLocalIsoDateString } = await import('../utils/downloadUtils');
+            const date = getLocalIsoDateString();
             const suggestedName = `report_${userId}_${date}.html`;
 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = suggestedName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            downloadFile(blob, suggestedName);
 
             addLogEntry({
                 type: 'audit',

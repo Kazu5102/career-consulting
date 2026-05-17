@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.89",
-  "description": "Secure AI Architecture v5.89: 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート",
-  "version": "5.89",
+  "name": "Career Consulting_5.90",
+  "description": "Secure AI Architecture v5.90: ダウンロード機能の共通化・安定化モジュールの導入（案A）",
+  "version": "5.90",
   "prompt": "",
   "D7": [],
   "Yp": []

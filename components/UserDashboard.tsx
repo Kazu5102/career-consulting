@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v4.51 - Robust Erasure
+// components/UserDashboard.tsx - v5.90 - Unified Download Utility
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -36,14 +36,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
           const userData: UserInfo = { id: userId, nickname, pin };
           const dataToStore: StoredData = { version: STORAGE_VERSION, data: conversations, userInfo: userData };
           const blob = new Blob([JSON.stringify(dataToStore, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `career_data_${nickname}.json`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          const { downloadFile } = await import('../utils/downloadUtils');
+          downloadFile(blob, `career_data_${nickname}.json`);
           setIsExportSuccessModalOpen(true);
       } catch (err) { alert("エラーが発生しました"); } finally { setIsExporting(false); }
   };

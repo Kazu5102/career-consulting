@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v5.66 - 2026-05-04 - UX: AI-turn suggestion guard & thought-provoking hint logic
+// components/SummaryModal.tsx - v5.90 - 2026-05-17 - Unified Download Utility
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -187,14 +187,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
         
         // 3. Trigger Download
         const blob = new Blob([htmlContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `career_report_${new Date().toISOString().split('T')[0]}.html`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const { downloadFile, getLocalIsoDateString } = await import('../utils/downloadUtils');
+        downloadFile(blob, `career_report_${getLocalIsoDateString()}.html`);
 
         // 4. Update state to show the link button
         setIsExported(true);

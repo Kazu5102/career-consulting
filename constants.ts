@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.89 - 2026-05-17 - 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート
-export const APP_VERSION = "5.89";
+// v5.90 - 2026-05-17 - ダウンロード機能の共通化・安定化モジュールの導入（案A）
+export const APP_VERSION = "5.90";
 
 /**
  * AI Service Configuration
