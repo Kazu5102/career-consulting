@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.88",
-  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
-  "version": "5.88",
+  "name": "Career Consulting_5.89",
+  "description": "Secure AI Architecture v5.89: 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート",
+  "version": "5.89",
   "prompt": "",
   "D7": [],
   "Yp": []

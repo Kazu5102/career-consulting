@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.79 - 2026-05-10 - AI: LITEモデルをFlashへ統合し、予測機能の安定性を確保
+// api/gemini-proxy.ts - v5.89 - 2026-05-17 - AI: 分析・適職診断の揺らぎを防止するためtemperatureを0に固定
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -76,7 +76,7 @@ async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<an
                      currentModel = CHAT_MODEL;
                      console.warn(`[Generate Fallback] Switching to ${CHAT_MODEL}`);
                      continue;
-                 } else if (currentModel === CHAT_MODEL && LITE_MODEL !== CHAT_MODEL) {
+                 } else if (currentModel === CHAT_MODEL && (LITE_MODEL as string) !== (CHAT_MODEL as string)) {
                      currentModel = LITE_MODEL;
                      console.warn(`[Generate Fallback] Switching to ${LITE_MODEL}`);
                      continue;
@@ -123,7 +123,7 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
                 if (currentModel === ANALYSIS_MODEL) {
                     currentModel = CHAT_MODEL;
                     res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、高速モデルで再試行しています...]\n' })}\n\n`);
-                } else if (currentModel === CHAT_MODEL && CHAT_MODEL !== LITE_MODEL) {
+                } else if (currentModel === CHAT_MODEL && (CHAT_MODEL as string) !== (LITE_MODEL as string)) {
                     currentModel = LITE_MODEL;
                     res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、軽量モデルで再試行しています...]\n' })}\n\n`);
                 } else {
@@ -239,7 +239,9 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
                     }
                 },
                 required: ["keyTakeaways", "overallSummary"]
-            }
+            },
+            temperature: 0.0,
+            topP: 0.8
         }
     }), ANALYSIS_MODEL);
 }
@@ -266,7 +268,9 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
                     learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING } } } }
                 },
                 required: ["keyTakeaways", "analysisSummary"]
-            }
+            },
+            temperature: 0.0,
+            topP: 0.8
         }
     }), ANALYSIS_MODEL);
 }

@@ -141,7 +141,7 @@ export const performSkillMatching = async (conversations: StoredConversation[]):
     return sampleSkillMatchingResult;
 };
 
-export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[] }> => {
+export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
     await delay(600); // 思考時間をシミュレート
 
     // 1. ドラフトがある場合（入力中）: 入力内容に基づいた補完や展開を提案
@@ -173,7 +173,7 @@ export const generateSuggestions = async (messages: ChatMessage[], currentDraft?
                 `話せてすっきりした`
             ];
         }
-        return { suggestions: dynamicSuggestions };
+        return { suggestions: dynamicSuggestions, readinessScore: 0.5 };
     }
 
     // 2. ドラフトがない場合（待機中）: 直前のAIメッセージ（文脈）に基づいて提案
@@ -186,22 +186,22 @@ export const generateSuggestions = async (messages: ChatMessage[], currentDraft?
         // 疑問形で終わっている場合
         if (aiText.includes('？') || aiText.includes('?')) {
             if (aiText.includes('状況') || aiText.includes('教えて')) {
-                return { suggestions: ['現状を詳しく話す', '特に変わりはない', '少し整理したい'] };
+                return { suggestions: ['現状を詳しく話す', '特に変わりはない', '少し整理したい'], readinessScore: 0.5 };
             }
             if (aiText.includes('どう') || aiText.includes('いかが')) {
-                return { suggestions: ['そう思う', '違う気がする', 'わからない', '考え中...'] };
+                return { suggestions: ['そう思う', '違う気がする', 'わからない', '考え中...'], readinessScore: 0.5 };
             }
-            return { suggestions: ['はい', 'いいえ', 'どちらとも言えない', '詳しく話したい'] };
+            return { suggestions: ['はい', 'いいえ', 'どちらとも言えない', '詳しく話したい'], readinessScore: 0.5 };
         }
 
         // 共感・肯定系の場合
         if (aiText.includes('ですね') || aiText.includes('ますよ') || aiText.includes('ワン！')) {
-            return { suggestions: ['聞いてくれてありがとう', '実はもっと話したいことが...', '次のステップに進みたい', '安心した'] };
+            return { suggestions: ['聞いてくれてありがとう', '実はもっと話したいことが...', '次のステップに進みたい', '安心した'], readinessScore: 0.5 };
         }
 
         // 提案系の場合
         if (aiText.includes('整理') || aiText.includes('まとめ')) {
-            return { suggestions: ['お願いします', 'もう少し話してから', '今日はここで終わりたい'] };
+            return { suggestions: ['お願いします', 'もう少し話してから', '今日はここで終わりたい'], readinessScore: 0.5 };
         }
     }
 
@@ -212,6 +212,7 @@ export const generateSuggestions = async (messages: ChatMessage[], currentDraft?
             '将来のキャリアが不安', 
             '自分の強みを知りたい', 
             '雑談したい'
-        ] 
+        ],
+        readinessScore: 0.5
     };
 };

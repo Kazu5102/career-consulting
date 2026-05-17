@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.88 - 2026-05-10 - 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用
-export const APP_VERSION = "5.88";
+// v5.89 - 2026-05-17 - 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート
+export const APP_VERSION = "5.89";
 
 /**
  * AI Service Configuration

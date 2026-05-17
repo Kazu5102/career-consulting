@@ -1,5 +1,5 @@
 
-// App.tsx - v5.88 - 2026-05-10 - 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用
+// App.tsx - v5.89 - 2026-05-17 - 適職診断の揺らぎ防止のためtemperatureを0.0に固定するアップデート
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
