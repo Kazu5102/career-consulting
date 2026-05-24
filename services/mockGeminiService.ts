@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v4.06 - Enhanced Suggestion Mock Logic
+// services/mockGeminiService.ts - v4.07 - Enhanced Dynamic Personalized Reflection Engine
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -88,10 +88,107 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     await delay(2000);
+
+    // 1. ダイナミックなキーワード抽出に基づいた体験パーソナライズ
+    const allUserTexts = chatHistory
+        .filter(m => m.author === MessageAuthor.USER)
+        .map(m => m.text)
+        .join('、');
+
+    const topics: string[] = [];
+    if (allUserTexts.includes('仕事') || allUserTexts.includes('業務')) topics.push('現在のご自身の「お仕事」やその内容');
+    if (allUserTexts.includes('転職') || allUserTexts.includes('辞め')) topics.push('これからの働き方や「転職」への岐路');
+    if (allUserTexts.includes('人間関係') || allUserTexts.includes('上司') || allUserTexts.includes('同僚')) topics.push('周囲の人々との「人間関係」やその中で生じる悩み');
+    if (allUserTexts.includes('将来') || allUserTexts.includes('不安')) topics.push('まだ見ぬ「将来」へのかすかな不安と、それに真摯に向き合うお気持ち');
+    if (allUserTexts.includes('強み') || allUserTexts.includes('スキル')) topics.push('ご自身がこれまで培ってきた「強み」や誇るべきスキル');
+    if (allUserTexts.includes('時間') || allUserTexts.includes('疲れ')) topics.push('日常的な「時間管理や心身の疲れ」に耳を傾けるべきタイミング');
+
+    // トピックがない場合の初期フォーカス
+    if (topics.length === 0) {
+        topics.push('ご自身の心の奥底にある、まだ言葉にならない本来の想いや願い');
+    }
+
+    // AIキャラクター毎のお祝い・労いトーン調整
+    const isDog = aiType === 'dog';
+    const nickname = profile?.age ? `お姿を見せてくれた「${profile.age}」の相談者さま` : "一歩を踏み出そうとする相談者さま";
+    const greetingTone = isDog 
+        ? `ボクは、キミが本当によくがんばっているのをすぐそばでずーっと見ていたワン！誰よりも自分らしく進もうとするキミの姿に、ボクは心から感動したんだワン。`
+        : `私はこの対話を通じて、あなたがご自身の現状に真摯に向き合い、解決への道を模索される素晴らしい熱意に何度も心動かされました。`;
+
+    // 心理的入力ふらつき（タイピング傾向）の検出
+    let typingInsight = "";
+    if (profile?.typingFluency) {
+        const { mean, stdDev } = profile.typingFluency;
+        if (mean > 600) {
+            typingInsight = isDog
+                ? "文字を打つとき、一つひとつゆっくりと言葉を探してくれたワン。その『丁寧さ』と『自分をごまかさない誠実さ』こそが、キミを支えるかけがえのない宝物だワン！"
+                : "タイピングの合間に見られた慎重な「迷い」は、あなたがご自分の心に極めて誠実に向き合い、適当な言葉でごまかさなかった証拠です。その深慮深さが最大の強みです。";
+        } else if (stdDev > 200) {
+            typingInsight = isDog
+                ? "うれしかったり、ドキドキしたり、感情がいっぱいあふれながらお話ししてくれたように感じたワン。その豊かな感性とエネルギーは、周りの人を元気にする特別な力だワン！"
+                : "打鍵の揺れ（大きな変動）からは、葛藤を抱えつつも、ごまかさずに言葉を紡ぎ出そうとした熱いお気持ちが伝わりました。生き生きとしたその感情こそが、あなたの前進力です。";
+        } else {
+            typingInsight = isDog
+                ? "頭をきれいに整理しながら、とってもスムーズにお話してくれたワン！その知性と、想いをしっかり伝えきれる表現力は素晴らしい武器だワン！"
+                : "迷いなく論理的に書き進めるスマートなタイピングが印象的でした。それはこれまでのご経験が裏打ちする「軸」があるからこそできることです。自信を持ってください。";
+        }
+    } else {
+        typingInsight = isDog
+            ? "今日、ありのままの気持ちをボクにお話してくれたこと、それ自体がキミの最高に素晴らしい第一歩なんだワン！"
+            : "今日この場で、誰にも言えなかった本音を言葉としてアウトプットしてくださったその行動力と勇気こそが、確かな一歩です。";
+    }
+
+    const title = `${aiName}と紡いだ ${profile?.age || '現在'}の心のロードマップ`;
+    const core_insight = `### 🌟 今回の対話が照らす、あなたの本当の価値
+${nickname}へ。
+今日、私たち${aiName}は、${topics.join(isDog ? '、そして' : '、さらには')}について、丁寧に言葉の糸をほぐしていきました。
+
+${greetingTone}
+
+${typingInsight}
+
+これまで一人で抱えてきた重荷を少しでも下ろし、自分自身の新しい一面を「確かにここにある軌跡」として受け取る準備が、今、整いました。`;
+
+    const analysis_points = [
+        {
+            category: "🌱 あなたが本当に大切にしている価値観（コア）",
+            observation: isDog 
+                ? `対話のなかで、キミが「自分を大切にし、やりがいを感じる時間を守りたい」と願っていることが熱く伝わってきたワン。何より周囲の人や、自分が関わっている状況を慈しもうとする、心の深さがあるワン！`
+                : `あなたが語られた言葉の深層には、ただ業務をこなすだけでなく「自らの意思で人生を選び取り、価値を生み出す充足感を得たい」という極めて自立した美学があります。`
+        },
+        {
+            category: "🤝 発見されたあなたの卓越した強み",
+            observation: isDog
+                ? `キミは『どんな困難な状況であっても、自分の言葉で想いを整理し、解決策を前に進める』抜群の力を持っているワン。笑顔の裏にある、不屈の「自走力」が最大の魅力なんだワン！`
+                : `『現状への違和感を自己研鑽への動機に変え、主体的に課題を探求する』といった自己変革の姿勢が対話の端々から見て取れました。これはあらゆる環境で通用する強力なポータブルスキルです。`
+        },
+        {
+            category: "🛡️ 進むべき一歩を遮るブレーキと解決策",
+            observation: isDog
+                ? `「失敗しちゃいけないワン…」「期待に応えなきゃ…」という優しい気持ちが、キミの自由な翼を少し小さくしているかもしれないワン。でも大丈夫、その不安はキミが前に進みたい証拠なんだワン！`
+                : `周囲からの期待に応えようとしすぎる責任感が、「十分に準備が揃うまで動いてはいけない」というセルフ・ブレーキになっている模様です。完璧を求めず、まずは小さな『スモールステップ』から試すことが解決の糸口です。`
+        }
+    ];
+
+    const next_inquiry = isDog
+        ? `もし、キミが「絶対に失敗しない魔法」をひとつだけ使えるとしたら、明日、どんな小さなワクワクすることを始めてみたいワン？`
+        : `これまでの常識や『こうあるべき』という枠をすべて取り払ったとき、あなたが一番『呼吸が軽くなる』瞬間は、一体どのような姿でしょうか？`;
+
+    const professional_summary = `【相談者プロフィール】
+年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}
+エネルギー注力先：${profile?.lifeRoles?.join(', ') || "日常"}
+【キャリアコンサルタント向け引き継ぎ所見】
+対話を通して、クライアントは表面的な「焦り」の奥に、高度な「役割期待への応えすぎ（過適応傾向）」と、本来の「自己発揮」の矛盾に苦しんでいることが明らかになりました。打鍵傾向からは深い内省と、言語化しがたい感情の吐露が示唆されます。
+カウンセラーとの面談初期段階では「行動の提案」よりも、まず本人のこの頑張りそのものを無条件で受容し、安全な心理的土台を再構築することが極めて重要です。`;
+
     const mockStructured = {
-        user_summary: `## 💡 今日の気づき\n大切な一歩を踏み出せましたね。`,
-        pro_notes: `### キャリア分析ノート\n- **発達段階**: 確立期における再探索。`
+        title,
+        core_insight,
+        analysis_points,
+        next_inquiry,
+        professional_summary
     };
+
     return JSON.stringify(mockStructured);
 };
 

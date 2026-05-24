@@ -1,5 +1,4 @@
-
-// api/gemini-proxy.ts - v5.94 - 2026-05-24 - AI prompt: Guide user to end consultation button when information is sufficient
+// api/gemini-proxy.ts - v5.95 - 2026-05-24 - Enhance Insight Prompt for Absolute Reassurance and Pride of Accomplishment
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -83,7 +82,7 @@ async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<an
                  }
                  throw error;
              }
-        }
+         }
     }
 }
 
@@ -132,14 +131,13 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
             }
         }
 
-        // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
+        // [STABILITY] AsyncIterable の存在を確認
         if (!response) {
             throw new Error("APIサーバーからの応答がありませんでした（リトライオーバー）。");
         }
 
         for await (const chunk of response) {
             try {
-                // GenerateContentResponse.text はプロパティ。メソッドではない。
                 const text = chunk.text;
                 if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
@@ -353,29 +351,29 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
         else fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・確信】\n比較的迷いなく想いを綴られていました。その決断力や思考の整理の速さを「強み」として統合してください。";
     }
 
-    const prompt = `あなたは熟練のキャリアコンサルタントおよびメンターとして、これまでの対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
-今回のレポートは、AIが一方的に分析・評価するのではなく、「相談者とAIが共に話し合い、悩み、歩みを進めて作り上げた」という【共創感】と【労いのトーン】を極限まで高めた内容にしてください。
+    const prompt = `あなたは卓越した優しさと専門性を兼ね備えたキャリアコンサルタントおよび伴走メンターとして、これまでの対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
+今回のレポートは、AIが一方的に相手を分析・裁定するのではなく、「相談者とAIが共に悩み、共に話し合い、一歩ずつ歩みを進めて作り上げた」という【圧倒的な共創感】と【極上の労い・安心トーン】を極限まで高めた内容にしてください。
 
-【記載のポイント（重点事項）】
-1. **打鍵傾向に基づく共感**: ${fluencySummaryContext}
-2. **共に作り上げた実感の醸成**: 「〜というお話を伺い、私自身も深く考えさせられました」「ご自身の言葉で語っていただいたことで、はっきりと見えてきましたね」といった、伴走者としての温かい表現。
-3. **深い洞察（インサイト）**:
-  a. 対話を通じて明らかになった、相談者が「本当に大切にしている価値観（コア）」や「信念」
-  b. ご自身が気付いていなかったかもしれない、対話の端々から感じられる素晴らしい「強み」や「リソース」
-  c. 相談を阻んでいた「葛藤」や「ブレーキ」の正体
-4. **具体的なエピソードの引用**: 単なる一般論ではなく、対話の中で相談者が語ってくれた象徴的な言葉や、その時の感情の揺れを織り交ぜる。
-5. **「今日の一歩」のパーソナライズ**: 固定メッセージではなく、この対話だからこそ得られた「今の相談者に最も響く気づき」を一文で深掘りして生成してください。
+【記載のポイント（やった感と安心感の調和）】
+1. **打鍵傾向に基づく深い受容**: ${fluencySummaryContext}
+2. **「やった感」と「自己効力感」の最大化**: 「相談者が今日、誰にも言えない葛藤や悩みを、自らの勇気ある言葉で語ってくれたプロセス」それ自体が何より尊く、極めて素晴らしいファーストステップであることを徹底的にたたえ、安心させてください。
+3. **共に答えを紡いだ伴走表現**: 「〜というお話を伺い、私自身も胸が熱くなりました」「ご自身の内面から溢れ出たそのお言葉に触れ、非常に深い気づきをいただきました」といった、伴走者としての温かい共創表現。
+4. **極上のキャリアインサイト**:
+  a. **【真に大切にしている価値軸（コア）】**: 対話を通じて明らかになった、相談者が守りたい誇りや信念、人生の根底にある本来の願い。
+  b. **【発見された素晴らしい強み】**: 相談者自身が「こんなのは普通だ」と思っているかもしれない行動力、論理性、謙虚さ、継続性などのリソース。
+  c. **【優しいブレーキ（葛藤）と受容】**: 進むのを阻んでいる不安やセルフキャパ（役割期待への過適応など）の正体を、「自分を守るための、優しく大切な防衛機能」として優しく紐解き、否定せずに肯定すること。
+5. **具体的なエピソードの引用**: 単なる一般論ではなく、対話の中で相談者が語ってくれた象徴的な言葉や、その時の感情の揺れを織り交ぜる。
+6. **心震える「次の自己対話」への問いかけ**: 相談者が背伸びせず、呼吸をラクにして未来を見つめ直せるような、前向きで創造的な問い。
 
-【制約事項】
-- キャリアコンサルティングの守秘義務と敬意を徹底すること。
-- ユーザープロファイル（${JSON.stringify(profile)}）を加味した具体的なアドバイス。
-- 評価や断定ではなく、受容と提案（「〜かもしれないですね」など）のトーンにし、各項目の文章量はしっかりと充実させること。
+【制約・トーン】
+- 敬意と温かい包容力に満ちた、文学的かつ読み応えのある美しい日本語にすること。
+- 各項目の文章量は、相談者がスクロールして読んだときに「自分はこれだけ向き合えたんだ！」という圧倒的な『充実感（やった感）』を得られるよう、十分に豊かなボリュームを持たせること。
 
 履歴:
 ${historyText}`;
 
     const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
-        model: modelName, // 要約から分析へグレードアップ (Flash -> Pro)
+        model: modelName, 
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",

@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.94 - 2026-05-24 - AI prompt: Guide user to end consultation button when information is sufficient
-export const APP_VERSION = "5.94";
+// v5.95 - 2026-05-24 - Enhance Insight Report with absolute reassurance and feeling of accomplishment
+export const APP_VERSION = "5.95";
 
 /**
  * AI Service Configuration

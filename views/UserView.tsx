@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.94 - 2026-05-24 - Suggestion Phase-Relevance & Smooth AI Autoguide to End button
+// views/UserView.tsx - v5.95 - 2026-05-24 - Enhance Insight Report with absolute reassurance and feeling of accomplishment
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,7 +81,7 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
-  const VERSION = "5.94";
+  const VERSION = "5.95";
   const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);

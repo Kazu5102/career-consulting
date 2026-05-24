@@ -1,10 +1,10 @@
 
-// components/ActionFooter.tsx - v5.94 - 2026-05-24 - Highlight "End Consultation" button when guided
+// components/ActionFooter.tsx - v5.95 - 2026-05-24 - Enhance Insight Report with absolute reassurance and feeling of accomplishment
 import React from 'react';
 import InterruptIcon from './icons/InterruptIcon';
 import SummarizeIcon from './icons/SummarizeIcon';
 
-export const FOOTER_VERSION = "5.94";
+export const FOOTER_VERSION = "5.95";
 
 interface ActionFooterProps {
   isReady: boolean;
