@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.93 - 2026-05-24 - Model Upgrade: Adopt Gemini 3.5 Flash and Gemini 3.1 Flash Lite
-export const APP_VERSION = "5.93";
+// v5.94 - 2026-05-24 - AI prompt: Guide user to end consultation button when information is sufficient
+export const APP_VERSION = "5.94";
 
 /**
  * AI Service Configuration

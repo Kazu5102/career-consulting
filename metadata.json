@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.93",
-  "description": "Secure AI Architecture v5.93: 最新のGemini 3.5 Flashモデルへのアップグレードに伴うシステム全体の最適化",
-  "version": "5.93",
+  "name": "Career Consulting_5.94",
+  "description": "Secure AI Architecture v5.94: 相談者の内省の深まりに応じた、相談終了・要約ボタンへのスムーズな動的誘導および強調ハイライト表示機能の追加",
+  "version": "5.94",
   "prompt": "",
   "D7": [],
   "Yp": []

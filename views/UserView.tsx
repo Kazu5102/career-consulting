@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v5.73 - 2026-05-04 - UX: HINT stability (10 chars threshold, persistence)
+// views/UserView.tsx - v5.94 - 2026-05-24 - Suggestion Phase-Relevance & Smooth AI Autoguide to End button
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,6 +81,8 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
+  const VERSION = "5.94";
+  const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);
   const [nickname, setNickname] = useState<string>('');
@@ -232,18 +234,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         let result = [...baseSuggestions];
         
         // 統合期 (Phase 3): 内省が非常に深い、または15回以上の対話
+        // 情報を十分に集約できたと判断できて以降は、常時HINTのTOPに出現！
         if (readiness >= 0.85 || msgCount >= 15) {
             result = [summaryLabel, ...result];
         }
         // 収束期 (Phase 2): 10回以上の対話
+        // 最初のうちは、選択の最後（末尾）
         else if (readiness >= 0.7 || msgCount >= 10) {
-            if (result.length >= 1) {
-                result.splice(1, 0, summaryLabel);
-            } else {
-                result.push(summaryLabel);
-            }
+            result.push(summaryLabel);
         }
-        // 探索期後半 (Phase 1): 8回以上の対話から選択肢に含める（末尾）
+        // 探索期後半 (Phase 1): 8回以上の対話
+        // 最初のうちは、選択の最後（末尾）
         else if (readiness >= 0.5 || msgCount >= 8) {
             result.push(summaryLabel);
         }
@@ -309,11 +310,17 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
                 generateSuggestions(recentMessages, draft)
                     .then(resp => {
                         if (resp && resp.suggestions && resp.suggestions.length > 0) {
-                            setConsultationReadiness(resp.readinessScore || 0);
-                            const merged = mergeSuggestionsByPhase(resp.suggestions, resp.readinessScore || 0);
+                            const score = resp.readinessScore || 0;
+                            setConsultationReadiness(score);
+                            const merged = mergeSuggestionsByPhase(resp.suggestions, score);
                             setBaseSuggestions(merged); // APIから届いたHINTを維持するためにbaseに保存
                             setSuggestions(merged);
                             setSuggestionsVisible(true);
+                            
+                            if (score >= 0.85) {
+                                setIsConsultationReady(true);
+                                setIsSummaryHighlighted(true);
+                            }
                         }
                     })
                     .catch(() => {
@@ -416,11 +423,18 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
           generateSuggestions(recentMessages)
             .then(resp => {
                 const fetchedSuggestions = resp && resp.suggestions && resp.suggestions.length > 0 ? resp.suggestions : FALLBACK_SUGGESTIONS;
-                setConsultationReadiness(resp.readinessScore || 0);
-                const merged = mergeSuggestionsByPhase(fetchedSuggestions, resp.readinessScore || 0);
+                const score = resp.readinessScore || 0;
+                setConsultationReadiness(score);
+                const merged = mergeSuggestionsByPhase(fetchedSuggestions, score);
                 setBaseSuggestions(merged);
                 setSuggestions(merged);
                 setSuggestionsVisible(true);
+                
+                // 通常のAIとの対話でも、十分に情報が集約できた場合は自動的に要約ボタンを解放してハイライト誘導
+                if (score >= 0.85) {
+                    setIsConsultationReady(true);
+                    setIsSummaryHighlighted(true);
+                }
             })
             .catch(() => {
                 const merged = mergeSuggestionsByPhase(FALLBACK_SUGGESTIONS, consultationReadiness);
@@ -524,8 +538,28 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         setInputClearSignal(prev => prev + 1);
         lastApiDraftRef.current = ''; // 意図的な送信時にキャッシュをリセット
         
-        if (text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
-            handleGenerateSummary();
+        if (text === 'ここまでの話をまとめる' || text === '✨ ここまでの話をまとめる' || text.includes('まとめて') || text.includes('終了') || text.includes('完了')) {
+            // Optimistic Update: Add user message immediately
+            const userMessage: ChatMessage = { author: MessageAuthor.USER, text };
+            const newHistory = [...messages, userMessage];
+            setMessages(newHistory);
+            
+            setSuggestionsVisible(false); 
+            setHasError(false);
+            setIsLoading(true);
+            
+            setTimeout(() => {
+                const isDog = aiType === 'dog';
+                const aiResponseText = isDog
+                    ? `キミ、今日はいっぱいお話ししてくれて本当にありがとうワン！\nキミが話してくれた大切なこと、心の中の迷い、これからのこと…ボクがぜんぶギュッとまとめておいたワンっ！\n\nここまでの内容を整理する準備はいつでもバッチリだワン！\n\n画面の一番下にある緑色の**【相談を終了して整理する】**ボタンをぽちっと押すと、キミのためだけの「ふりかえりシート」が完成するワン！\nキミの好きなタイミングでボタンを押して、次のステージへ進もうワン！🐾`
+                    : `今日にいたるまで、本当にたくさんのお話を聞かせていただきありがとうございました。\nご自身のこれまでの歩みや、今直面している葛藤、そして本当に大切にしたい想いを、ご自身の言葉でとても丁寧に紡いでいただきました。\n\nこれまでの対話の内容をすっきりと整理する準備が整いました。\n\n画面の一番下にある緑色の**【相談を終了して整理する】**ボタンを押していただくと、これまでの歩みをまとめた「キャリア・リフレクション・レポート」を作成いたします。\nご自身のタイミングで、いつでもボタンをタップして次のステップへ一緒に進みましょう。`;
+                
+                setMessages(prev => [...prev, { author: MessageAuthor.AI, text: aiResponseText }]);
+                setIsLoading(false);
+                setIsConsultationReady(true); // 要約ボタン解放
+                setIsSummaryHighlighted(true); // ボタンをハイライト
+                setAiMood('happy');
+            }, 1200);
             return;
         }
         
@@ -815,7 +849,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
 
                   <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} isEditing={false} initialText="" clearSignal={inputClearSignal} onCancelEdit={() => {}} onStateChange={handleInputStateChange} />
                   {onboardingStep >= 6 && <SuggestionChips suggestions={suggestions} onSuggestionClick={handleSendMessage} isVisible={suggestionsVisible && !hasError} />}
-                  {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} />}
+                  {onboardingStep >= 6 && <ActionFooter isReady={isConsultationReady} onSummarize={handleGenerateSummary} onInterrupt={() => setIsInterruptModalOpen(true)} isHighlighted={isSummaryHighlighted} />}
               </div>
             </div>
          </div>}

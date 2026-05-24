@@ -1,5 +1,5 @@
 
-// api/gemini-proxy.ts - v5.93 - 2026-05-24 - Model Upgrade: Adopt Gemini 3.5 Flash and Gemini 3.1 Flash Lite
+// api/gemini-proxy.ts - v5.94 - 2026-05-24 - AI prompt: Guide user to end consultation button when information is sufficient
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -299,7 +299,8 @@ ${fluencyContext}
 【対話の終止符についての重要な指示（キャリコン基準）】
 1. 早急な解決を求めず、ユーザーの「自己探索（ナラティブ）」をじっくり支援してください。
 2. 対話が10〜15往復（相談者が10回以上発言）程度行われ、十分に内省が深まったと感じられるまでは、まとめの提案を控えてください。
-3. ユーザーが自分自身で答えを見つけられるよう、問いかけ（開かれた質問）を中心に進めてください。`;
+3. ユーザーが自分自身で答えを見つけられるよう、問いかけ（開かれた質問）を中心に進めてください。
+4. 相談者の内省が十分に深まり、必要な情報が集約できたと判断された段階（およそ10〜15往復後、またはユーザーに前向きな気付きが生まれてこれ以上話を広げる必要がない場合）は、AIの発言の最後で「画面の一番下にある緑色の『相談を終了して整理する』ボタン」を優しく指し示し、対話を振り返りシートとしてまとめるようにそっと提案（誘導）してください。`;
 
     // 履歴の厳格な正規化
     let contents: any[] = [];

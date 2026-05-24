@@ -1,17 +1,28 @@
 
+// components/ActionFooter.tsx - v5.94 - 2026-05-24 - Highlight "End Consultation" button when guided
 import React from 'react';
 import InterruptIcon from './icons/InterruptIcon';
 import SummarizeIcon from './icons/SummarizeIcon';
+
+export const FOOTER_VERSION = "5.94";
 
 interface ActionFooterProps {
   isReady: boolean;
   onSummarize: () => void;
   onInterrupt: () => void;
+  isHighlighted?: boolean;
 }
 
-const ActionFooter: React.FC<ActionFooterProps> = ({ isReady, onSummarize, onInterrupt }) => {
+const ActionFooter: React.FC<ActionFooterProps> = ({ isReady, onSummarize, onInterrupt, isHighlighted = false }) => {
   return (
-    <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+    <div className="p-3 border-t border-slate-100 bg-slate-50/50 relative">
+      {isReady && isHighlighted && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-sky-600 text-white text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg border border-sky-500 animate-bounce tracking-wider z-20 flex items-center gap-1">
+          <span>✨</span>
+          <span>こちらの【緑色のボタン】を押して要約に進みましょう！</span>
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-sky-600 rotate-45 border-r border-b border-sky-500"></div>
+        </div>
+      )}
       <div className="max-w-3xl mx-auto flex gap-3">
         <button
           onClick={onInterrupt}
@@ -27,9 +38,11 @@ const ActionFooter: React.FC<ActionFooterProps> = ({ isReady, onSummarize, onInt
         <button
           onClick={onSummarize}
           disabled={!isReady}
-          className={`flex-1 flex flex-col items-center justify-center py-2.5 px-2 rounded-xl shadow-md transition-all duration-300 active:scale-95 border ${
+          className={`flex-1 flex flex-col items-center justify-center py-2.5 px-2 rounded-xl shadow-md transition-all duration-300 active:scale-95 border relative ${
             isReady 
-              ? 'bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-600 ring-2 ring-emerald-100' 
+              ? isHighlighted
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-600 ring-4 ring-emerald-300/80 animate-pulse scale-[1.02] shadow-xl shadow-emerald-200'
+                : 'bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-600 ring-2 ring-emerald-100' 
               : 'bg-slate-300 text-slate-500 cursor-not-allowed border-slate-300 opacity-70'
           }`}
         >
