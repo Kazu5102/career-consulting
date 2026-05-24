@@ -1,8 +1,8 @@
 
-// types.ts - v5.70
+// types.ts - v5.93
 import type React from 'react';
 
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export interface StoredData {
   version: number;

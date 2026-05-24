@@ -1,19 +1,19 @@
 
 // constants.ts
-// v5.91 - 2026-05-17 - Protocol 2.0から3.0への表記統一
-export const APP_VERSION = "5.91";
+// v5.93 - 2026-05-24 - Model Upgrade: Adopt Gemini 3.5 Flash and Gemini 3.1 Flash Lite
+export const APP_VERSION = "5.93";
 
 /**
  * AI Service Configuration
  * 最新のAI Studioガイドラインに基づき、性能・安定性のバランスが取れたモデルを採用
  */
 export const AI_CONFIG = {
-    // 対話用: 高速かつ高精度
-    CHAT_MODEL: 'gemini-3-flash-preview',
-    // 分析用: 高度な推論
+    // 対話用: 高速かつ高精度 (Gemini 3.5 Flash)
+    CHAT_MODEL: 'gemini-3.5-flash',
+    // 分析用: 高度な推論 (Gemini 3.1 Pro Preview)
     ANALYSIS_MODEL: 'gemini-3.1-pro-preview',
-    // 補助・要約用: 低遅延・低コスト（安定性重視でFlashに統合）
-    LITE_MODEL: 'gemini-3-flash-preview',
+    // 補助・要約用: 低遅延・低コスト (Gemini 3.1 Flash Lite)
+    LITE_MODEL: 'gemini-3.1-flash-lite',
     // ストリーミング接続のタイムアウト（ミリ秒）
     STREAM_TIMEOUT: 60000,
 };

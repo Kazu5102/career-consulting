@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.91",
-  "description": "Secure AI Architecture v5.91: Secured Arch 3.0へのアップグレード（プロトコル統一）",
-  "version": "5.91",
+  "name": "Career Consulting_5.93",
+  "description": "Secure AI Architecture v5.93: 最新のGemini 3.5 Flashモデルへのアップグレードに伴うシステム全体の最適化",
+  "version": "5.93",
   "prompt": "",
   "D7": [],
   "Yp": []

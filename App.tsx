@@ -1,5 +1,5 @@
 
-// App.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0へのアップグレード
+// App.tsx - v5.93 - 2026-05-24 - Model Upgrade - Version Sync
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

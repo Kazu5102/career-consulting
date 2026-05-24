@@ -1,6 +1,6 @@
 
 // services/authService.ts
-// v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0 Upgrade
+// v5.93 - 2026-05-24 - Model Upgrade - Version Sync
 const DEFAULT_PASSWORD = '1qazxcv';
 
 export const getStoredPasswords = (): string[] => {
