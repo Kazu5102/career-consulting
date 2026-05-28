@@ -1,5 +1,5 @@
 
-// components/ConversationDetailModal.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
+// components/ConversationDetailModal.tsx - v6.08 - 2026-05-28 - 自動構造化コンバート対応（案A：JSONパースのMarkdown自動結合変換）
 import React from 'react';
 import { marked } from 'marked';
 import { StoredConversation } from '../types';
@@ -28,8 +28,53 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({
 
   const parseSummary = (rawSummary: string) => {
     try {
+      if (!rawSummary) return { user_summary: '', pro_notes: null };
       const parsed = JSON.parse(rawSummary);
-      if (parsed.user_summary && parsed.pro_notes) return parsed;
+      
+      // 構造化レポート (StructuredSummary: title, core_insight, or professional_summary がある場合)
+      if (parsed.title || parsed.core_insight || parsed.analysis_points || parsed.next_inquiry || parsed.professional_summary) {
+        let convertedUserMarkdown = '';
+        
+        if (parsed.title) {
+          convertedUserMarkdown += `### 🌟 ${parsed.title}\n\n`;
+        }
+        if (parsed.core_insight) {
+          convertedUserMarkdown += `${parsed.core_insight}\n\n`;
+        }
+        if (parsed.analysis_points && parsed.analysis_points.length > 0) {
+          convertedUserMarkdown += `#### 📋 分析ポイント\n\n`;
+          parsed.analysis_points.forEach((point: { category: string; observation: string }) => {
+            convertedUserMarkdown += `##### ${point.category}\n${point.observation}\n\n`;
+          });
+        }
+        if (parsed.next_inquiry) {
+          convertedUserMarkdown += `#### 💬 次への問いかけ\n\n「${parsed.next_inquiry}」\n\n`;
+        }
+
+        // 専門家向け詳細ノート (professional_summary を pro_notes に割り当て)
+        let proNotesMarkdown = '';
+        if (parsed.professional_summary) {
+          proNotesMarkdown = parsed.professional_summary;
+        } else if (parsed.pro_notes) {
+          proNotesMarkdown = parsed.pro_notes;
+        } else {
+          proNotesMarkdown = '※詳細ノートは生成されていません。';
+        }
+
+        return {
+          user_summary: convertedUserMarkdown || parsed.user_summary || rawSummary,
+          pro_notes: proNotesMarkdown
+        };
+      }
+      
+      // 従来の user_summary & pro_notes の判定
+      if (parsed.user_summary || parsed.pro_notes) {
+        return {
+          user_summary: parsed.user_summary || rawSummary,
+          pro_notes: parsed.pro_notes || null
+        };
+      }
+      
       return { user_summary: rawSummary, pro_notes: null };
     } catch (e) {
       return { user_summary: rawSummary, pro_notes: null };

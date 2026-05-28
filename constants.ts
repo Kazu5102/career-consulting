@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.06 - 2026-05-28 - React animationの競合警告の解決（案1：個別プロパティへの分解）
-export const APP_VERSION = "6.06";
+// v6.08 - 2026-05-28 - 2段階確認入力＋表示トグル付きパスワード保護フォーム（案A）＆ 自動構造化コンバート（案A）
+export const APP_VERSION = "6.08";
 
 /**
  * AI Service Configuration
