@@ -1,5 +1,5 @@
 
-// types.ts - v5.93
+// types.ts - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;

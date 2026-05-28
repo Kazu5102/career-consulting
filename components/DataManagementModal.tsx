@@ -1,10 +1,11 @@
 
-// components/DataManagementModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Data Management
+// components/DataManagementModal.tsx - v6.04 - 2026-05-28 - Protocol 3.0 Data Management with Analysis Merge (Plan B)
 import React, { useRef, useState } from 'react';
 import { STORAGE_VERSION, UserInfo, StoredConversation, StoredData } from '../types';
 import * as userService from '../services/userService';
 import * as conversationService from '../services/conversationService';
 import * as devLogService from '../services/devLogService';
+import * as analysisService from '../services/analysisService';
 import DatabaseIcon from './icons/DatabaseIcon';
 import ExportIcon from './icons/ExportIcon';
 import ImportIcon from './icons/ImportIcon';
@@ -21,6 +22,7 @@ interface DataManagementModalProps {
 }
 
 const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClose, onOpenAddText, onDataRefresh }) => {
+  const MODAL_VERSION = "6.03";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,7 +42,14 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
     try {
       const users = await userService.getUsers();
       const conversations = await conversationService.getAllConversations();
-      const backupData: StoredData = { version: STORAGE_VERSION, users, data: conversations, exportedAt: new Date().toISOString() };
+      const analysisHistory = analysisService.getAllAnalysisHistory();
+      const backupData: StoredData = { 
+        version: STORAGE_VERSION, 
+        users, 
+        data: conversations, 
+        analysisHistory,
+        exportedAt: new Date().toISOString() 
+      };
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const { downloadFile, getLocalIsoDateString } = await import('../utils/downloadUtils');
       downloadFile(blob, `career_backup_${getLocalIsoDateString()}.json`);
@@ -68,6 +77,13 @@ const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen, onClo
             const convIdSet = new Set(currentConvs.map(c => c.id));
             const uniqueNewConvs = importedConvs.filter(c => !convIdSet.has(c.id));
             await conversationService.replaceAllConversations([...currentConvs, ...uniqueNewConvs]);
+
+            if (imported.analysisHistory && Array.isArray(imported.analysisHistory)) {
+                const currentHistory = analysisService.getAllAnalysisHistory();
+                const historyIdSet = new Set(currentHistory.map(h => h.id));
+                const uniqueNewHistory = imported.analysisHistory.filter(h => !historyIdSet.has(h.id));
+                analysisService.restoreAnalysisHistory([...currentHistory, ...uniqueNewHistory]);
+            }
 
             devLogService.addLogEntry({ type: 'audit', level: 'info', action: 'Data Import', details: `Imported ${uniqueNewConvs.length} sessions.` });
             onDataRefresh();

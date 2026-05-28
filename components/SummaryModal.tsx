@@ -1,10 +1,9 @@
 
-// components/SummaryModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Unified Download Integration
+// components/SummaryModal.tsx - v5.97 - 2026-05-25 - Remove Edit/Add and Copy Actions
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
 import CheckIcon from './icons/CheckIcon';
-import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
 import LinkIcon from './icons/LinkIcon';
 import ExportIcon from './icons/ExportIcon';
@@ -17,7 +16,6 @@ interface SummaryModalProps {
   onClose: () => void;
   summary: string;
   isLoading: boolean;
-  onRevise: (correctionRequest: string) => void;
   onFinalize: () => void;
   // Added for Handover Export
   messages: ChatMessage[];
@@ -54,15 +52,11 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   onClose, 
   summary, 
   isLoading, 
-  onRevise, 
   onFinalize,
   messages,
   userId,
   aiName
 }) => {
-  const [isCopied, setIsCopied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [correctionRequest, setCorrectionRequest] = useState('');
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -95,10 +89,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setIsCopied(false);
-      setIsEditing(false);
       setIsExported(false);
-      setCorrectionRequest('');
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
@@ -122,34 +113,19 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [isLoading]);
   
-  // Flatten content for copy
+  // Flatten content for copy/export
   const currentContent = useMemo(() => {
     if (parsedSummary.core_insight) {
-      const points = parsedSummary.analysis_points?.map(p => `### ${p.category}\n${p.observation}`).join('\n\n') || '';
-      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}\n\n${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
+      const points = parsedSummary.analysis_points && parsedSummary.analysis_points.length > 0
+        ? '\n\n' + parsedSummary.analysis_points.map(p => `### ${p.category}\n${p.observation}`).join('\n\n')
+        : '';
+      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
     }
     return parsedSummary.user_summary || '';
   }, [parsedSummary]);
 
-  const handleCopy = () => {
-    if (currentContent && !isLoading) {
-      navigator.clipboard.writeText(currentContent).then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2500);
-      });
-    }
-  };
-
   const handleSurveyComplete = () => {
     setCurrentStep('loading');
-  };
-
-  const handleRevisionSubmit = async () => {
-    if (!correctionRequest.trim() || isLoading) return;
-    setCurrentStep('loading');
-    await onRevise(correctionRequest);
-    setIsEditing(false);
-    setCorrectionRequest('');
   };
   
   const handleProceedToReferral = () => {
@@ -212,7 +188,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -381,21 +357,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                     </>
                 )}
             </div>
-          ) : isEditing ? (
-             <div className="space-y-4 animate-in fade-in duration-300">
-              <div>
-                <label htmlFor="correction-request" className="block text-sm font-bold text-slate-700 mb-2">修正・追記したい内容を入力してください</label>
-                <textarea
-                  id="correction-request"
-                  value={correctionRequest}
-                  onChange={(e) => setCorrectionRequest(e.target.value)}
-                  rows={5}
-                  className="w-full p-4 bg-slate-50 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
-                  placeholder="例：今の仕事へのやりがいの部分をもう少し詳しく書きたいです。"
-                  autoFocus
-                />
-              </div>
-            </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                {parsedSummary.core_insight ? (
@@ -420,7 +381,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
 
                    {/* Analysis Points Grid */}
                    <div className="grid grid-cols-1 gap-4">
-                     {parsedSummary.analysis_points?.map((point, idx) => (
+                     {parsedSummary.analysis_points && parsedSummary.analysis_points.length > 0 && parsedSummary.analysis_points.map((point, idx) => (
                        <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-sky-300 transition-all group">
                          <h4 className="text-xs font-black text-slate-400 group-hover:text-sky-500 transition-colors uppercase tracking-widest mb-2">{point.category}</h4>
                          <p className="text-slate-800 font-bold leading-relaxed">{point.observation}</p>
@@ -454,17 +415,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
         <footer className="p-6 bg-white border-t border-slate-100 z-10">
            {currentStep === 'survey' ? (
              <button onClick={onClose} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセルして戻る</button>
-           ) : isEditing ? (
-             <div className="flex gap-4">
-               <button onClick={() => setIsEditing(false)} className="flex-1 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセル</button>
-               <button onClick={handleRevisionSubmit} className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-sky-600 text-white hover:bg-sky-700 transition-all shadow-md">修正を反映する</button>
-             </div>
            ) : currentStep === 'result' ? (
             <div className="flex flex-col gap-5">
-              <div className="flex gap-3">
-                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"><EditIcon />修正・追記</button>
-                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all ${isCopied ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
-              </div>
               <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-3 px-4 py-5 font-black text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-100 group">
                   <span>レポートを確定して次へ</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>

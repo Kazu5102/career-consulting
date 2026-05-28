@@ -1,5 +1,5 @@
 
-// App.tsx - v5.93 - 2026-05-24 - Model Upgrade - Version Sync
+// App.tsx - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

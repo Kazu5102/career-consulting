@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.94",
-  "description": "Secure AI Architecture v5.94: 相談者の内省の深まりに応じた、相談終了・要約ボタンへのスムーズな動的誘導および強調ハイライト表示機能の追加",
-  "version": "5.94",
+  "name": "Career Consulting_6.04",
+  "description": "Secure AI Architecture v6.04: ゼロトラスト自己完結型HTMLパッケージによる暗号化バックアップ連携機能を備え、会話量・深度に応じた動的レポート最適化とエラー/薄会話フィルタリング（Plan B）を実装した安全なキャリア相談システム",
+  "version": "6.04",
   "prompt": "",
   "D7": [],
   "Yp": []

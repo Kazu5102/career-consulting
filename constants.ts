@@ -1,7 +1,7 @@
 
 // constants.ts
-// v5.95 - 2026-05-24 - Enhance Insight Report with absolute reassurance and feeling of accomplishment
-export const APP_VERSION = "5.95";
+// v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
+export const APP_VERSION = "6.04";
 
 /**
  * AI Service Configuration
