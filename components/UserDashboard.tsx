@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v6.04 - 2026-05-28 - Secure HTML Backup Transition and JSON Removal (Plan B)
+// components/UserDashboard.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -286,7 +286,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
             })}
           </div>
       </div>
-      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} />}
+      {selectedConversation && <ConversationDetailModal conversation={selectedConversation} onClose={() => setSelectedConversation(null)} showHandoverNote={false} />}
       <ExportSuccessModal isOpen={isExportSuccessModalOpen} onClose={() => setIsExportSuccessModalOpen(false)} />
 
       {/* エクスポート用パスワード設定モーダル */}

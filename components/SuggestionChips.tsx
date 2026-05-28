@@ -1,5 +1,5 @@
 
-// components/SuggestionChips.tsx - v2.24 - Mobile Optimized UX
+// components/SuggestionChips.tsx - v2.25 - 2026-05-28 - Fix React animation style conflict (avoid mixed shorthand)
 import React from 'react';
 import LightbulbIcon from './icons/LightbulbIcon';
 
@@ -35,7 +35,10 @@ const SuggestionChips: React.FC<SuggestionChipsProps> = ({ suggestions, onSugges
             onClick={() => onSuggestionClick(suggestion)}
             className="w-full text-left p-4 bg-white border-2 border-sky-100 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:bg-sky-50 hover:border-sky-300 hover:shadow-lg transition-all duration-200 group active:scale-[0.97]"
             style={{ 
-              animation: isVisible ? 'popInSuggestion 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' : 'none',
+              animationName: isVisible ? 'popInSuggestion' : 'none',
+              animationDuration: '0.4s',
+              animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+              animationFillMode: 'forwards',
               animationDelay: `${index * 60}ms`
             }}
           >

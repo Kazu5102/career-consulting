@@ -1,4 +1,5 @@
 
+// components/ConversationDetailModal.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
 import React from 'react';
 import { marked } from 'marked';
 import { StoredConversation } from '../types';
@@ -7,9 +8,14 @@ import MessageBubble from './MessageBubble';
 interface ConversationDetailModalProps {
   conversation: StoredConversation;
   onClose: () => void;
+  showHandoverNote?: boolean;
 }
 
-const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conversation, onClose }) => {
+const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ 
+  conversation, 
+  onClose,
+  showHandoverNote = false
+}) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ja-JP', { dateStyle: 'long', timeStyle: 'short' });
   };
@@ -75,7 +81,7 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
                 </p>
              </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className={`grid grid-cols-1 ${showHandoverNote ? 'lg:grid-cols-2' : 'max-w-3xl mx-auto w-full'} gap-8`}>
                 <section className="bg-amber-50/40 p-6 rounded-3xl border border-amber-100/50">
                 <div className="flex items-center gap-2 mb-6 text-amber-800">
                     <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-amber-100 rounded">User Facing</span>
@@ -87,20 +93,22 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
                 />
                 </section>
 
-                <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50">
-                <div className="flex items-center gap-2 mb-6 text-emerald-800">
-                    <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
-                    <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
-                </div>
-                {pro_notes ? (
-                    <article 
-                        className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
-                        dangerouslySetInnerHTML={createMarkup(pro_notes)}
-                    />
-                ) : (
-                    <p className="text-slate-400 italic text-sm">※詳細ノートは生成されていません。</p>
+                {showHandoverNote && (
+                  <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50">
+                  <div className="flex items-center gap-2 mb-6 text-emerald-800">
+                      <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
+                      <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
+                  </div>
+                  {pro_notes ? (
+                      <article 
+                          className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
+                          dangerouslySetInnerHTML={createMarkup(pro_notes)}
+                      />
+                  ) : (
+                      <p className="text-slate-400 italic text-sm">※詳細ノートは生成されていません。</p>
+                  )}
+                  </section>
                 )}
-                </section>
             </div>
           )}
 

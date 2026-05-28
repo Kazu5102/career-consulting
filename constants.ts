@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
-export const APP_VERSION = "6.04";
+// v6.06 - 2026-05-28 - React animationの競合警告の解決（案1：個別プロパティへの分解）
+export const APP_VERSION = "6.06";
 
 /**
  * AI Service Configuration
