@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.08 - 2026-05-28 - 2段階確認入力＋表示トグル付きパスワード保護フォーム（案A）＆ 自動構造化コンバート（案A）
-export const APP_VERSION = "6.08";
+// v6.10 - 2026-05-29 - 修復作業およびキャリア・リフレクション・レポートのプロンプト（案A）完全適用
+export const APP_VERSION = "6.10";
 
 /**
  * AI Service Configuration

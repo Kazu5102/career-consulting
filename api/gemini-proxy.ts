@@ -1,4 +1,4 @@
-// api/gemini-proxy.ts - v6.04 - 2026-05-28 - Filter out system error messages & prevent hallucinated reports on thin chats (Plan B)
+// api/gemini-proxy.ts - v6.10 - 2026-05-29 - Repair and fully apply Carrier reflection report visualization prompt (Plan A)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -148,21 +148,14 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                 }
             } catch (chunkError) {
-                console.warn("Chunk processing warning:", chunkError);
+                console.error("[Stream Chunk Error] failed to read chunk text", chunkError);
             }
         }
-        res.write('data: [DONE]\n\n');
     } catch (error: any) {
-        console.error("Proxy Stream Error:", error);
-        
-        let errorDetails = "An unexpected error occurred during generation.";
-        if (error.message) {
-            errorDetails = error.message;
-        } else if (typeof error === 'string') {
-            errorDetails = error;
-        }
-        res.write(`data: ${JSON.stringify({ error: errorDetails })}\n\n`);
+        console.error("[Stream Framework Error]", error);
+        res.write(`data: ${JSON.stringify({ error: error.message || 'Streaming failed due to server error' })}\n\n`);
     } finally {
+        res.write('data: [DONE]\n\n');
         res.end();
     }
 }
@@ -295,10 +288,10 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
                             type: Type.OBJECT,
                             properties: {
                                 title: { type: Type.STRING },
-                                type: { type: Type.STRING }, // 'course' | 'book' | 'article' | 'video'
-                                provider: { type: Type.STRING }
+                                type: { type: Type.STRING }, // 'course' | 'book' | 'article'
+                                url: { type: Type.STRING }
                             },
-                            required: ["title", "type", "provider"]
+                            required: ["title", "type", "url"]
                         }
                     }
                 },
@@ -342,70 +335,53 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     }));
 
     await streamGeminiResponse(res, (model) => getAIClient().models.generateContentStream({
-        model: model,
+        model: model, 
         contents,
-        config: {
-            systemInstruction: systemInstruction,
+        config: { 
+            systemInstruction, 
             temperature: 0.7,
-            topP: 0.9,
-        }
+            thinkingConfig: { thinkingBudget: 0 } 
+        },
     }), CHAT_MODEL);
 }
 
-async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile, aiType: AIType, aiName: string }) {
-    const { chatHistory, profile, aiType, aiName } = payload;
+async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
+    const { chatHistory, profile } = payload;
     
-    // システムエラーメッセージ等の除外フィルタ
     const errorKeywords = [
-        "アクセスが集中しており",
-        "応答の生成に失敗",
-        "お時間を置いてから",
+        "APIキーが設定されていません", 
+        "Model not found", 
+        "quota exceeded", 
+        "upstream error", 
         "システムに負荷がかかっております",
         "エラーが発生しました",
         "推論システムにアクセスが集中"
     ];
 
-    const isSystemErrorMsg = (text: string) => {
-        return errorKeywords.some(kw => text.includes(kw));
-    };
-
-    // クレンジングされた会話履歴の作成（エラーメッセージ等を含む行を完全に除いたもの）
-    const cleansedHistory = chatHistory.filter(m => {
-        const text = m.text || "";
-        return !isSystemErrorMsg(text);
+    const cleansedHistory = chatHistory.filter(msg => {
+        if (!msg.text) return false;
+        return !errorKeywords.some(keyword => msg.text.includes(keyword));
     });
 
-    // ユーザー側の発話
-    const userMessages = cleansedHistory.filter(m => (m.author as string) === 'user' || m.author === MessageAuthor.USER);
-    
-    // システムエラー起因のユーザー疑問発言や単なる短すぎるテストワード（2文字以下）のノイズ除去
-    const noiseKeywords = ["どうでしょうか", "エラー", "失敗", "動かない", "おーい", "てすと", "あいうえお", "テスト"];
-    const validUserMessages = userMessages.filter(m => {
-        const text = (m.text || "").trim();
-        if (text.length <= 1) return false;
-        return !noiseKeywords.some(kw => text.includes(kw));
-    });
+    const totalUserChars = cleansedHistory
+        .filter(m => m.author === MessageAuthor.USER)
+        .reduce((sum, m) => sum + (m.text?.length || 0), 0);
+    const isThinConversation = totalUserChars < 25;
 
-    const userMsgCount = validUserMessages.length;
-    const userCharCount = validUserMessages.reduce((sum, m) => sum + (m.text?.length || 0), 0);
-    const totalMsgCount = cleansedHistory.length;
-
-    // 対話が極めて少ない（ユーザーからの有意義な発信が3回未満、または合計文字数が120文字未満、または全チャットが5ターン未満）
-    const isThinConversation = userMsgCount < 3 || userCharCount < 120 || totalMsgCount < 5;
-    
-    // 心理的コンテキストの抽出（打鍵リズム）
     let fluencySummaryContext = "";
-    if (profile && profile.typingFluency) {
+    if (profile.typingFluency) {
         const { mean, stdDev } = profile.typingFluency;
-        if (mean > 600) {
-            fluencySummaryContext = "【ユーザーの入力傾向: 迷い・慎重さ】\n相談者は対話中、言葉を慎重に選んでいました。その慎重さを優しく包み込み、「ゆっくりと自分に向き合えたこと」への賞賛に昇華させてください。";
-        } else if (stdDev > 200) {
-            fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ】\n打鍵が変動しており、感情的な葛藤を抱えながら話していた可能性があります。その真剣なエネルギーを承認し、ありのままを包み込んでください。";
+        if (mean > 0) {
+            if (mean > 600 || stdDev > 200) {
+                fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ】\n打鍵が変動しており、感情的な葛藤を抱えながら話していた可能性があります。その真剣なエネルギーを承認し、ありのままを包み込んでください。";
+            } else {
+                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・確信】\n整理された滑らかなタイピングでした。その思考の明確さを強みとして受け止めてください。";
+            }
         } else {
-            fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・確信】\n整理された滑らかなタイピングでした。その思考の明確さを強みとして受け止めてください。";
+            fluencySummaryContext = "【ユーザーの入力傾向: 不明（テキストインポートなど）】";
         }
     } else {
-        fluencySummaryContext = "【ユーザーの入力傾向: 不明（テキストインポートなど）】";
+        fluencySummaryContext = "【ユーザーの入力傾向: 不明（データ無し）】";
     }
 
     let conversationVolumeInstruction = "";
@@ -442,8 +418,10 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     // AIがエラー文などを誤認しないよう、クレンジングされたテキストをプロンプトに提供
     const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
 
-    const prompt = `あなたは卓越した優しさと専門性を兼ね備えたキャリアコンサルタントおよび伴走メンターとして、これまでの対話の集大成となる、簡潔で心の負担にならない「キャリア・リフレクション・レポート」を作成してください。
-今回は「情報過多で疲れさせない」ことを最重視し、対話の「真の核心（Crux）」と「明日を照らす前向きな一言（問いかけ・エール）」だけに情報をぎゅっと結晶化させてください。
+    const prompt = `あなたは相談者の思考や感情をそのまま鏡のように映し出す「内省の可視化アシスタント（リフレクター）」として、これまでの対話の集大成となる、簡潔で心の負担にならない「キャリア・リフレクション・レポート」を作成してください。
+今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」を行いません。
+あくまで相談者が自分の内面に向き合えるよう、相手が語った具体的な事実や本人の言葉、そしてその奥にある等身大の気持ちをありのままに鏡のように整理（リフレクション）して文章化してください。
+また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、深追いせずに今日の一歩を謙虚にねぎらい、温かく包み込み寄り添うことに特化させてください。
 
 ※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
 
