@@ -1,5 +1,5 @@
 
-// components/ConversationDetailModal.tsx - v6.08 - 2026-05-28 - 自動構造化コンバート対応（案A：JSONパースのMarkdown自動結合変換）
+// components/ConversationDetailModal.tsx - v6.20 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案1（プレーンMarkdown移行方式））の完全適用に伴うアップデート
 import React from 'react';
 import { marked } from 'marked';
 import { StoredConversation } from '../types';

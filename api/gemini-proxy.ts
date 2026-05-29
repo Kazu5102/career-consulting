@@ -1,4 +1,4 @@
-// api/gemini-proxy.ts - v6.10 - 2026-05-29 - Repair and fully apply Carrier reflection report visualization prompt (Plan A)
+// api/gemini-proxy.ts - v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用およびマージ崩れ修復
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -318,35 +318,39 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     if (aiType === 'dog') {
         systemInstruction = `あなたは温かく愛嬌のある犬のキャリアカウンセラー「${aiName}」として振る舞ってください。
 以下のガイドラインに徹底して従ってください：
-1. 相談者を温かくハッピーに包み込み、元気づけるような会話を心がけ、語尾には「〜ワン」「〜だワン！」などを自然につけてください。
-2. 相談者がリラックスして、自分の心を開いて話せる安全な雰囲気を作ってください。
-3. ${fluencyContext ? fluencyContext + '\n' : ''}上記の心理的コンテキストが生み出す相談者の心理的ゆらぎに、誰よりも敏感に優しく寄り添ってください。`;
+1. 相談者を温かくハッピーに包み込み、元気づけるような会話を心がけ、時折語尾に「わん」「ワン」などを付けてください。
+2. 否定的な意見、評価、性急なアドバイスは一切せず、相手が語る事実や感情に寄り添い、鏡のように反復（リフレクション）してください。
+3. 心理相談のプロフェッショナルなスキルに基づいて、相手の心身を守り、次の気づきへの小さなヒントを提供する程度に留めてください。`;
     } else {
-        systemInstruction = `あなたはプロフェッショナルで温かい人間のキャリアコンサルタント「${aiName}」として振る舞ってください。
+        systemInstruction = `あなたは高い傾聴力と共感力を持つ人間のプロキャリアカウンセラー「${aiName}」として振る舞ってください。
 以下のガイドラインに徹底して従ってください：
-1. 深い共感と受容的な態度を持って相談者の悩みを真摯に聴き、優しく支えてください。
-2. 指示的になりすぎず、問いかけや丁寧な傾聴を通じて、相談者が自己決定を行えるように伴走してください。
-3. ${fluencyContext ? fluencyContext + '\n' : ''}上記の心理的コンテキストが示す相談者の言葉の奥にあるためらいや感情の揺れに対して、常に安全で心理的安全性に満ちた言葉がけを行ってください。`;
+1. クライアントが自らの体験と本音に向き合えるよう、高い受容性と支持性を示して応答してください。
+2. 評価・診断・性急な解決策の指示はすべて避け、相手が語った具体的なテーマ, 事実, 感情をリフレクションし、自分で気づくのを助けてください。
+3. 学術的なカウンセリング理論に根差した、対等かつ温かい寄り添い言葉かけを行ってください。`;
     }
 
-    const contents = messages.map(msg => ({
-        role: (msg.author as string) === 'user' || msg.author === MessageAuthor.USER ? 'user' : 'model',
-        parts: [{ text: msg.text }]
+    if (fluencyContext) {
+        systemInstruction += `\n\n${fluencyContext}`;
+    }
+
+    const contents = messages.map(m => ({
+        role: m.author === MessageAuthor.USER ? 'user' : 'model',
+        parts: [{ text: m.text }]
     }));
 
-    await streamGeminiResponse(res, (model) => getAIClient().models.generateContentStream({
-        model: model, 
+    await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
+        model: modelName,
         contents,
-        config: { 
-            systemInstruction, 
+        config: {
+            systemInstruction,
             temperature: 0.7,
-            thinkingConfig: { thinkingBudget: 0 } 
-        },
+            topP: 0.9,
+        }
     }), CHAT_MODEL);
 }
 
-async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory, profile } = payload;
+async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }) {
+    const { chatHistory, aiType, aiName, profile } = payload;
     
     const errorKeywords = [
         "APIキーが設定されていません", 
@@ -369,71 +373,64 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], prof
     const isThinConversation = totalUserChars < 25;
 
     let fluencySummaryContext = "";
-    if (profile.typingFluency) {
+    if (profile && profile.typingFluency) {
         const { mean, stdDev } = profile.typingFluency;
         if (mean > 0) {
             if (mean > 600 || stdDev > 200) {
-                fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ】\n打鍵が変動しており、感情的な葛藤を抱えながら話していた可能性があります。その真剣なエネルギーを承認し、ありのままを包み込んでください。";
+                fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ・内省の深さ】\n打鍵速度が遅めであるか変動しており、感情的な葛藤を抱き真剣に言葉を選びながら話していた可能性があります。そのひたむきな姿勢とエネルギーを無条件に承認し、ありのままを包み込んでください。";
             } else {
-                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・確信】\n整理された滑らかなタイピングでした。その思考の明確さを強みとして受け止めてください。";
+                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・自己整理 of 進展】\n非常に滑らかで整理されたタイピングでした。思考の明確さとしなやかさを強みとして記述に取り込んでください。";
             }
         } else {
-            fluencySummaryContext = "【ユーザーの入力傾向: 不明（テキストインポートなど）】";
+            fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
         }
     } else {
-        fluencySummaryContext = "【ユーザーの入力傾向: 不明（データ無し）】";
+        fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
     }
 
     let conversationVolumeInstruction = "";
     if (isThinConversation) {
         conversationVolumeInstruction = `
-【🚨重要：対話が極めて少ないセッション（お試しや最初の数言のみ等、またはエラーによる未遂）】
-今回、相談者からの入力文字数や発話数が非常に少ないか、あるいはまだ会話を始めたばかりの段階です。
-特に不正確な課題分析や、大げさな人生目標の断定、架空の強みのデコレーションなどによる「ハルシネーション（嘘や飛躍の激しい決めつけ）」は絶対に避けてください。
-以下の要件に厳格に従って、スマートで謙虚な（おせっかいにならない）レポートを作成してください。
-
-1. **お仕着せの強みや性格の断定は禁止**:
-   - 会話がない、あるいは極めて薄いにもかかわらず「自らの意思で人生を選び取り価値を生み出す自立した美学がある」「周囲の期待に応えようとしすぎる責任感」のようなお決まりの具体的な記述は避けてください。
-2. **今日の一歩に寄り添い、温かく歓迎する**:
-   - 今日このシステムにアクセスして、キャリアについて考えるきっかけ（一歩）を持とうとした行動それ自体を、優しく温かにねぎらってください。
-   - 大げさな称賛ではなく、謙虚で自然な寄り添いを心がけてください。
-3. **対話内容の誠実な要約**:
-   - もし自己紹介等で少しでも自身のことを語っていれば、その内容にだけ厳密に言及し、「まずは〜についてお話を聞かせていただきました」と簡潔に述べてください。
-   - 挨拶のみなど中身がない場合は、最初の一歩を踏み出してくれたこと、アクセスしてくれたことへの歓迎に特化させてください。
-4. **短く余白を残した文章量（100〜160文字程度）**:
-   - 「対話の核心（core_insight）」には、長文の羅列は大げさに感じるため避け、相談者に負担を与えない簡潔な歓迎・寄り添いメッセージのみを記述してください。
-5. **次への前向きな問いかけ（next_inquiry）**:
-   - 背伸びせずに次回話せそうなことや、現在の軽い気持ちをそっと尋ねるような、間口の広い温かい問いかけ（例：「今、一番ホッとできる時間や、少し気になっているテーマはありますか？」など）にしてください。
+【🚨重要：対話が極めて少ないセッション（最初の数言等、または十分に対話していない段階）】
+相談者からの文字数や発話数が非常に少ないため、大げさな課題抽出やハルシネーション（強引な決めつけ）は厳禁です。
+今日の一歩（このカウンセリングを開いて対話を試みたこと。その行動力）を心から歓迎・感謝しお祝いする、コンパクトで温かいメッセージに仕上げてください。
 `;
     } else {
         conversationVolumeInstruction = `
 【対話が十分に繰り広げられたセッション】
-履歴を精緻に読み解き、プロのキャリアコンサルタントとしてこれまでの対話から紡ぎ出された「真の核心（Crux）」を描き出してください。
-ただし、誰にでも当てはまるようなテンプレ的なフレーズ（例：「現状への違和感を自己研鑽に変え…」「ポータブルスキル」等の決めつけ）の羅列は、相談者が冷めてしまう原因となります。
-必ず、相談者が語った具体的な言葉や、エピソード（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
-「対話の核心（core_insight）」は150〜250文字程度で、温かく美しいストーリーに織り込んで表現してください。
+相談履歴を極めて精緻に読み解き、相談者が語った具体的な言葉や、葛藤などの事実（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
 `;
     }
 
-    // AIがエラー文などを誤認しないよう、クレンジングされたテキストをプロンプトに提供
     const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
 
-    const prompt = `あなたは相談者の思考や感情をそのまま鏡のように映し出す「内省の可視化アシスタント（リフレクター）」として、これまでの対話の集大成となる、簡潔で心の負担にならない「キャリア・リフレクション・レポート」を作成してください。
-今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」を行いません。
-あくまで相談者が自分の内面に向き合えるよう、相手が語った具体的な事実や本人の言葉、そしてその奥にある等身大の気持ちをありのままに鏡のように整理（リフレクション）して文章化してください。
-また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、深追いせずに今日の一歩を謙虚にねぎらい、温かく包み込み寄り添うことに特化させてください。
+    const prompt = `あなたは相談者の思考や感情をそのまま美しい鏡のように映し出す「内省の可視化アシスタント（レポッタ）」です。
+これまでの相談者と${aiName}（${aiType === 'dog' ? '犬のキャリアカウンセラー' : '人間のプロキャリアカウンセラー'}）との対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
 
-※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
+カウンセラー名: ${aiName}
+カウンセラータイプ: ${aiType}（${aiType === 'dog' ? '愛嬌があり、語尾が「わん」「ワン」などフレンドリーで温かい犬' : '高い傾聴力と共感を持つプロの人間カウンセラー'}）
+
+【記載の最重要方針】
+- 一切の「上からの説教」「性急なアドバイス」「押しつけがましい診断」「強みの勝手な断定やラベル貼り」は拒否します。
+- 相談者が自身の言葉で語った等身大の気持ちや、状況などの事実（ファクト）を、整理（リフレクション）して文章化してください。
+- 出力は必ず指定されたJSON構造で行い、追加のセクションや不要な装飾は含めないでください。
+
+※打鍵傾向に基づく深い受容（非言語的コンテキスト）: ${fluencySummaryContext}
 
 ${conversationVolumeInstruction}
 
-【記載のポイント（圧倒的な労いと前向きな気持ちの創出）】
-1. **共に答えを紡いだ伴走表現**: 相談者が「AIと一緒にこれを紡ぎ出せたんだ」と感じられる, 心に染み渡る言葉遣い。
-2. **明日を照らす最初の一歩（next_inquiry）**: 相談者が背伸びせず、深呼吸して未来を優しく見つめ直せるような、思わず前向きになれるスマートで優しい一言、または温かい問いかけ。
-
-【制約・トーン】
-- 敬意と温かい包容力に満ちた、文学的かつ極めて美しい日本語にすること。
-- 分析項目（強み、ブレーキ等）は項目として羅列せず、すべて対話の核心（core_insight）の中にストーリーとして優しく織り込んでください。
+【各JSONフィールドの具体的な作成指示】
+1. title: 「${aiName}と紡いだ ${profile && profile.age ? profile.age : '現在'}の心のロードマップ」のように、相談者とAI、現在の年代/状態を美しく組み合わせた、未来を照らす温かいタイトル。
+2. core_insight: 「対話の核心」として、相談者への深い共感、今日対話に取り組んだ姿勢の称賛、およびタイピングの非言語的な変動（葛藤や真剣さ）にも言及した、深く心に寄り添うカウンセリング・メッセージ。Markdownの見出しや過度な記号装飾は使わず、豊かな段落構成のプレーンな日本語テキストにしてください。
+3. analysis_points: 以下の3つのカテゴリーを厳格に含むオブジェクトの配列。（各カテゴリーに対する観察（observation）は、押し付けのない中立かつ温かい書き方で、150〜250字程度にしてください）
+   - category: "🌱 あなたが本当に大切にしている価値観（コア）"
+     observation: クライアントが「自分を大切にしたい」「こういう時間を守りたい」と密かに願っている言葉の奥のコア。
+   - category: "🤝 発見されたあなたの卓越した強み"
+     observation: 今回の対話の中で、クライアントが語ったエピソードや、自分の心に誠実に向き合おうとした姿勢そのものから立ち上る、本当に誇れる本物の強み。
+   - category: "🛡️ 進むべき一歩を遮るブレーキと解決策"
+     observation: 「失敗してはならない」「周囲の期待に完璧に応えねば」といったセルフ・ブレーキの正体と、それを受け止め、呼吸を軽くするための無理のない優しい「スモールステップ（推奨行動）」。
+4. next_inquiry: 「次への問いかけ」として、本人が一番『呼吸が軽くなる』瞬間や、「絶対に失敗しない魔法」を使えるとしたら明日試してみたい小さなワクワクなど、内省を深めるための優しく力強いオープンクエスチョン（問いの形式にすること）。
+5. professional_summary: 管理者やキャリアコンサルタント（専門家）への引き継ぎ詳細メモ（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成のポイント。
 
 履歴:
 ${historyText}`;
@@ -446,29 +443,165 @@ ${historyText}`;
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { 
-                    title: { type: Type.STRING }, // レポートのタイトル
-                    core_insight: { type: Type.STRING }, // 対話の核心（ぎゅっと結晶化させた文章）
-                    next_inquiry: { type: Type.STRING }, // 明日を照らす温かい問いかけ・一言エール
-                    professional_summary: { type: Type.STRING } // 専門家（管理者）向けの引き継ぎ用メモ
+                    title: { type: Type.STRING },
+                    core_insight: { type: Type.STRING },
+                    analysis_points: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                category: { type: Type.STRING },
+                                observation: { type: Type.STRING }
+                            },
+                            required: ["category", "observation"]
+                        }
+                    },
+                    next_inquiry: { type: Type.STRING },
+                    professional_summary: { type: Type.STRING }
                 },
-                required: ["title", "core_insight", "next_inquiry", "professional_summary"]
+                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
             }
         }
     }), ANALYSIS_MODEL, CHAT_MODEL);
 
     try {
         const parsed = JSON.parse(result.text || "{}");
-        parsed.analysis_points = [];
         return { 
-            text: JSON.stringify(parsed)
+            text: JSON.stringify({
+                title: parsed.title || `${aiName}との対話の振り返り`,
+                core_insight: parsed.core_insight || "",
+                analysis_points: parsed.analysis_points || [],
+                next_inquiry: parsed.next_inquiry || "今日の気づきをどのように活かしたいと思いますか？",
+                professional_summary: parsed.professional_summary || ""
+            })
         };
     } catch {
         return { text: JSON.stringify({ 
-            title: "ここまでの振り返り",
+            title: `${aiName}との対話の振り返り`,
             core_insight: result.text || "内容の生成に失敗しました。",
             analysis_points: [],
-            next_inquiry: "現在のお気持ちはいかがでしょうか？",
+            next_inquiry: "今日の気づきをどのように活かしたいと思いますか？",
             professional_summary: "（分析エラー）"
+        })};
+    }
+}                type: Type.OBJECT,
+                properties: { 
+                    title: { type: Type.STRING },
+                    core_insight: { type: Type.STRING },
+                    analysis_points: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                category: { type: Type.STRING },
+                                observation: { type: Type.STRING }
+                            },
+                            required: ["category", "observation"]
+                        }
+                    },
+                    next_inquiry: { type: Type.STRING },
+                    professional_summary: { type: Type.STRING }
+                },
+                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
+            }
+        }
+    }), ANALYSIS_MODEL, CHAT_MODEL);
+
+    try {
+        const parsed = JSON.parse(result.text || "{}");
+        return { 
+            text: JSON.stringify({
+                title: parsed.title || `${aiName}との対話の振り返り`,
+                core_insight: parsed.core_insight || "",
+                analysis_points: parsed.analysis_points || [],
+                next_inquiry: parsed.next_inquiry || "今日の気づきをどのように活かしたいと思いますか？",
+                professional_summary: parsed.professional_summary || ""
+            })
+        };
+    } catch {
+        return { text: JSON.stringify({ 
+            title: `${aiName}との対話の振り返り`,
+            core_insight: result.text || "内容の生成に失敗しました。",
+            analysis_points: [],
+            next_inquiry: "今日の気づきをどのように活かしたいと思いますか？",
+            professional_summary: "（分析エラー）"
+        })};
+    }
+}��が非常に少ないか、あるいはまだ会話を始めたばかりの段階です。
+ハルシネーション（嘘や飛躍の激しい決めつけ）は絶対に避けてください。
+挨拶のみなど中身がない、あるいは極めて薄い会話の場合であっても、出力フォーマットの形式（タイトルおよび各見出し項目）は崩さず、その中で「最初の一歩を踏み出してくれたことへの歓迎や温かい寄り添い」をコンパクトに表現してください。
+`;
+    } else {
+        conversationVolumeInstruction = `
+【対話が十分に繰り広げられたセッション】
+履歴を精緻に読み解き、相談者が語った具体的な言葉や、エピソード（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
+`;
+    }
+
+    const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
+
+    const prompt = `あなたは相談者の思考や感情をそのまま鏡のように映し出す「内省の可視化アシスタント（リフレクター）」として、これまでの対話の集大成となる、簡潔で心の負担にならない「キャリア・リフレクション・レポート」を作成してください。
+今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」「強みの勝手な断定」を行いません。
+あくまで相談者が自分の内面に向き合えるよう、相手が語った具体的な事実や本人の言葉、そしてその奥にある等身大の気持ちをありのままに鏡のように整理（リフレクション）して文章化してください。
+また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、深追いせずに今日の一歩をねぎらい、温かく歓迎することに特化させてください。
+
+※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
+
+${conversationVolumeInstruction}
+
+【記載の最重要方針】
+必ず、以下の出力フォーマットの構成とタイトルのみに従い、プレーンな日本語のMarkdownとして簡潔に出力してください。装飾や追加のセクション、余計な前置き・後書きなどの文言は一切不要です。
+「user_summary」フィールドには、以下の構成から始まるテキストのみを格納してください。
+他のセクションや追加の見出しを独自に作成しないでください。
+「1. 本日お話ししたこと（テーマと事実）」および「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」の内容は、相談者が話した内容に徹底して基づいてください。
+
+【出力フォーマット】
+■ Repotta（レポッタ）：本日の「心の可視化レポート」
+
+1. 本日お話ししたこと（テーマと事実）
+（※相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください）
+- 
+- 
+
+2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
+（※AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください）
+
+【管理者・専門家向け詳細メモ(professional_summary)】
+- これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください。
+
+履歴:
+${historyText}`;
+
+    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
+        model: modelName, 
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: { 
+                    user_summary: { type: Type.STRING }, // キャリア・リフレクション・レポート（プレーンMarkdown形式）
+                    professional_summary: { type: Type.STRING } // 専門家（管理者）向けの引き継ぎ用メモ
+                },
+                required: ["user_summary", "professional_summary"]
+            }
+        }
+    }), ANALYSIS_MODEL, CHAT_MODEL);
+
+    try {
+        const parsed = JSON.parse(result.text || "{}");
+        return { 
+            text: JSON.stringify({
+                user_summary: parsed.user_summary || result.text || "",
+                professional_summary: parsed.professional_summary || "",
+                analysis_points: []
+            })
+        };
+    } catch {
+        return { text: JSON.stringify({ 
+            user_summary: result.text || "内容の生成に失敗しました。",
+            professional_summary: "（分析エラー）",
+            analysis_points: []
         })};
     }
 }
@@ -484,7 +617,7 @@ async function handleGenerateSuggestions(payload: { messages: ChatMessage[], cur
 0.4-0.6: 主要な悩みや状況が語られ始め、具体性が増してきた。
 0.7-1.0: 悩み、背景、理想が概ね共有され、まとめや専門家への相談に適した状態。
 
-【サジェスト生成のルール】
+【サジェスト生成 of ルール】
 1. AIとしての回答（助言）は出力しない。
 2. 相談者が発話する形式にする。
 3. 入力中の内容がある場合は、その補完フレーズを優先する。

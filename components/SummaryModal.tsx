@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.07 - 2026-05-28 - 2段階確認入力＋表示トグル付きパスワード保護フォーム（案A）
+// components/SummaryModal.tsx - v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用に伴うアップデート
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -432,7 +432,10 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                        <span className="w-1.5 h-6 bg-sky-500 rounded-full"></span>
                        対話の核心
                      </h3>
-                     <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{parsedSummary.core_insight}</p>
+                     <div 
+                        className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700 font-medium"
+                        dangerouslySetInnerHTML={createMarkup(parsedSummary.core_insight || '')} 
+                      />
                    </section>
 
                    {/* Analysis Points Grid */}

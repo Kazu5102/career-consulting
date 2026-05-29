@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.10 - 2026-05-29 - 修復作業およびキャリア・リフレクション・レポートのプロンプト（案A）完全適用
-export const APP_VERSION = "6.10";
+// v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用およびマージ崩れ修復
+export const APP_VERSION = "6.22";
 
 /**
  * AI Service Configuration
