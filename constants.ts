@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.36 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（案A）
-export const APP_VERSION = "6.36";
+// v6.37 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（アプローチ案1）
+export const APP_VERSION = "6.37";
 
 /**
  * AI Service Configuration

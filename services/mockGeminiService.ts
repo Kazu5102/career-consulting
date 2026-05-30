@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v6.36 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（案A）
+// services/mockGeminiService.ts - v6.37 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（アプローチ案1）
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -190,36 +190,6 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
 - 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
 - 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;
 
-    const title = `${aiName}と紡いだ ${profile?.age || '現在'}の心のロードマップ`;
-    const core_insight = `### 🌟 今回の対話が照らす、あなたの本当の価値
-${nickname}へ。
-今日、私たち${aiName}は、${topics.join(isDog ? '、そして' : '、さらには')}について、丁寧に言葉の糸をほぐしていきました。`;
-
-    const analysis_points = [
-        {
-            category: "🌱 あなたが本当に大切にしている価値観（コア）",
-            observation: isDog 
-                ? `対話のなかで、キミが「自分を大切にし、やりがいを感じる時間を守りたい」と願っていることが熱く伝わってきたワン。何より周囲の人や、自分が関わっている状況を慈しもうとする、心の深さがあるワン！`
-                : `あなたが語られた言葉の深層には、ただ業務をこなすだけでなく「自らの意思で人生を選び取り、価値を生み出す充足感を得たい」という極めて自立した美学があります。`
-        },
-        {
-            category: "🤝 発見されたあなたの卓越した強み",
-            observation: isDog
-                ? `キミは『どんな困難な状況であっても、自分の言葉で想いを整理し、解決策を前に進める』抜群の力を持っているワン。笑顔の裏にある、不屈の「自走力」が最大の魅力なんだワン！`
-                : `『現状への違和感を自己研鑽への動機に変え、主体的に課題を探求する』といった自己変革 of 姿勢が対話の端々から見て取れました。これはあらゆる環境で通用する強力なポータブルスキルです。`
-        },
-        {
-            category: "🛡️ 進むべき一歩を遮るブレーキと解決策",
-            observation: isDog
-                ? `「失敗しちゃいけないワン…」「期待に応えなきゃ…」という優しい気持ちが、キミの自由な翼を少し小さくしているかもしれないワン。でも大丈夫、その不安はキミが前に進みたい証拠なんだワン！`
-                : `周囲からの期待に応えようとしすぎる責任感が、「十分に準備が揃うまで動いてはいけない」というセルフ・ブレーキになっている模様です。完璧を求めず、まずは小さな『スモールステップ』から試すことが解決の糸口です。`
-        }
-    ];
-
-    const next_inquiry = isDog
-        ? `もし、キミが「絶対に失敗しない魔法」をひとつだけ使えるとしたら、明日、どんな小さなワクワクすることを始めてみたいワン？`
-        : `これまでの常識や『こうあるべき』という枠をすべて取り払ったとき、あなたが一番『呼吸が軽くなる』瞬間は、一体どのような姿でしょうか？`;
-
     const professional_summary = `【相談者プロフィール】
 年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}
 エネルギー注力先：${profile?.lifeRoles?.join(', ') || "日常"}
@@ -228,10 +198,6 @@ ${nickname}へ。
 カウンセラーとの面談初期段階では「行動の提案」よりも、まず本人のこの頑張りそのものを無条件で受容し、安全な心理的土台を再構築することが極めて重要です。`;
 
     const mockStructured = {
-        title,
-        core_insight,
-        analysis_points,
-        next_inquiry,
         user_summary,
         professional_summary
     };

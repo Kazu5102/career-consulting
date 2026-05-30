@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用に伴うアップデート
+// components/SummaryModal.tsx - v6.37 - 2026-05-30 - キャリア・リフレクション・レポートの可視化を純粋なMarkdownレンダリング（アプローチ案1）に整合
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -137,12 +137,6 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   
   // Flatten content for copy/export
   const currentContent = useMemo(() => {
-    if (parsedSummary.core_insight) {
-      const points = parsedSummary.analysis_points && parsedSummary.analysis_points.length > 0
-        ? '\n\n' + parsedSummary.analysis_points.map(p => `### ${p.category}\n${p.observation}`).join('\n\n')
-        : '';
-      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
-    }
     return parsedSummary.user_summary || '';
   }, [parsedSummary]);
 
@@ -415,58 +409,12 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
             </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-               {parsedSummary.core_insight ? (
-                 <div className="space-y-8">
-                   {/* Title Section */}
-                   <div className="text-center py-6 border-b-2 border-sky-100 mb-8">
-                     <span className="text-[10px] font-black tracking-widest text-sky-500 uppercase">Career Reflection Report</span>
-                     <h1 className="text-3xl font-black text-slate-800 mt-2">{parsedSummary.title}</h1>
-                   </div>
-
-                   {/* Core Insight */}
-                   <section className="bg-sky-50/50 p-6 rounded-3xl border border-sky-100 relative overflow-hidden">
-                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H8.01703V12H12.017C13.1216 12 14.017 11.1046 14.017 10V5C14.017 3.89543 13.1216 3 12.017 3H5.01703C3.91246 3 3.01703 3.89543 3.01703 5V19C3.01703 20.1046 3.91246 21 5.01703 21H14.017Z"/></svg>
-                     </div>
-                     <h3 className="text-lg font-black text-sky-800 mb-4 flex items-center gap-2">
-                       <span className="w-1.5 h-6 bg-sky-500 rounded-full"></span>
-                       対話の核心
-                     </h3>
-                     <div 
-                        className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700 font-medium"
-                        dangerouslySetInnerHTML={createMarkup(parsedSummary.core_insight || '')} 
-                      />
-                   </section>
-
-                   {/* Analysis Points Grid */}
-                   <div className="grid grid-cols-1 gap-4">
-                     {parsedSummary.analysis_points && parsedSummary.analysis_points.length > 0 && parsedSummary.analysis_points.map((point, idx) => (
-                       <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-sky-300 transition-all group">
-                         <h4 className="text-xs font-black text-slate-400 group-hover:text-sky-500 transition-colors uppercase tracking-widest mb-2">{point.category}</h4>
-                         <p className="text-slate-800 font-bold leading-relaxed">{point.observation}</p>
-                       </div>
-                     ))}
-                   </div>
-
-                   {/* Next Inquiry */}
-                   <section className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl relative overflow-hidden group">
-                     <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-700"></div>
-                     <h3 className="text-sm font-black text-slate-400 mb-4 tracking-[0.2em]">SELF-REFLECTION</h3>
-                     <p className="text-xl font-bold leading-relaxed italic">「{parsedSummary.next_inquiry}」</p>
-                     <p className="text-xs text-slate-500 mt-6 flex items-center gap-2">
-                       <span className="w-4 h-px bg-slate-700"></span>
-                       この問いについて、またお時間のある時に考えてみてください
-                     </p>
-                   </section>
-                 </div>
-               ) : (
-                 <div className="bg-amber-50/40 p-10 rounded-3xl border border-amber-100 shadow-inner">
-                   <article 
-                       className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
-                       dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
-                   />
-                 </div>
-               )}
+              <div className="bg-amber-50/40 p-6 sm:p-10 rounded-2xl border border-amber-100 shadow-inner">
+                <article 
+                    className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
+                    dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
+                />
+              </div>
             </div>
           )}
         </div>
