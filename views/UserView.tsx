@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v6.35 - 2026-05-30 - モックチャットシミュレータの知能再生及びゴミコード完全駆除伴うアップデート
+// views/UserView.tsx - v6.36 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（案A）
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,7 +81,7 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
-  const VERSION = "6.35";
+  const VERSION = "6.36";
   const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);

@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v6.35 - 2026-05-30 - モックチャットシミュレータの知能再生及びゴミコード完全駆除
+// services/mockGeminiService.ts - v6.36 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（案A）
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -180,12 +180,12 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
     }
 
     const user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」
-・本日お話ししたこと（テーマと事実）
+1. 本日お話ししたこと（テーマと事実）
 （※相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください）
 - ${topics.join(isDog ? '、そして' : '、さらには')}についての葛藤や現在の状況。
 - 自分に合った働き方やキャリアの方向性について、深く悩まれている状況。
 
-・対話を通じて、あなたが気づいたこと・言葉にしたこと
+2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
 （※AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください）
 - 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
 - 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;

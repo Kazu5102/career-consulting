@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.35 - 2026-05-30 - モックチャットシミュレータの知能再生及びゴミコード完全駆除
-export const APP_VERSION = "6.35";
+// v6.36 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（案A）
+export const APP_VERSION = "6.36";
 
 /**
  * AI Service Configuration
