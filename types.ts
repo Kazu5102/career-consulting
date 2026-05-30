@@ -1,5 +1,5 @@
 
-// types.ts - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
+// types.ts - v6.05 - 2026-05-29 - Add nickname to UserProfile in order to fix mock type checks
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;
@@ -20,6 +20,7 @@ export interface UserInfo {
 }
 
 export interface UserProfile {
+  nickname?: string;
   stage?: string;
   age?: string;
   gender?: string;

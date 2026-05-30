@@ -1,4 +1,4 @@
-// api/gemini-proxy.ts - v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用およびマージ崩れ修復
+// api/gemini-proxy.ts - v6.33 - 2026-05-29 - 「心の可視化レポート（レポッタ）」新フォーマット（・見出し版）の適用
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -308,9 +308,9 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     
     // 特許準拠：打鍵リズムによる心理的コンテキストの抽出
     let fluencyContext = "";
-    if (profile.typingFluency) {
+    if (profile && profile.typingFluency) {
         const { mean, stdDev } = profile.typingFluency;
-        if (mean > 600) fluencyContext = "【心理的コンテキスト: 慎重/ためらい】ユーザーは入力に時間がかかっており、言葉を選んでいるか、迷いがある可能性があります。より受容的で辛抱強い態度で接してください。";
+        if (mean > 600) fluencyContext = "【心理的コンテキスト: 慎重/ためらい】ユーザーは入力に時間がかかっており、言葉を選んでいるか、迷いがある可能性があります。より受容的で粘り強い態度で接してください。";
         if (stdDev > 200) fluencyContext = "【心理的コンテキスト: 感情的動揺/葛藤】打鍵が不規則であり、内面で強い葛藤や焦燥がある可能性があります。安心感を与える言葉がけを意識してください。";
     }
 
@@ -325,7 +325,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         systemInstruction = `あなたは高い傾聴力と共感力を持つ人間のプロキャリアカウンセラー「${aiName}」として振る舞ってください。
 以下のガイドラインに徹底して従ってください：
 1. クライアントが自らの体験と本音に向き合えるよう、高い受容性と支持性を示して応答してください。
-2. 評価・診断・性急な解決策の指示はすべて避け、相手が語った具体的なテーマ, 事実, 感情をリフレクションし、自分で気づくのを助けてください。
+2. 評価・診断・性急な解決策 of 指示はすべて避け、相手が語った具体的なテーマ, 事実, 感情をリフレクションし、自分で気づくのを助けてください。
 3. 学術的なカウンセリング理論に根差した、対等かつ温かい寄り添い言葉かけを行ってください。`;
     }
 
@@ -379,7 +379,7 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiTy
             if (mean > 600 || stdDev > 200) {
                 fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ・内省の深さ】\n打鍵速度が遅めであるか変動しており、感情的な葛藤を抱き真剣に言葉を選びながら話していた可能性があります。そのひたむきな姿勢とエネルギーを無条件に承認し、ありのままを包み込んでください。";
             } else {
-                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・自己整理 of 進展】\n非常に滑らかで整理されたタイピングでした。思考の明確さとしなやかさを強みとして記述に取り込んでください。";
+                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・自己整理の進展】\n非常に滑らかで整理されたタイピングでした。思考の明確さとしなやかさを強みとして記述に取り込んでください。";
             }
         } else {
             fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
@@ -398,176 +398,43 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiTy
     } else {
         conversationVolumeInstruction = `
 【対話が十分に繰り広げられたセッション】
-相談履歴を極めて精緻に読み解き、相談者が語った具体的な言葉や、葛藤などの事実（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
-`;
-    }
-
-    const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
-
-    const prompt = `あなたは相談者の思考や感情をそのまま美しい鏡のように映し出す「内省の可視化アシスタント（レポッタ）」です。
-これまでの相談者と${aiName}（${aiType === 'dog' ? '犬のキャリアカウンセラー' : '人間のプロキャリアカウンセラー'}）との対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
-
-カウンセラー名: ${aiName}
-カウンセラータイプ: ${aiType}（${aiType === 'dog' ? '愛嬌があり、語尾が「わん」「ワン」などフレンドリーで温かい犬' : '高い傾聴力と共感を持つプロの人間カウンセラー'}）
-
-【記載の最重要方針】
-- 一切の「上からの説教」「性急なアドバイス」「押しつけがましい診断」「強みの勝手な断定やラベル貼り」は拒否します。
-- 相談者が自身の言葉で語った等身大の気持ちや、状況などの事実（ファクト）を、整理（リフレクション）して文章化してください。
-- 出力は必ず指定されたJSON構造で行い、追加のセクションや不要な装飾は含めないでください。
-
-※打鍵傾向に基づく深い受容（非言語的コンテキスト）: ${fluencySummaryContext}
-
-${conversationVolumeInstruction}
-
-【各JSONフィールドの具体的な作成指示】
-1. title: 「${aiName}と紡いだ ${profile && profile.age ? profile.age : '現在'}の心のロードマップ」のように、相談者とAI、現在の年代/状態を美しく組み合わせた、未来を照らす温かいタイトル。
-2. core_insight: 「対話の核心」として、相談者への深い共感、今日対話に取り組んだ姿勢の称賛、およびタイピングの非言語的な変動（葛藤や真剣さ）にも言及した、深く心に寄り添うカウンセリング・メッセージ。Markdownの見出しや過度な記号装飾は使わず、豊かな段落構成のプレーンな日本語テキストにしてください。
-3. analysis_points: 以下の3つのカテゴリーを厳格に含むオブジェクトの配列。（各カテゴリーに対する観察（observation）は、押し付けのない中立かつ温かい書き方で、150〜250字程度にしてください）
-   - category: "🌱 あなたが本当に大切にしている価値観（コア）"
-     observation: クライアントが「自分を大切にしたい」「こういう時間を守りたい」と密かに願っている言葉の奥のコア。
-   - category: "🤝 発見されたあなたの卓越した強み"
-     observation: 今回の対話の中で、クライアントが語ったエピソードや、自分の心に誠実に向き合おうとした姿勢そのものから立ち上る、本当に誇れる本物の強み。
-   - category: "🛡️ 進むべき一歩を遮るブレーキと解決策"
-     observation: 「失敗してはならない」「周囲の期待に完璧に応えねば」といったセルフ・ブレーキの正体と、それを受け止め、呼吸を軽くするための無理のない優しい「スモールステップ（推奨行動）」。
-4. next_inquiry: 「次への問いかけ」として、本人が一番『呼吸が軽くなる』瞬間や、「絶対に失敗しない魔法」を使えるとしたら明日試してみたい小さなワクワクなど、内省を深めるための優しく力強いオープンクエスチョン（問いの形式にすること）。
-5. professional_summary: 管理者やキャリアコンサルタント（専門家）への引き継ぎ詳細メモ（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成のポイント。
-
-履歴:
-${historyText}`;
-
-    const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
-        model: modelName, 
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: { 
-                    title: { type: Type.STRING },
-                    core_insight: { type: Type.STRING },
-                    analysis_points: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                category: { type: Type.STRING },
-                                observation: { type: Type.STRING }
-                            },
-                            required: ["category", "observation"]
-                        }
-                    },
-                    next_inquiry: { type: Type.STRING },
-                    professional_summary: { type: Type.STRING }
-                },
-                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
-            }
-        }
-    }), ANALYSIS_MODEL, CHAT_MODEL);
-
-    try {
-        const parsed = JSON.parse(result.text || "{}");
-        return { 
-            text: JSON.stringify({
-                title: parsed.title || `${aiName}との対話の振り返り`,
-                core_insight: parsed.core_insight || "",
-                analysis_points: parsed.analysis_points || [],
-                next_inquiry: parsed.next_inquiry || "今日の気づきをどのように活かしたいと思いますか？",
-                professional_summary: parsed.professional_summary || ""
-            })
-        };
-    } catch {
-        return { text: JSON.stringify({ 
-            title: `${aiName}との対話の振り返り`,
-            core_insight: result.text || "内容の生成に失敗しました。",
-            analysis_points: [],
-            next_inquiry: "今日の気づきをどのように活かしたいと思いますか？",
-            professional_summary: "（分析エラー）"
-        })};
-    }
-}                type: Type.OBJECT,
-                properties: { 
-                    title: { type: Type.STRING },
-                    core_insight: { type: Type.STRING },
-                    analysis_points: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                category: { type: Type.STRING },
-                                observation: { type: Type.STRING }
-                            },
-                            required: ["category", "observation"]
-                        }
-                    },
-                    next_inquiry: { type: Type.STRING },
-                    professional_summary: { type: Type.STRING }
-                },
-                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
-            }
-        }
-    }), ANALYSIS_MODEL, CHAT_MODEL);
-
-    try {
-        const parsed = JSON.parse(result.text || "{}");
-        return { 
-            text: JSON.stringify({
-                title: parsed.title || `${aiName}との対話の振り返り`,
-                core_insight: parsed.core_insight || "",
-                analysis_points: parsed.analysis_points || [],
-                next_inquiry: parsed.next_inquiry || "今日の気づきをどのように活かしたいと思いますか？",
-                professional_summary: parsed.professional_summary || ""
-            })
-        };
-    } catch {
-        return { text: JSON.stringify({ 
-            title: `${aiName}との対話の振り返り`,
-            core_insight: result.text || "内容の生成に失敗しました。",
-            analysis_points: [],
-            next_inquiry: "今日の気づきをどのように活かしたいと思いますか？",
-            professional_summary: "（分析エラー）"
-        })};
-    }
-}��が非常に少ないか、あるいはまだ会話を始めたばかりの段階です。
-ハルシネーション（嘘や飛躍の激しい決めつけ）は絶対に避けてください。
-挨拶のみなど中身がない、あるいは極めて薄い会話の場合であっても、出力フォーマットの形式（タイトルおよび各見出し項目）は崩さず、その中で「最初の一歩を踏み出してくれたことへの歓迎や温かい寄り添い」をコンパクトに表現してください。
-`;
-    } else {
-        conversationVolumeInstruction = `
-【対話が十分に繰り広げられたセッション】
 履歴を精緻に読み解き、相談者が語った具体的な言葉や、エピソード（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
 `;
     }
 
     const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
 
-    const prompt = `あなたは相談者の思考や感情をそのまま鏡のように映し出す「内省の可視化アシスタント（リフレクター）」として、これまでの対話の集大成となる、簡潔で心の負担にならない「キャリア・リフレクション・レポート」を作成してください。
-今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」「強みの勝手な断定」を行いません。
-あくまで相談者が自分の内面に向き合えるよう、相手が語った具体的な事実や本人の言葉、そしてその奥にある等身大の気持ちをありのままに鏡のように整理（リフレクション）して文章化してください。
-また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、深追いせずに今日の一歩をねぎらい、温かく歓迎することに特化させてください。
+    const prompt = `あなたは相談者の言葉をただ整理して並べる「透明なノート」です。綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」を尊重してください。
+これまでの対話の集大成となる、簡潔で心の負担にならない「心の可視化レポート（透明なノート）」を作成してください。
+今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」「強みの勝手な断定やラベル貼り」を行いません。
+綺麗な言葉でまとめようとせず、相談者の「まとまらないありのままの言葉」をそのまま拾い上げ、ありのままに鏡のように整理（リフレクション）して文章化してください。
+また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、今日の一歩をねぎらい、温かく歓迎することに特化させてください。
 
 ※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
 
 ${conversationVolumeInstruction}
 
 【記載の最重要方針】
-必ず、以下の出力フォーマットの構成とタイトルのみに従い、プレーンな日本語のMarkdownとして簡潔に出力してください。装飾や追加のセクション、余計な前置き・後書きなどの文言は一切不要です。
+必ず、以下の出力フォーマットの構成のみに従い、プレーンな日本語のMarkdownとして簡潔に出力してください。装飾や追加のセクション、余計な前置き・後書きなどの文言は一切不要です。
 「user_summary」フィールドには、以下の構成から始まるテキストのみを格納してください。
 他のセクションや追加の見出しを独自に作成しないでください。
-「1. 本日お話ししたこと（テーマと事実）」および「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」の内容は、相談者が話した内容に徹底して基づいてください。
+「・本日お話ししたこと（テーマと事実）」および「・対話を通じて、あなたが気づいたこと・言葉にしたこと」の内容は、相談者が話した具体的な発話内容や表現に主観を挟まずに徹底して基づいてください。綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」をそのまま拾い上げてください。
 
 【出力フォーマット】
 ■ Repotta（レポッタ）：本日の「心の可視化レポート」
 
-1. 本日お話ししたこと（テーマと事実）
+・本日お話ししたこと（テーマと事実）
 （※相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください）
 - 
 - 
 
-2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
+・対話を通じて、あなたが気づいたこと・言葉にしたこと
 （※AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください）
+- 
+- 
 
 【管理者・専門家向け詳細メモ(professional_summary)】
-- これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください。
+- 「professional_summary」フィールドには、これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成のポイントを含めてください。
 
 履歴:
 ${historyText}`;

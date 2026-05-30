@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.22 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案A-1（人間中心構造化JSON方式））の完全適用およびマージ崩れ修復
-export const APP_VERSION = "6.22";
+// v6.35 - 2026-05-30 - モックチャットシミュレータの知能再生及びゴミコード完全駆除
+export const APP_VERSION = "6.35";
 
 /**
  * AI Service Configuration

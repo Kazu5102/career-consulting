@@ -2,8 +2,8 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_6.04",
-  "description": "Secure AI Architecture v6.04: ゼロトラスト自己完結型HTMLパッケージによる暗号化バックアップ連携機能を備え、会話量・深度に応じた動的レポート最適化とエラー/薄会話フィルタリング（Plan B）を実装した安全なキャリア相談システム",
+  "name": "Career Consulting_6.23",
+  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
   "version": "6.04",
   "prompt": "",
   "D7": [],

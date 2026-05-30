@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v4.07 - Enhanced Dynamic Personalized Reflection Engine
+// services/mockGeminiService.ts - v6.35 - 2026-05-30 - モックチャットシミュレータの知能再生及びゴミコード完全駆除
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -60,15 +60,84 @@ export const checkServerStatus = async (): Promise<{status: string}> => {
 };
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
-    await delay(1500);
+    await delay(1200);
 
-    let responseText = "ごめんなさい、ちょっと今ボクの頭がパンクしちゃってうまく考えがまとまらないワン…。少しだけ休憩して、あとでもう一度お話を聞かせてくれないかな？";
+    const isDog = aiType === 'dog';
+    const lastUserMessage = [...messages].reverse().find(m => m.author === MessageAuthor.USER);
+    const userText = lastUserMessage?.text || "";
     
-    if (aiType === 'human') {
-        responseText = "申し訳ありません。現在、推論システムにアクセスが集中しており応答の生成に失敗してしまいました。少しお時間を置いてから、再度お話をお聞かせいただけますでしょうか。";
+    // 特許準拠：打鍵リズムによる心理的コンテキストの抽出・動的反映
+    let fluencyNote = "";
+    if (profile?.typingFluency) {
+        const { mean, stdDev } = profile.typingFluency;
+        if (mean > 600) {
+            fluencyNote = isDog 
+                ? "キミがいろいろと考えながら、ゆっくり一生懸命、この言葉を紡いでくれたことがすごく伝わってくるわん🐾 だから、ボクもキミのそのスピードに寄り添って、ゆっくりお話を聞くワン。" 
+                : "一言一言、とてもゆっくりと時間をかけて言葉を紡いでくださいましたね。それだけ心の中で、言葉になりきらない大切な想いや迷いと丁寧に向き合っていらっしゃるのだとお察しいたします。";
+        } else if (stdDev > 200) {
+            fluencyNote = isDog 
+                ? "なんだかキミのキーボードのリズムに、いろんな感情や葛藤がギュッと詰まっている気がしたワン🐾 焦らなくて大丈夫だワン。キミの隣で同じ気持ちでいるワン！" 
+                : "打鍵の間隔に大きな動きや不規則さが見受けられますね。内面で強いお気持ちや、相反する葛藤が激しく渦巻いていらっしゃるのではないでしょうか。どう思われても大丈夫ですので、そのまま吐き出してくださいね。";
+        }
     }
 
-    const chunks = responseText.split(/(、|。|？|\?|！|\!|…)/).filter(Boolean);
+    // カウンセラー本来の共感・反復（リフレクション）行動基準に基づく知的な回答ロジック
+    let reply = "";
+    if (isDog) {
+        if (userText.includes('転職') || userText.includes('辞め')) {
+            reply = `「転職」や「今の職場を辞めること」について悩んでいるんだねワン。今の仕事を離れて新しい道に行くのは、すごく勇気がいるし、不安になるのも当然だワン！
+キミがそうやってこれからの働き方を真剣に考え始めたのは、キミがもっと素敵に輝ける場所を見つけたいっていうワクワクのサインかもしれないワン 🐾
+今の職場で「ここがちょっとしんどいな…」と感じることや、新しく挑戦してみたいこと、もっとお話しできる範囲で聞かせてほしいワン！`;
+        } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
+            reply = `職場の人たちとの関係で悩んでいるんだねワン。上司や同僚とのやり取りって、毎日繰り返すことだからすごく心が擦り減っちゃうワン…。キミは本当によくがんばっているワン！
+周りの人に気を使いすぎたり、期待に応えようとして、自分の「本当の気持ち」を後回しにしちゃっていることはないワン？🐾
+もしよかったら、「こういうときが一番しんどいんだ」というエピソードを、ボクにそっと吐き出してみてほしいワン。`;
+        } else if (userText.includes('将来') || userText.includes('不安')) {
+            reply = `将来への漠然とした不安を抱えているんだねワン。まだ見ぬ先のことって、暗闇を歩いているみたいでどうしたらいいかわからなくなっちゃうの、すごくよくわかるワン🐾
+でも、その不安があるってことは、キミが自分の人生を「もっと良くしていきたい」って、真剣に自分と向き合っている証拠なんだワン！素晴らしいことだワン！
+今この瞬間、キミが一番「こうなったら心がスッキリするのにな」って思う理想の姿は、どんな小さなことでもいいから浮かんでくるワン？🐾`;
+        } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
+            reply = `自分の「強み」や「得意なこと」を見つけたいんだねワン！キミは自分のこと「まだまだワン…」って思っているかもしれないけど、ボクから見たらキラキラ輝くタカラモノがいっぱいあるワン！🐾
+たとえば、今日こうして自分の気持ちを言葉にして整理しようとする行動力だって、ものすごく強力な強みなんだワン！
+周りの人から「これ、助かったよ！」とか「器用だね」って言われたこと、あるいは自分がやっていて全然飽きないことって、何かないワン？小さなことでも誇っていいワン🐾`;
+        } else {
+            reply = `「${userText}」っていう、キミの今の大切な言葉、ボクの大きなお耳でしっかり優しく受け止めたワン🐾
+そう話してくれた時のキミの気持ち、そして今日ここまで自分の心を見つめて言葉を紡いできてくれたこと、ボクは心からがんばっているねって伝えたいワン！
+もう少し、その「${userText}」について、キミが感じていることや想いをボクに聞かせてくれないワン？キミのペースで大丈夫だワン！🐾`;
+        }
+        
+        if (fluencyNote) {
+            reply = `${fluencyNote}\n\n${reply}`;
+        }
+    } else {
+        if (userText.includes('転職') || userText.includes('辞め')) {
+            reply = `「転職」あるいは「退職」という、人生における重要な転機について真剣に向き合っていらっしゃるのですね。
+現在の職場を去るという決断には、これまで築いてきた安定を手放すような怖さや、周囲への遠慮など、本当に多様な感情が交錯するものと思います。
+あなたが次の居場所を模索し始めた背景には、どのような思いや、これまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
+        } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
+            reply = `職場における周囲との関係性、特に上司や同僚の方々との間で生じるお悩みについてお話しくださいましたね。
+業務そのもの以外のコミュニケーションや、期待に応えるための調整は、ご自身が思っていらっしゃる以上に心身に摩擦を与え、疲弊させてしまうものです。
+あなたが職場で周囲に気を遣うあまり、抑制してしまっているご自身の「本当の本音」や「こうありたい姿」について、ぜひここで一旦荷物を降ろしてお聞かせください。`;
+        } else if (userText.includes('将来') || userText.includes('不安')) {
+            reply = `これからの将来、キャリアの先行きに対する漠然とした不安を日々感じていらっしゃるのですね。
+先が見えない霧の中を歩むような感覚は、ご自身への不全感や焦燥感を引き起こしやすいものです。しかし、その不安は「自らのキャリアを主体的に創り上げていきたい」という強い欲求の裏返しでもあります。
+完璧な計画を目指す必要はありません。まずはご自身が大切にされたい「一つの感情」を拾い上げることから始めましょう。今、視界を少しでも穏やかにするために、何について掘り下げてみたいですか。`;
+        } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
+            reply = `ご自身の「強み」や、どのようなポータブルスキルをお持ちなのかを見出したい、という内省の意欲が伝わってまいります。
+普段、客観的に評価される成果ばかりに目を向けがちですが、本質的な強みとは「自分が自然と行ってしまうこと」や、この面談を通じて「自己を深く掘り下げようとするその知的で真摯な態度」そのものに宿っています。
+これまでの日常や経験の中で、周囲から感謝された出来事や、あなたが苦にならずに取り組めた役割について、些細なことと思われるニュアンスでも結構ですので、共有していただけますでしょうか。`;
+        } else {
+            reply = `「${userText}」というお言葉を、非常に真摯かつ丁寧に言葉にしてくださいましたね。
+ご自身の想いを引き出して整理することは、時に心理的エネルギーを要する行為です。あなたの語るテーマと、その底にある大切な「感情」に深く耳を傾けております。
+その「${userText}」という事象や状況について、今現在ご自身の中で、どのような気持ちや感覚が最も強く想起されているか、さらに詳しく教えていただけますでしょうか。`;
+        }
+
+        if (fluencyNote) {
+            reply = `${fluencyNote}\n\n${reply}`;
+        }
+    }
+
+    const chunks = reply.split(/(、|。|？|\?|！|\!|…|\n)/).filter(Boolean);
     let isClosed = false;
     return new ReadableStream({
         async pull(controller) {
@@ -76,7 +145,7 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
             if (chunks.length > 0) {
                 const chunk = chunks.shift();
                 controller.enqueue({ text: chunk });
-                await delay(100);
+                await delay(30);
             } else {
                 controller.close();
                 isClosed = true;
@@ -88,6 +157,9 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     await delay(2000);
+
+    const isDog = aiType === 'dog';
+    const nickname = profile?.nickname || '相談者様';
 
     // 1. ダイナミックなキーワード抽出に基づいた体験パーソナライズ
     const allUserTexts = chatHistory
@@ -103,51 +175,25 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
     if (allUserTexts.includes('強み') || allUserTexts.includes('スキル')) topics.push('ご自身がこれまで培ってきた「強み」や誇るべきスキル');
     if (allUserTexts.includes('時間') || allUserTexts.includes('疲れ')) topics.push('日常的な「時間管理や心身の疲れ」に耳を傾けるべきタイミング');
 
-    // トピックがない場合の初期フォーカス
     if (topics.length === 0) {
-        topics.push('ご自身の心の奥底にある、まだ言葉にならない本来の想いや願い');
+        topics.push('今後のキャリアやご自身がありたい姿について');
     }
 
-    // AIキャラクター毎のお祝い・労いトーン調整
-    const isDog = aiType === 'dog';
-    const nickname = profile?.age ? `お姿を見せてくれた「${profile.age}」の相談者さま` : "一歩を踏み出そうとする相談者さま";
-    const greetingTone = isDog 
-        ? `ボクは、キミが本当によくがんばっているのをすぐそばでずーっと見ていたワン！誰よりも自分らしく進もうとするキミの姿に、ボクは心から感動したんだワン。`
-        : `私はこの対話を通じて、あなたがご自身の現状に真摯に向き合い、解決への道を模索される素晴らしい熱意に何度も心動かされました。`;
+    const user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」
+・本日お話ししたこと（テーマと事実）
+（※相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください）
+- ${topics.join(isDog ? '、そして' : '、さらには')}についての葛藤や現在の状況。
+- 自分に合った働き方やキャリアの方向性について、深く悩まれている状況。
 
-    // 心理的入力ふらつき（タイピング傾向）の検出
-    let typingInsight = "";
-    if (profile?.typingFluency) {
-        const { mean, stdDev } = profile.typingFluency;
-        if (mean > 600) {
-            typingInsight = isDog
-                ? "文字を打つとき、一つひとつゆっくりと言葉を探してくれたワン。その『丁寧さ』と『自分をごまかさない誠実さ』こそが、キミを支えるかけがえのない宝物だワン！"
-                : "タイピングの合間に見られた慎重な「迷い」は、あなたがご自分の心に極めて誠実に向き合い、適当な言葉でごまかさなかった証拠です。その深慮深さが最大の強みです。";
-        } else if (stdDev > 200) {
-            typingInsight = isDog
-                ? "うれしかったり、ドキドキしたり、感情がいっぱいあふれながらお話ししてくれたように感じたワン。その豊かな感性とエネルギーは、周りの人を元気にする特別な力だワン！"
-                : "打鍵の揺れ（大きな変動）からは、葛藤を抱えつつも、ごまかさずに言葉を紡ぎ出そうとした熱いお気持ちが伝わりました。生き生きとしたその感情こそが、あなたの前進力です。";
-        } else {
-            typingInsight = isDog
-                ? "頭をきれいに整理しながら、とってもスムーズにお話してくれたワン！その知性と、想いをしっかり伝えきれる表現力は素晴らしい武器だワン！"
-                : "迷いなく論理的に書き進めるスマートなタイピングが印象的でした。それはこれまでのご経験が裏打ちする「軸」があるからこそできることです。自信を持ってください。";
-        }
-    } else {
-        typingInsight = isDog
-            ? "今日、ありのままの気持ちをボクにお話してくれたこと、それ自体がキミの最高に素晴らしい第一歩なんだワン！"
-            : "今日この場で、誰にも言えなかった本音を言葉としてアウトプットしてくださったその行動力と勇気こそが、確かな一歩です。";
-    }
+・対話を通じて、あなたが気づいたこと・言葉にしたこと
+（※AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください）
+- 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
+- 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;
 
     const title = `${aiName}と紡いだ ${profile?.age || '現在'}の心のロードマップ`;
     const core_insight = `### 🌟 今回の対話が照らす、あなたの本当の価値
 ${nickname}へ。
-今日、私たち${aiName}は、${topics.join(isDog ? '、そして' : '、さらには')}について、丁寧に言葉の糸をほぐしていきました。
-
-${greetingTone}
-
-${typingInsight}
-
-これまで一人で抱えてきた重荷を少しでも下ろし、自分自身の新しい一面を「確かにここにある軌跡」として受け取る準備が、今、整いました。`;
+今日、私たち${aiName}は、${topics.join(isDog ? '、そして' : '、さらには')}について、丁寧に言葉の糸をほぐしていきました。`;
 
     const analysis_points = [
         {
@@ -160,7 +206,7 @@ ${typingInsight}
             category: "🤝 発見されたあなたの卓越した強み",
             observation: isDog
                 ? `キミは『どんな困難な状況であっても、自分の言葉で想いを整理し、解決策を前に進める』抜群の力を持っているワン。笑顔の裏にある、不屈の「自走力」が最大の魅力なんだワン！`
-                : `『現状への違和感を自己研鑽への動機に変え、主体的に課題を探求する』といった自己変革の姿勢が対話の端々から見て取れました。これはあらゆる環境で通用する強力なポータブルスキルです。`
+                : `『現状への違和感を自己研鑽への動機に変え、主体的に課題を探求する』といった自己変革 of 姿勢が対話の端々から見て取れました。これはあらゆる環境で通用する強力なポータブルスキルです。`
         },
         {
             category: "🛡️ 進むべき一歩を遮るブレーキと解決策",
@@ -186,6 +232,7 @@ ${typingInsight}
         core_insight,
         analysis_points,
         next_inquiry,
+        user_summary,
         professional_summary
     };
 
