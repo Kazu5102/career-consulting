@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.37 - 2026-05-30 - キャリア・リフレクション・レポートの可視化を純粋なMarkdownレンダリング（アプローチ案1）に整合
+// components/SummaryModal.tsx - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';

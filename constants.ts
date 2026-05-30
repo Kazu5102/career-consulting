@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.37 - 2026-05-30 - キャリアリフレクションレポートフォーマットを「1.」「2.」に改修（アプローチ案1）
-export const APP_VERSION = "6.37";
+// v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
+export const APP_VERSION = "6.38";
 
 /**
  * AI Service Configuration
