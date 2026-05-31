@@ -1,4 +1,4 @@
-// components/PinModal.tsx - v6.39 - 2026-05-31 - 認証モーダルへの「キャンセル」ボタン追加（アプローチ案C）
+// components/PinModal.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
 import React, { useState, useEffect, useRef } from 'react';
 import { UserInfo } from '../types';
 import LockIcon from './icons/LockIcon';
@@ -12,7 +12,7 @@ interface PinModalProps {
 }
 
 const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess }) => {
-  const VERSION = "6.39";
+  const VERSION = "6.41";
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);

@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.39 - 2026-05-31 - 認証モーダルへの「キャンセル」ボタン追加（アプローチ案C）
-export const APP_VERSION = "6.39";
+// v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可動性向上、マージン・強調を美しく調整（案A）
+export const APP_VERSION = "6.41";
 
 /**
  * AI Service Configuration

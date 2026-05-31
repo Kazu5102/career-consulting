@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
+// components/SummaryModal.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -70,6 +70,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   userId,
   aiName
 }) => {
+  const VERSION = "6.41";
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -191,9 +192,28 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     }
   };
 
+  const formatMarkdownForDisplay = (text: string) => {
+    if (!text) return '';
+    let formatted = text;
+    
+    // 「■ Repotta...」の行を、スタイリングしやすいように Markdown の「## 」ヘッダーに変換します（多重付与を防ぐ）
+    if (!formatted.trim().startsWith('##')) {
+      formatted = formatted.replace(/■\s*Repotta（レポッタ）：本日の「心の可視化レポート」/g, '## ■ Repotta（レポッタ）：本日の「心の可視化レポート」');
+    }
+    
+    // 「1. 本日お話ししたこと（テーマと事実）」 を「### 1. ...」 見出しに変換
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(1\.\s*本日お話ししたこと[^\n]*)/g, '\n### $1');
+    
+    // 「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」 を「### 2. ...」 見出しに変換
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(2\.\s*対話を通じて[^\n]*)/g, '\n### $1');
+    
+    return formatted;
+  };
+
   const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
-    const rawMarkup = marked.parse(markdownText, { breaks: true, gfm: true }) as string;
+    const displayMarkdown = formatMarkdownForDisplay(markdownText);
+    const rawMarkup = marked.parse(displayMarkdown, { breaks: true, gfm: true }) as string;
     return { __html: rawMarkup };
   };
 
@@ -409,9 +429,27 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
             </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="bg-amber-50/40 p-6 sm:p-10 rounded-2xl border border-amber-100 shadow-inner">
+              <div className="bg-gradient-to-b from-slate-50 to-white p-6 sm:p-10 rounded-2xl border border-slate-200/80 shadow-md">
                 <article 
-                    className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
+                    className="prose max-w-none prose-slate
+                    text-slate-700 text-[15px] sm:text-[16px] leading-relaxed
+                    
+                    /* メインタイトル (h2) */
+                    [&_h2]:text-[17px] sm:[&_h2]:text-[19px] [&_h2]:font-extrabold [&_h2]:text-slate-900 [&_h2]:border-b [&_h2]:border-sky-100 [&_h2]:pb-3.5 [&_h2]:mb-8 [&_h2]:flex [&_h2]:items-center [&_h2]:gap-2 [&_h2]:text-slate-900
+                    
+                    /* 各セクション見出し (h3) */
+                    [&_h3]:text-[15px] sm:[&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:text-slate-800 [&_h3]:mt-8 [&_h3]:mb-4 [&_h3]:pl-3 [&_h3]:border-l-4 [&_h3]:border-teal-500 [&_h3]:py-0.5
+                    
+                    /* 段落 (p) */
+                    [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-slate-700
+                    
+                    /* 箇条書きリスト (ul) とリストアイテム (li) */
+                    [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-6 [&_ul]:space-y-3
+                    [&_ul>li]:text-slate-600 [&_ul>li]:text-[14px] sm:[&_ul>li]:text-[15px] [&_ul>li]:leading-relaxed
+                    
+                    /* 強調 (strong) などのインライン装飾 */
+                    [&_strong]:text-slate-950 [&_strong]:font-bold [&_strong]:bg-teal-50 [&_strong]:text-teal-950 [&_strong]:px-1.5 [&_strong]:py-0.5 [&_strong]:rounded [&_strong]:border [&_strong]:border-teal-100/40
+                    "
                     dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
                 />
               </div>

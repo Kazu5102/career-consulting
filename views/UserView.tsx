@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v6.39 - 2026-05-31 - 認証モーダルへの「キャンセル」ボタン追加（アプローチ案C）
+// views/UserView.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,7 +81,7 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
-  const VERSION = "6.39";
+  const VERSION = "6.41";
   const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);
