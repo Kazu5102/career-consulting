@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
+// views/UserView.tsx - v6.39 - 2026-05-31 - 認証モーダルへの「キャンセル」ボタン追加（アプローチ案C）
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,7 +81,7 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
-  const VERSION = "6.38";
+  const VERSION = "6.39";
   const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);

@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
-export const APP_VERSION = "6.38";
+// v6.39 - 2026-05-31 - 認証モーダルへの「キャンセル」ボタン追加（アプローチ案C）
+export const APP_VERSION = "6.39";
 
 /**
  * AI Service Configuration
