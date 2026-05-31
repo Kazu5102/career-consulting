@@ -1,5 +1,5 @@
 
-// services/analysisService.ts - v5.91 - 2026-05-17 - Protocol 3.0: History Management Upgrade
+// services/analysisService.ts - v5.93 - 2026-05-24 - Model Upgrade - Version Sync
 import { STORAGE_KEYS } from '../constants';
 import { AnalysisHistoryEntry, AnalysisType } from '../types';
 

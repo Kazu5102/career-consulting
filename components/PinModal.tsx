@@ -1,4 +1,4 @@
-
+// components/PinModal.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
 import React, { useState, useEffect, useRef } from 'react';
 import { UserInfo } from '../types';
 import LockIcon from './icons/LockIcon';
@@ -12,6 +12,7 @@ interface PinModalProps {
 }
 
 const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess }) => {
+  const VERSION = "6.41";
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,13 +69,22 @@ const PinModal: React.FC<PinModalProps> = ({ isOpen, user, onClose, onSuccess })
                 />
                 {error && <p className="text-xs text-red-500 mt-1.5 px-1 text-center">{error}</p>}
             </div>
-            <button
-                type="submit"
-                disabled={!pin}
-                className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-sky-600 text-white hover:bg-sky-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-                認証
-            </button>
+            <div className="flex flex-col gap-2">
+                <button
+                    type="submit"
+                    disabled={!pin}
+                    className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-sky-600 text-white hover:bg-sky-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+                >
+                    認証
+                </button>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full px-4 py-3 font-semibold rounded-lg transition-all duration-200 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
+                >
+                    キャンセル
+                </button>
+            </div>
         </form>
       </div>
     </div>

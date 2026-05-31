@@ -1,4 +1,5 @@
 
+// components/ConversationDetailModal.tsx - v6.20 - 2026-05-29 - キャリア・リフレクション・レポートの可視化プロンプト（案1（プレーンMarkdown移行方式））の完全適用に伴うアップデート
 import React from 'react';
 import { marked } from 'marked';
 import { StoredConversation } from '../types';
@@ -7,9 +8,14 @@ import MessageBubble from './MessageBubble';
 interface ConversationDetailModalProps {
   conversation: StoredConversation;
   onClose: () => void;
+  showHandoverNote?: boolean;
 }
 
-const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conversation, onClose }) => {
+const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ 
+  conversation, 
+  onClose,
+  showHandoverNote = false
+}) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ja-JP', { dateStyle: 'long', timeStyle: 'short' });
   };
@@ -22,8 +28,53 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
 
   const parseSummary = (rawSummary: string) => {
     try {
+      if (!rawSummary) return { user_summary: '', pro_notes: null };
       const parsed = JSON.parse(rawSummary);
-      if (parsed.user_summary && parsed.pro_notes) return parsed;
+      
+      // 構造化レポート (StructuredSummary: title, core_insight, or professional_summary がある場合)
+      if (parsed.title || parsed.core_insight || parsed.analysis_points || parsed.next_inquiry || parsed.professional_summary) {
+        let convertedUserMarkdown = '';
+        
+        if (parsed.title) {
+          convertedUserMarkdown += `### 🌟 ${parsed.title}\n\n`;
+        }
+        if (parsed.core_insight) {
+          convertedUserMarkdown += `${parsed.core_insight}\n\n`;
+        }
+        if (parsed.analysis_points && parsed.analysis_points.length > 0) {
+          convertedUserMarkdown += `#### 📋 分析ポイント\n\n`;
+          parsed.analysis_points.forEach((point: { category: string; observation: string }) => {
+            convertedUserMarkdown += `##### ${point.category}\n${point.observation}\n\n`;
+          });
+        }
+        if (parsed.next_inquiry) {
+          convertedUserMarkdown += `#### 💬 次への問いかけ\n\n「${parsed.next_inquiry}」\n\n`;
+        }
+
+        // 専門家向け詳細ノート (professional_summary を pro_notes に割り当て)
+        let proNotesMarkdown = '';
+        if (parsed.professional_summary) {
+          proNotesMarkdown = parsed.professional_summary;
+        } else if (parsed.pro_notes) {
+          proNotesMarkdown = parsed.pro_notes;
+        } else {
+          proNotesMarkdown = '※詳細ノートは生成されていません。';
+        }
+
+        return {
+          user_summary: convertedUserMarkdown || parsed.user_summary || rawSummary,
+          pro_notes: proNotesMarkdown
+        };
+      }
+      
+      // 従来の user_summary & pro_notes の判定
+      if (parsed.user_summary || parsed.pro_notes) {
+        return {
+          user_summary: parsed.user_summary || rawSummary,
+          pro_notes: parsed.pro_notes || null
+        };
+      }
+      
       return { user_summary: rawSummary, pro_notes: null };
     } catch (e) {
       return { user_summary: rawSummary, pro_notes: null };
@@ -75,7 +126,7 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
                 </p>
              </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className={`grid grid-cols-1 ${showHandoverNote ? 'lg:grid-cols-2' : 'max-w-3xl mx-auto w-full'} gap-8`}>
                 <section className="bg-amber-50/40 p-6 rounded-3xl border border-amber-100/50">
                 <div className="flex items-center gap-2 mb-6 text-amber-800">
                     <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-amber-100 rounded">User Facing</span>
@@ -87,20 +138,22 @@ const ConversationDetailModal: React.FC<ConversationDetailModalProps> = ({ conve
                 />
                 </section>
 
-                <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50">
-                <div className="flex items-center gap-2 mb-6 text-emerald-800">
-                    <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
-                    <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
-                </div>
-                {pro_notes ? (
-                    <article 
-                        className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
-                        dangerouslySetInnerHTML={createMarkup(pro_notes)}
-                    />
-                ) : (
-                    <p className="text-slate-400 italic text-sm">※詳細ノートは生成されていません。</p>
+                {showHandoverNote && (
+                  <section className="bg-emerald-50/40 p-6 rounded-3xl border border-emerald-100/50">
+                  <div className="flex items-center gap-2 mb-6 text-emerald-800">
+                      <span className="text-xs font-black uppercase tracking-widest px-2 py-1 bg-emerald-100 rounded">Handover Note</span>
+                      <h3 className="text-lg font-bold">専門家向け詳細ノート</h3>
+                  </div>
+                  {pro_notes ? (
+                      <article 
+                          className="prose prose-slate prose-sm max-w-none prose-p:leading-relaxed"
+                          dangerouslySetInnerHTML={createMarkup(pro_notes)}
+                      />
+                  ) : (
+                      <p className="text-slate-400 italic text-sm">※詳細ノートは生成されていません。</p>
+                  )}
+                  </section>
                 )}
-                </section>
             </div>
           )}
 

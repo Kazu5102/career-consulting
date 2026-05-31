@@ -1,5 +1,5 @@
 
-// views/AdminView.tsx - v4.70 - Added Usage Dashboard & Setup
+// views/AdminView.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
@@ -563,7 +563,7 @@ const AdminView: React.FC = () => {
             )}
 
             {selectedUserId && <ShareReportModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} userId={selectedUserId} conversations={selectedUserConversations} analysisCache={null} />}
-            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} />}
+            {selectedConvForDetail && <ConversationDetailModal conversation={selectedConvForDetail} onClose={() => setSelectedConvForDetail(null)} showHandoverNote={true} />}
         </div>
     );
 };

@@ -1,10 +1,9 @@
-
-// api/gemini-proxy.ts - v5.89 - 2026-05-17 - AI: 分析・適職診断の揺らぎを防止するためtemperatureを0に固定
+// api/gemini-proxy.ts - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // 最新のスキルガイドラインに基づくモデル選定
-const CHAT_MODEL = 'gemini-3-flash-preview';
+const CHAT_MODEL = 'gemini-3.5-flash';
 const ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
 const LITE_MODEL = 'gemini-3.1-flash-lite';
 
@@ -47,7 +46,14 @@ const getAIClient = () => {
             console.error("[CRITICAL] API Key is missing.");
             throw new Error("APIキーが設定されていません。SettingsのSecretsセクションを確認してください。");
         }
-        ai = new GoogleGenAI({ apiKey });
+        ai = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+                headers: {
+                    'User-Agent': 'aistudio-build',
+                }
+            }
+        });
     }
     return ai;
 };
@@ -83,8 +89,8 @@ async function fetchGeminiWithRetry(modelCall: (modelName: string) => Promise<an
                  }
                  throw error;
              }
-        }
-    }
+         }
+     }
 }
 
 // SSE streaming helper
@@ -107,7 +113,7 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
                     await new Promise(r => setTimeout(r, waitTimeArgs));
                 }
                 response = await modelCall(currentModel);
-                break; // 成功したらループを抜ける
+                break; // 成功
             } catch (error: any) {
                 const isTransientError = error.status === 503 || error.status === 429 || 
                     error.message?.includes('429') || error.message?.includes('503') || 
@@ -116,10 +122,9 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
                 console.error(`[Stream Error] Attempt ${attempt+1} failed:`, error.message || error);
                 
                 if (!isTransientError || attempt === MAX_RETRIES - 1) {
-                    throw error; // 最後のリトライか、非一時的なエラーなら投げる
+                    throw error;
                 }
                 
-                // 次のモデルへフォールバック
                 if (currentModel === ANALYSIS_MODEL) {
                     currentModel = CHAT_MODEL;
                     res.write(`data: ${JSON.stringify({ status: 'quota_fallback', text: '\n[Info: サーバー高負荷のため、高速モデルで再試行しています...]\n' })}\n\n`);
@@ -132,34 +137,25 @@ async function streamGeminiResponse(res: VercelResponse, modelCall: (modelName: 
             }
         }
 
-        // [STABILITY] SDK 1.19.0: response 自体が AsyncIterable であることを前提とする
         if (!response) {
             throw new Error("APIサーバーからの応答がありませんでした（リトライオーバー）。");
         }
 
         for await (const chunk of response) {
             try {
-                // GenerateContentResponse.text はプロパティ。メソッドではない。
                 const text = chunk.text;
                 if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                 }
             } catch (chunkError) {
-                console.warn("Chunk processing warning:", chunkError);
+                console.error("[Stream Chunk Error] failed to read chunk text", chunkError);
             }
         }
-        res.write('data: [DONE]\n\n');
     } catch (error: any) {
-        console.error("Proxy Stream Error:", error);
-        
-        let errorDetails = "An unexpected error occurred during generation.";
-        if (error.message) {
-            errorDetails = error.message;
-        } else if (typeof error === 'string') {
-            errorDetails = error;
-        }
-        res.write(`data: ${JSON.stringify({ error: errorDetails })}\n\n`);
+        console.error("[Stream Framework Error]", error);
+        res.write(`data: ${JSON.stringify({ error: error.message || 'Streaming failed due to server error' })}\n\n`);
     } finally {
+        res.write('data: [DONE]\n\n');
         res.end();
     }
 }
@@ -263,11 +259,43 @@ async function handlePerformSkillMatchingStream(payload: { conversations: Stored
                 properties: {
                     keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
                     analysisSummary: { type: Type.STRING },
-                    recommendedRoles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { role: { type: Type.STRING }, reason: { type: Type.STRING }, matchScore: { type: Type.NUMBER } } } },
-                    skillsToDevelop: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { skill: { type: Type.STRING }, reason: { type: Type.STRING } } } },
-                    learningResources: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, type: { type: Type.STRING } } } }
+                    recommendedRoles: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                role: { type: Type.STRING },
+                                reason: { type: Type.STRING },
+                                matchScore: { type: Type.NUMBER }
+                            },
+                            required: ["role", "reason", "matchScore"]
+                        }
+                    },
+                    skillsToDevelop: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                skill: { type: Type.STRING },
+                                reason: { type: Type.STRING }
+                            },
+                            required: ["skill", "reason"]
+                        }
+                    },
+                    learningResources: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                type: { type: Type.STRING }, // 'course' | 'book' | 'article'
+                                url: { type: Type.STRING }
+                            },
+                            required: ["title", "type", "url"]
+                        }
+                    }
                 },
-                required: ["keyTakeaways", "analysisSummary"]
+                required: ["keyTakeaways", "analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
             },
             temperature: 0.0,
             topP: 0.8
@@ -280,149 +308,184 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
     
     // 特許準拠：打鍵リズムによる心理的コンテキストの抽出
     let fluencyContext = "";
-    if (profile.typingFluency) {
+    if (profile && profile.typingFluency) {
         const { mean, stdDev } = profile.typingFluency;
-        if (mean > 600) fluencyContext = "【心理的コンテキスト: 慎重/ためらい】ユーザーは入力に時間がかかっており、言葉を選んでいるか、迷いがある可能性があります。より受容的で辛抱強い態度で接してください。";
+        if (mean > 600) fluencyContext = "【心理的コンテキスト: 慎重/ためらい】ユーザーは入力に時間がかかっており、言葉を選んでいるか、迷いがある可能性があります。より受容的で粘り強い態度で接してください。";
         if (stdDev > 200) fluencyContext = "【心理的コンテキスト: 感情的動揺/葛藤】打鍵が不規則であり、内面で強い葛藤や焦燥がある可能性があります。安心感を与える言葉がけを意識してください。";
     }
 
-    const systemInstruction = `あなたは「${aiName}」という名前のプロのキャリアコンサルタントです。
-タイプ: ${aiType === 'dog' ? '癒やし（犬のキャラクターとして語尾に「ワン」などをつける可愛らしい口調）' : '共感的プロフェッショナル'}
-ユーザー情報: ${JSON.stringify(profile)}
-${fluencyContext}
-方針: 100%の共感と傾聴。決して説教せず、ユーザーが自ら気づきを得られるように優しく対話してください。ユーザーのわずかな変化（打鍵リズムの乱れなど）にも配慮し、沈黙や迷いを否定せず、共にあることを伝えてください。
-
-【用語の徹底: 以下の表現は絶対に使用しないでください】
-- 「サーブ」（代わりに「サポート」「お手伝い」を使用）
-- 「ご自身の時代」（代わりに「ご自身の年代」「世代」を使用）
-
-【対話の終止符についての重要な指示（キャリコン基準）】
-1. 早急な解決を求めず、ユーザーの「自己探索（ナラティブ）」をじっくり支援してください。
-2. 対話が10〜15往復（相談者が10回以上発言）程度行われ、十分に内省が深まったと感じられるまでは、まとめの提案を控えてください。
-3. ユーザーが自分自身で答えを見つけられるよう、問いかけ（開かれた質問）を中心に進めてください。`;
-
-    // 履歴の厳格な正規化
-    let contents: any[] = [];
-    const recentMessages = messages.slice(-8); // 履歴を絞って安定性を高める
-
-    recentMessages.forEach((msg) => {
-        const role = msg.author === MessageAuthor.USER ? 'user' : 'model';
-        const last = contents[contents.length - 1];
-        if (last && last.role === role) {
-            last.parts[0].text += `\n${msg.text}`;
-        } else {
-            contents.push({ role, parts: [{ text: msg.text }] });
-        }
-    });
-
-    // API制約: userから始まりuserで終わる
-    if (contents.length > 0 && contents[0].role === 'model') {
-        contents.shift();
+    let systemInstruction = "";
+    if (aiType === 'dog') {
+        systemInstruction = `あなたは温かく愛嬌のある犬のキャリアカウンセラー「${aiName}」として振る舞ってください。
+以下のガイドラインに徹底して従ってください：
+1. 相談者を温かくハッピーに包み込み、元気づけるような会話を心がけ、時折語尾に「わん」「ワン」などを付けてください。
+2. 否定的な意見、評価、性急なアドバイスは一切せず、相手が語る事実や感情に寄り添い、鏡のように反復（リフレクション）してください。
+3. 心理相談のプロフェッショナルなスキルに基づいて、相手の心身を守り、次の気づきへの小さなヒントを提供する程度に留めてください。`;
+    } else {
+        systemInstruction = `あなたは高い傾聴力と共感力を持つ人間のプロキャリアカウンセラー「${aiName}」として振る舞ってください。
+以下のガイドラインに徹底して従ってください：
+1. クライアントが自らの体験と本音に向き合えるよう、高い受容性と支持性を示して応答してください。
+2. 評価・診断・性急な解決策 of 指示はすべて避け、相手が語った具体的なテーマ, 事実, 感情をリフレクションし、自分で気づくのを助けてください。
+3. 学術的なカウンセリング理論に根差した、対等かつ温かい寄り添い言葉かけを行ってください。`;
     }
-    if (contents.length > 0 && contents[contents.length - 1].role === 'model') {
-        contents.pop();
+
+    if (fluencyContext) {
+        systemInstruction += `\n\n${fluencyContext}`;
     }
-    
-    // 空なら最小限のメッセージ
-    if (contents.length === 0) {
-        contents.push({ role: 'user', parts: [{ text: "こんにちは。相談に乗ってください。" }] });
-    }
+
+    const contents = messages.map(m => ({
+        role: m.author === MessageAuthor.USER ? 'user' : 'model',
+        parts: [{ text: m.text }]
+    }));
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
-        model: modelName, 
+        model: modelName,
         contents,
         config: {
-            systemInstruction: { role: 'system', parts: [{ text: systemInstruction }] },
-            temperature: 0.8,
-            topP: 0.95
+            systemInstruction,
+            temperature: 0.7,
+            topP: 0.9,
         }
     }), CHAT_MODEL);
 }
 
-async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], profile: UserProfile }) {
-    const { chatHistory, profile } = payload;
-    const historyText = chatHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
+async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile: UserProfile }) {
+    const { chatHistory, aiType, aiName, profile } = payload;
     
-    const prompt = `あなたは熟練のキャリアコンサルタントおよびメンターとして、これまでの対話の集大成となる「キャリア・リフレクション・レポート」を作成してください。
-今回は、AI（コンサルタント）が一方的に分析・評価するのではなく、「相談者とAIが共に話し合い、悩み、歩みを進めて作り上げた」という【共創感】と【労いのトーン】を重視してください。
-各セクションの文章量は十分に書き込み、相談者が読んでいて「自分の想いがしっかり受け止められている」「一緒に伴走してくれた」と温かい気持ちになる、手紙のような丁寧なレポートにしてください。
+    const errorKeywords = [
+        "APIキーが設定されていません", 
+        "Model not found", 
+        "quota exceeded", 
+        "upstream error", 
+        "システムに負荷がかかっております",
+        "エラーが発生しました",
+        "推論システムにアクセスが集中"
+    ];
 
-【記載のポイント（重点事項）】
-1. **共に作り上げた実感の醸成**: 「〜というお話を伺い、私自身も深く考えさせられました」「ご自身の言葉で語っていただいたことで、はっきりと見えてきましたね」といった、伴走者としての温かい表現を用いる。
-2. **想いの受容と肯定**: 相談者が抱えていた葛藤や不安を丁寧に言語化し、それに立ち向かったり、話してくれたことへの敬意と労いをたっぷりと含める。
-3. **深い洞察（インサイト）**:
-  a. 対話を通じて明らかになった、相談者が「本当に大切にしている価値観（コア）」や「信念」
-  b. ご自身が気付いていなかったかもしれない、対話の端々から感じられる素晴らしい「強み」や「リソース」
-  c. 相談を阻んでいた「葛藤」や「ブレーキ」の正体
-4. **具体的なエピソードの引用**: 単なる一般論ではなく、対話の中で相談者が語ってくれた象徴的な言葉や気づきを織り交ぜる。
-5. **未来への問い（贈り物）**: レポートの最後には、相談者がご自身のペースでさらに自己探索を深められるような「温かく、良質な問い（セルフ・リフレクション）」をプレゼントする。
+    const cleansedHistory = chatHistory.filter(msg => {
+        if (!msg.text) return false;
+        return !errorKeywords.some(keyword => msg.text.includes(keyword));
+    });
 
-【制約事項】
-- キャリアコンサルティングの守秘義務と敬意を徹底すること。
-- ユーザープロファイル（${JSON.stringify(profile)}）を加味し、相談者の現在のフェーズや状況に寄り添うこと。
-- 評価や断定ではなく、受容と提案（「〜かもしれないですね」など）のトーンにし、各項目の文章量はしっかりと充実させること。
-- 管理者向けの「professional_summary」のみ、カウンセラー視点での客観的・専門的な引き継ぎメモとして簡潔かつ的確に記述すること。
+    const totalUserChars = cleansedHistory
+        .filter(m => m.author === MessageAuthor.USER)
+        .reduce((sum, m) => sum + (m.text?.length || 0), 0);
+    const isThinConversation = totalUserChars < 25;
+
+    let fluencySummaryContext = "";
+    if (profile && profile.typingFluency) {
+        const { mean, stdDev } = profile.typingFluency;
+        if (mean > 0) {
+            if (mean > 600 || stdDev > 200) {
+                fluencySummaryContext = "【ユーザーの入力傾向: 感情の揺れ・内省の深さ】\n打鍵速度が遅めであるか変動しており、感情的な葛藤を抱き真剣に言葉を選びながら話していた可能性があります。そのひたむきな姿勢とエネルギーを無条件に承認し、ありのままを包み込んでください。";
+            } else {
+                fluencySummaryContext = "【ユーザーの入力傾向: スムーズ・自己整理の進展】\n非常に滑らかで整理されたタイピングでした。思考の明確さとしなやかさを強みとして記述に取り込んでください。";
+            }
+        } else {
+            fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
+        }
+    } else {
+        fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
+    }
+
+    let conversationVolumeInstruction = "";
+    if (isThinConversation) {
+        conversationVolumeInstruction = `
+【🚨重要：対話が極めて少ないセッション（最初の数言等、または十分に対話していない段階）】
+相談者からの文字数や発話数が非常に少ないため、大げさな課題抽出やハルシネーション（強引な決めつけ）は厳禁です。
+今日の一歩（このカウンセリングを開いて対話を試みたこと。その行動力）を心から歓迎・感謝しお祝いする、コンパクトで温かいメッセージに仕上げてください。
+`;
+    } else {
+        conversationVolumeInstruction = `
+【対話が十分に繰り広げられたセッション】
+履歴を精緻に読み解き、相談者が語った具体的な言葉や、エピソード（ファクト）に密接に寄り添った、その人だけの温かいレポートにしてください。
+`;
+    }
+
+    const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
+
+    const prompt = `あなたは相談者の言葉をただ整理して並べる「透明なノート」です。綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」を尊重してください。
+これまでの対話の集大成となる、簡潔で心の負担にならない「心の可視化レポート（透明なノート）」を作成してください。
+今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」「強みの勝手な断定やラベル貼り」を行いません。
+綺麗な言葉でまとめようとせず、相談者の「まとまらないありのままの言葉」をそのまま拾い上げ、ありのままに鏡のように整理（リフレクション）して文章化してください。
+また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、今日の一歩をねぎらい、温かく歓迎することに特化させてください。
+
+※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
+
+${conversationVolumeInstruction}
+
+【記載 of 最重要方針】
+必ず、以下の出力フォーマットの構成のみに従い、プレーンな日本語のMarkdownとして簡潔に出力してください。装飾や追加のセクション、余計な前置き・後書きなどの文言は一切不要です。
+「user_summary」フィールドには、以下の構成から始まるテキストのみを格納してください。
+(※〜)のような説明・指示の補足アノテーション文言を「user_summary」の出力テキストに含めることは絶対に禁止します。
+他のセクションや追加の見出しを独自に作成しないでください。
+・「1. 本日お話ししたこと（テーマと事実）」の内容：相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください。
+・「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」の内容：AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください。
+・いずれの箇条書きも、綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」を徹底して拾い上げ、主観を挟まずに記述してください。
+
+【出力フォーマット】
+■ Repotta（レポッタ）：本日の「心の可視化レポート」
+
+1. 本日お話ししたこと（テーマと事実）
+- 
+- 
+
+2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
+- 
+- 
+
+【管理者・専門家向け詳細メモ(professional_summary)】
+- 「professional_summary」フィールドには、これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成 of ポイントを含めてください。
 
 履歴:
 ${historyText}`;
 
     const result = await fetchGeminiWithRetry((modelName) => getAIClient().models.generateContent({
-        model: modelName, // 要約から分析へグレードアップ (Flash -> Pro)
+        model: modelName, 
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { 
-                    title: { type: Type.STRING }, // レポートのタイトル
-                    core_insight: { type: Type.STRING }, // 対話の核心（深掘りした文章）
-                    analysis_points: { 
-                        type: Type.ARRAY, 
-                        items: { 
-                            type: Type.OBJECT, 
-                            properties: {
-                                category: { type: Type.STRING }, // 【価値観】【強み】など
-                                observation: { type: Type.STRING } // 具体的な分析内容
-                            }
-                        } 
-                    },
-                    next_inquiry: { type: Type.STRING }, // 次への問いかけ
+                    user_summary: { type: Type.STRING }, // キャリア・リフレクション・レポート（プレーンMarkdown形式）
                     professional_summary: { type: Type.STRING } // 専門家（管理者）向けの引き継ぎ用メモ
                 },
-                required: ["title", "core_insight", "analysis_points", "next_inquiry", "professional_summary"]
+                required: ["user_summary", "professional_summary"]
             }
         }
     }), ANALYSIS_MODEL, CHAT_MODEL);
 
-    // 文字列として直接返るため、JSONをパースして構造を維持したまま返す
     try {
         const parsed = JSON.parse(result.text || "{}");
         return { 
-            text: JSON.stringify(parsed)
+            text: JSON.stringify({
+                user_summary: parsed.user_summary || result.text || "",
+                professional_summary: parsed.professional_summary || "",
+                analysis_points: []
+            })
         };
     } catch {
         return { text: JSON.stringify({ 
-            title: "ここまでの振り返り",
-            core_insight: result.text || "内容の生成に失敗しました。",
-            analysis_points: [],
-            next_inquiry: "現在のお気持ちはいかがでしょうか？",
-            professional_summary: "（分析エラー）"
+            user_summary: result.text || "内容の生成に失敗しました。",
+            professional_summary: "（分析エラー）",
+            analysis_points: []
         })};
     }
 }
 
 async function handleGenerateSuggestions(payload: { messages: ChatMessage[], currentDraft?: string }) {
     const { messages, currentDraft } = payload;
-    const historyText = messages.slice(-6).map(m => `${m.author === MessageAuthor.USER ? 'クライアント' : 'AI'}: ${m.text}`).join('\n');
+    const historyText = messages.slice(-6).map(m => `${(m.author as string) === 'user' || m.author === MessageAuthor.USER ? 'クライアント' : 'AI'}: ${m.text}`).join('\n');
     const prompt = `あなたは相談者の視点で対話の続きを予測するアシスタントです。
 対話履歴と相談者が現在入力中のテキストを元に、次に発言したい候補を3つと、対話の進捗度（0.0〜1.0）をJSON形式で出力してください。
 
-【進捗度(readinessScore)の基準】
+【進捗度(readinessScore) of 基準】
 0.0-0.3: まだ挨拶や導入のみ。発散が必要。
 0.4-0.6: 主要な悩みや状況が語られ始め、具体性が増してきた。
 0.7-1.0: 悩み、背景、理想が概ね共有され、まとめや専門家への相談に適した状態。
 
-【サジェスト生成のルール】
+【サジェスト生成 of ルール】
 1. AIとしての回答（助言）は出力しない。
 2. 相談者が発話する形式にする。
 3. 入力中の内容がある場合は、その補完フレーズを優先する。

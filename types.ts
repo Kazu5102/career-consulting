@@ -1,8 +1,8 @@
 
-// types.ts - v5.70
+// types.ts - v6.05 - 2026-05-29 - Add nickname to UserProfile in order to fix mock type checks
 import type React from 'react';
 
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export interface StoredData {
   version: number;
@@ -20,6 +20,7 @@ export interface UserInfo {
 }
 
 export interface UserProfile {
+  nickname?: string;
   stage?: string;
   age?: string;
   gender?: string;

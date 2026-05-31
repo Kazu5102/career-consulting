@@ -1,5 +1,5 @@
 
-// App.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Secured Arch 3.0へのアップグレード
+// App.tsx - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

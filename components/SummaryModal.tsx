@@ -1,10 +1,9 @@
 
-// components/SummaryModal.tsx - v5.91 - 2026-05-17 - Protocol 3.0: Unified Download Integration
+// components/SummaryModal.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
 import CheckIcon from './icons/CheckIcon';
-import EditIcon from './icons/EditIcon';
 import SaveIcon from './icons/SaveIcon';
 import LinkIcon from './icons/LinkIcon';
 import ExportIcon from './icons/ExportIcon';
@@ -12,12 +11,24 @@ import LockIcon from './icons/LockIcon';
 import { StructuredSummary, SurveyConfig, ChatMessage } from '../types';
 import { generateSecureHtmlPackage } from '../utils/exportPackage';
 
+const EyeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+  </svg>
+);
+
 interface SummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   summary: string;
   isLoading: boolean;
-  onRevise: (correctionRequest: string) => void;
   onFinalize: () => void;
   // Added for Handover Export
   messages: ChatMessage[];
@@ -54,15 +65,12 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   onClose, 
   summary, 
   isLoading, 
-  onRevise, 
   onFinalize,
   messages,
   userId,
   aiName
 }) => {
-  const [isCopied, setIsCopied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [correctionRequest, setCorrectionRequest] = useState('');
+  const VERSION = "6.41";
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -70,6 +78,15 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   const [exportStep, setExportStep] = useState<'none' | 'password' | 'generating'>('none');
   const [exportPassword, setExportPassword] = useState('');
   const [exportError, setExportError] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (exportStep !== 'password') {
+      setConfirmPassword('');
+      setShowPassword(false);
+    }
+  }, [exportStep]);
 
   const parsedSummary = useMemo((): StructuredSummary => {
     try {
@@ -95,10 +112,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setIsCopied(false);
-      setIsEditing(false);
       setIsExported(false);
-      setCorrectionRequest('');
       const surveyEnabled = localStorage.getItem('survey_enabled_v1') === 'true';
       setCurrentStep(surveyEnabled ? 'survey' : 'loading');
     }
@@ -122,34 +136,13 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     return () => { if (interval) clearInterval(interval); };
   }, [isLoading]);
   
-  // Flatten content for copy
+  // Flatten content for copy/export
   const currentContent = useMemo(() => {
-    if (parsedSummary.core_insight) {
-      const points = parsedSummary.analysis_points?.map(p => `### ${p.category}\n${p.observation}`).join('\n\n') || '';
-      return `# ${parsedSummary.title || '振り返り'}\n\n${parsedSummary.core_insight}\n\n${points}\n\n### 次への問いかけ\n${parsedSummary.next_inquiry}`;
-    }
     return parsedSummary.user_summary || '';
   }, [parsedSummary]);
 
-  const handleCopy = () => {
-    if (currentContent && !isLoading) {
-      navigator.clipboard.writeText(currentContent).then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2500);
-      });
-    }
-  };
-
   const handleSurveyComplete = () => {
     setCurrentStep('loading');
-  };
-
-  const handleRevisionSubmit = async () => {
-    if (!correctionRequest.trim() || isLoading) return;
-    setCurrentStep('loading');
-    await onRevise(correctionRequest);
-    setIsEditing(false);
-    setCorrectionRequest('');
   };
   
   const handleProceedToReferral = () => {
@@ -199,9 +192,28 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
     }
   };
 
+  const formatMarkdownForDisplay = (text: string) => {
+    if (!text) return '';
+    let formatted = text;
+    
+    // 「■ Repotta...」の行を、スタイリングしやすいように Markdown の「## 」ヘッダーに変換します（多重付与を防ぐ）
+    if (!formatted.trim().startsWith('##')) {
+      formatted = formatted.replace(/■\s*Repotta（レポッタ）：本日の「心の可視化レポート」/g, '## ■ Repotta（レポッタ）：本日の「心の可視化レポート」');
+    }
+    
+    // 「1. 本日お話ししたこと（テーマと事実）」 を「### 1. ...」 見出しに変換
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(1\.\s*本日お話ししたこと[^\n]*)/g, '\n### $1');
+    
+    // 「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」 を「### 2. ...」 見出しに変換
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(2\.\s*対話を通じて[^\n]*)/g, '\n### $1');
+    
+    return formatted;
+  };
+
   const createMarkup = (markdownText: string) => {
     if (!markdownText) return { __html: '' };
-    const rawMarkup = marked.parse(markdownText, { breaks: true, gfm: true }) as string;
+    const displayMarkdown = formatMarkdownForDisplay(markdownText);
+    const rawMarkup = marked.parse(displayMarkdown, { breaks: true, gfm: true }) as string;
     return { __html: rawMarkup };
   };
 
@@ -212,7 +224,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b border-slate-200 flex justify-between items-center bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">
-            {currentStep === 'survey' ? 'アンケートのお願い' : isEditing ? '整理内容の修正依頼' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
+            {currentStep === 'survey' ? 'アンケートのお願い' : currentStep === 'referral' ? '専門家への引継ぎ' : 'キャリア・リフレクション・レポート'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -278,20 +290,54 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                                 <strong>管理者が閲覧する際も、このパスワードが必要です。</strong>
                             </p>
                         </div>
-                        <div className="space-y-3">
-                            <input 
-                                type="password" 
-                                placeholder="パスワードを入力..." 
-                                value={exportPassword}
-                                onChange={(e) => setExportPassword(e.target.value)}
-                                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/20 text-center font-bold"
-                                autoFocus
-                            />
-                            {exportError && <p className="text-xs text-rose-500 font-bold text-center">{exportError}</p>}
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    placeholder="パスワードを入力（4文字以上）..." 
+                                    value={exportPassword}
+                                    onChange={(e) => setExportPassword(e.target.value)}
+                                    className="w-full p-4 pr-12 bg-slate-50 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/20 text-center font-bold"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    tabIndex={-1}
+                                    title={showPassword ? "パスワードを非表示" : "パスワードを表示"}
+                                >
+                                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                                </button>
+                            </div>
+
+                            <div className="relative">
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    placeholder="パスワードを再入力（確認）..." 
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full p-4 pr-12 bg-slate-50 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-sky-500/20 text-center font-bold"
+                                />
+                            </div>
+
+                            {exportPassword.length > 0 && exportPassword.length < 4 && (
+                                <p className="text-xs text-rose-500 font-bold text-center animate-in fade-in">
+                                    パスワードは4文字以上で入力してください。
+                                </p>
+                            )}
+
+                            {exportPassword.length >= 4 && confirmPassword.length > 0 && exportPassword !== confirmPassword && (
+                                <p className="text-xs text-rose-500 font-bold text-center animate-in fade-in">
+                                    パスワードが一致しません。
+                                </p>
+                            )}
+
+                            {exportError && <p className="text-xs text-rose-500 font-bold text-center animate-in fade-in">{exportError}</p>}
                             <button 
                                 onClick={handleReferralAndExport}
-                                disabled={!exportPassword || exportPassword.length < 4}
-                                className="w-full py-4 bg-sky-600 text-white font-black rounded-2xl shadow-lg hover:bg-sky-700 disabled:bg-slate-300 transition-all active:scale-95"
+                                disabled={!exportPassword || exportPassword.length < 4 || exportPassword !== confirmPassword}
+                                className="w-full py-4 bg-sky-600 text-white font-black rounded-2xl shadow-lg hover:bg-sky-700 disabled:bg-slate-300 transition-all active:scale-[0.98] disabled:scale-100"
                             >
                                 暗号化パッケージを作成
                             </button>
@@ -381,72 +427,32 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                     </>
                 )}
             </div>
-          ) : isEditing ? (
-             <div className="space-y-4 animate-in fade-in duration-300">
-              <div>
-                <label htmlFor="correction-request" className="block text-sm font-bold text-slate-700 mb-2">修正・追記したい内容を入力してください</label>
-                <textarea
-                  id="correction-request"
-                  value={correctionRequest}
-                  onChange={(e) => setCorrectionRequest(e.target.value)}
-                  rows={5}
-                  className="w-full p-4 bg-slate-50 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
-                  placeholder="例：今の仕事へのやりがいの部分をもう少し詳しく書きたいです。"
-                  autoFocus
-                />
-              </div>
-            </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-               {parsedSummary.core_insight ? (
-                 <div className="space-y-8">
-                   {/* Title Section */}
-                   <div className="text-center py-6 border-b-2 border-sky-100 mb-8">
-                     <span className="text-[10px] font-black tracking-widest text-sky-500 uppercase">Career Reflection Report</span>
-                     <h1 className="text-3xl font-black text-slate-800 mt-2">{parsedSummary.title}</h1>
-                   </div>
-
-                   {/* Core Insight */}
-                   <section className="bg-sky-50/50 p-6 rounded-3xl border border-sky-100 relative overflow-hidden">
-                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H8.01703V12H12.017C13.1216 12 14.017 11.1046 14.017 10V5C14.017 3.89543 13.1216 3 12.017 3H5.01703C3.91246 3 3.01703 3.89543 3.01703 5V19C3.01703 20.1046 3.91246 21 5.01703 21H14.017Z"/></svg>
-                     </div>
-                     <h3 className="text-lg font-black text-sky-800 mb-4 flex items-center gap-2">
-                       <span className="w-1.5 h-6 bg-sky-500 rounded-full"></span>
-                       対話の核心
-                     </h3>
-                     <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{parsedSummary.core_insight}</p>
-                   </section>
-
-                   {/* Analysis Points Grid */}
-                   <div className="grid grid-cols-1 gap-4">
-                     {parsedSummary.analysis_points?.map((point, idx) => (
-                       <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-sky-300 transition-all group">
-                         <h4 className="text-xs font-black text-slate-400 group-hover:text-sky-500 transition-colors uppercase tracking-widest mb-2">{point.category}</h4>
-                         <p className="text-slate-800 font-bold leading-relaxed">{point.observation}</p>
-                       </div>
-                     ))}
-                   </div>
-
-                   {/* Next Inquiry */}
-                   <section className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl relative overflow-hidden group">
-                     <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-700"></div>
-                     <h3 className="text-sm font-black text-slate-400 mb-4 tracking-[0.2em]">SELF-REFLECTION</h3>
-                     <p className="text-xl font-bold leading-relaxed italic">「{parsedSummary.next_inquiry}」</p>
-                     <p className="text-xs text-slate-500 mt-6 flex items-center gap-2">
-                       <span className="w-4 h-px bg-slate-700"></span>
-                       この問いについて、またお時間のある時に考えてみてください
-                     </p>
-                   </section>
-                 </div>
-               ) : (
-                 <div className="bg-amber-50/40 p-10 rounded-3xl border border-amber-100 shadow-inner">
-                   <article 
-                       className="prose max-w-none prose-slate prose-p:leading-relaxed prose-p:text-slate-700"
-                       dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
-                   />
-                 </div>
-               )}
+              <div className="bg-gradient-to-b from-slate-50 to-white p-6 sm:p-10 rounded-2xl border border-slate-200/80 shadow-md">
+                <article 
+                    className="prose max-w-none prose-slate
+                    text-slate-700 text-[15px] sm:text-[16px] leading-relaxed
+                    
+                    /* メインタイトル (h2) */
+                    [&_h2]:text-[17px] sm:[&_h2]:text-[19px] [&_h2]:font-extrabold [&_h2]:text-slate-900 [&_h2]:border-b [&_h2]:border-sky-100 [&_h2]:pb-3.5 [&_h2]:mb-8 [&_h2]:flex [&_h2]:items-center [&_h2]:gap-2 [&_h2]:text-slate-900
+                    
+                    /* 各セクション見出し (h3) */
+                    [&_h3]:text-[15px] sm:[&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:text-slate-800 [&_h3]:mt-8 [&_h3]:mb-4 [&_h3]:pl-3 [&_h3]:border-l-4 [&_h3]:border-teal-500 [&_h3]:py-0.5
+                    
+                    /* 段落 (p) */
+                    [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-slate-700
+                    
+                    /* 箇条書きリスト (ul) とリストアイテム (li) */
+                    [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-6 [&_ul]:space-y-3
+                    [&_ul>li]:text-slate-600 [&_ul>li]:text-[14px] sm:[&_ul>li]:text-[15px] [&_ul>li]:leading-relaxed
+                    
+                    /* 強調 (strong) などのインライン装飾 */
+                    [&_strong]:text-slate-950 [&_strong]:font-bold [&_strong]:bg-teal-50 [&_strong]:text-teal-950 [&_strong]:px-1.5 [&_strong]:py-0.5 [&_strong]:rounded [&_strong]:border [&_strong]:border-teal-100/40
+                    "
+                    dangerouslySetInnerHTML={createMarkup(parsedSummary.user_summary || '')} 
+                />
+              </div>
             </div>
           )}
         </div>
@@ -454,17 +460,8 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
         <footer className="p-6 bg-white border-t border-slate-100 z-10">
            {currentStep === 'survey' ? (
              <button onClick={onClose} className="w-full px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセルして戻る</button>
-           ) : isEditing ? (
-             <div className="flex gap-4">
-               <button onClick={() => setIsEditing(false)} className="flex-1 px-4 py-3 font-semibold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-all">キャンセル</button>
-               <button onClick={handleRevisionSubmit} className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl bg-sky-600 text-white hover:bg-sky-700 transition-all shadow-md">修正を反映する</button>
-             </div>
            ) : currentStep === 'result' ? (
             <div className="flex flex-col gap-5">
-              <div className="flex gap-3">
-                <button onClick={() => setIsEditing(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"><EditIcon />修正・追記</button>
-                <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all ${isCopied ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isCopied ? <CheckIcon /> : <ClipboardIcon />}{isCopied ? 'コピー完了' : 'コピー'}</button>
-              </div>
               <button onClick={handleProceedToReferral} className="w-full flex items-center justify-center gap-3 px-4 py-5 font-black text-xl rounded-2xl transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] shadow-lg shadow-emerald-100 group">
                   <span>レポートを確定して次へ</span>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>

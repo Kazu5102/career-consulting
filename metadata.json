@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_5.91",
-  "description": "Secure AI Architecture v5.91: Secured Arch 3.0へのアップグレード（プロトコル統一）",
-  "version": "5.91",
+  "name": "Career Consulting_6.23",
+  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
+  "version": "6.04",
   "prompt": "",
   "D7": [],
   "Yp": []

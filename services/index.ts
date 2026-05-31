@@ -1,4 +1,4 @@
-// services/index.ts - v5.91 - 2026-05-17 - Protocol 3.0: Hook usage tracking Upgrade
+// services/index.ts - v5.93 - 2026-05-24 - Model Upgrade - Version Sync
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
 import { trackApiUsage } from './usageTrackingService';

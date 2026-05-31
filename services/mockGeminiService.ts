@@ -1,5 +1,5 @@
 
-// services/mockGeminiService.ts - v4.06 - Enhanced Suggestion Mock Logic
+// services/mockGeminiService.ts - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
@@ -60,15 +60,84 @@ export const checkServerStatus = async (): Promise<{status: string}> => {
 };
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
-    await delay(1500);
+    await delay(1200);
 
-    let responseText = "ごめんなさい、ちょっと今ボクの頭がパンクしちゃってうまく考えがまとまらないワン…。少しだけ休憩して、あとでもう一度お話を聞かせてくれないかな？";
+    const isDog = aiType === 'dog';
+    const lastUserMessage = [...messages].reverse().find(m => m.author === MessageAuthor.USER);
+    const userText = lastUserMessage?.text || "";
     
-    if (aiType === 'human') {
-        responseText = "申し訳ありません。現在、推論システムにアクセスが集中しており応答の生成に失敗してしまいました。少しお時間を置いてから、再度お話をお聞かせいただけますでしょうか。";
+    // 特許準拠：打鍵リズムによる心理的コンテキストの抽出・動的反映
+    let fluencyNote = "";
+    if (profile?.typingFluency) {
+        const { mean, stdDev } = profile.typingFluency;
+        if (mean > 600) {
+            fluencyNote = isDog 
+                ? "キミがいろいろと考えながら、ゆっくり一生懸命、この言葉を紡いでくれたことがすごく伝わってくるわん🐾 だから、ボクもキミのそのスピードに寄り添って、ゆっくりお話を聞くワン。" 
+                : "一言一言、とてもゆっくりと時間をかけて言葉を紡いでくださいましたね。それだけ心の中で、言葉になりきらない大切な想いや迷いと丁寧に向き合っていらっしゃるのだとお察しいたします。";
+        } else if (stdDev > 200) {
+            fluencyNote = isDog 
+                ? "なんだかキミのキーボードのリズムに、いろんな感情や葛藤がギュッと詰まっている気がしたワン🐾 焦らなくて大丈夫だワン。キミの隣で同じ気持ちでいるワン！" 
+                : "打鍵の間隔に大きな動きや不規則さが見受けられますね。内面で強いお気持ちや、相反する葛藤が激しく渦巻いていらっしゃるのではないでしょうか。どう思われても大丈夫ですので、そのまま吐き出してくださいね。";
+        }
     }
 
-    const chunks = responseText.split(/(、|。|？|\?|！|\!|…)/).filter(Boolean);
+    // カウンセラー本来の共感・反復（リフレクション）行動基準に基づく知的な回答ロジック
+    let reply = "";
+    if (isDog) {
+        if (userText.includes('転職') || userText.includes('辞め')) {
+            reply = `「転職」や「今の職場を辞めること」について悩んでいるんだねワン。今の仕事を離れて新しい道に行くのは、すごく勇気がいるし、不安になるのも当然だワン！
+キミがそうやってこれからの働き方を真剣に考え始めたのは、キミがもっと素敵に輝ける場所を見つけたいっていうワクワクのサインかもしれないワン 🐾
+今の職場で「ここがちょっとしんどいな…」と感じることや、新しく挑戦してみたいこと、もっとお話しできる範囲で聞かせてほしいワン！`;
+        } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
+            reply = `職場の人たちとの関係で悩んでいるんだねワン。上司や同僚とのやり取りって、毎日繰り返すことだからすごく心が擦り減っちゃうワン…。キミは本当によくがんばっているワン！
+周りの人に気を使いすぎたり、期待に応えようとして、自分の「本当の気持ち」を後回しにしちゃっていることはないワン？🐾
+もしよかったら、「こういうときが一番しんどいんだ」というエピソードを、ボクにそっと吐き出してみてほしいワン。`;
+        } else if (userText.includes('将来') || userText.includes('不安')) {
+            reply = `将来への漠然とした不安を抱えているんだねワン。まだ見ぬ先のことって、暗闇を歩いているみたいでどうしたらいいかわからなくなっちゃうの、すごくよくわかるワン🐾
+でも、その不安があるってことは、キミが自分の人生を「もっと良くしていきたい」って、真剣に自分と向き合っている証拠なんだワン！素晴らしいことだワン！
+今この瞬間、キミが一番「こうなったら心がスッキリするのにな」って思う理想の姿は、どんな小さなことでもいいから浮かんでくるワン？🐾`;
+        } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
+            reply = `自分の「強み」や「得意なこと」を見つけたいんだねワン！キミは自分のこと「まだまだワン…」って思っているかもしれないけど、ボクから見たらキラキラ輝くタカラモノがいっぱいあるワン！🐾
+たとえば、今日こうして自分の気持ちを言葉にして整理しようとする行動力だって、ものすごく強力な強みなんだワン！
+周りの人から「これ、助かったよ！」とか「器用だね」って言われたこと、あるいは自分がやっていて全然飽きないことって、何かないワン？小さなことでも誇っていいワン🐾`;
+        } else {
+            reply = `「${userText}」っていう、キミの今の大切な言葉、ボクの大きなお耳でしっかり優しく受け止めたワン🐾
+そう話してくれた時のキミの気持ち、そして今日ここまで自分の心を見つめて言葉を紡いできてくれたこと、ボクは心からがんばっているねって伝えたいワン！
+もう少し、その「${userText}」について、キミが感じていることや想いをボクに聞かせてくれないワン？キミのペースで大丈夫だワン！🐾`;
+        }
+        
+        if (fluencyNote) {
+            reply = `${fluencyNote}\n\n${reply}`;
+        }
+    } else {
+        if (userText.includes('転職') || userText.includes('辞め')) {
+            reply = `「転職」あるいは「退職」という、人生における重要な転機について真剣に向き合っていらっしゃるのですね。
+現在の職場を去るという決断には、これまで築いてきた安定を手放すような怖さや、周囲への遠慮など、本当に多様な感情が交錯するものと思います。
+あなたが次の居場所を模索し始めた背景には、どのような思いや、これまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
+        } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
+            reply = `職場における周囲との関係性、特に上司や同僚の方々との間で生じるお悩みについてお話しくださいましたね。
+業務そのもの以外のコミュニケーションや、期待に応えるための調整は、ご自身が思っていらっしゃる以上に心身に摩擦を与え、疲弊させてしまうものです。
+あなたが職場で周囲に気を遣うあまり、抑制してしまっているご自身の「本当の本音」や「こうありたい姿」について、ぜひここで一旦荷物を降ろしてお聞かせください。`;
+        } else if (userText.includes('将来') || userText.includes('不安')) {
+            reply = `これからの将来、キャリアの先行きに対する漠然とした不安を日々感じていらっしゃるのですね。
+先が見えない霧の中を歩むような感覚は、ご自身への不全感や焦燥感を引き起こしやすいものです。しかし、その不安は「自らのキャリアを主体的に創り上げていきたい」という強い欲求の裏返しでもあります。
+完璧な計画を目指す必要はありません。まずはご自身が大切にされたい「一つの感情」を拾い上げることから始めましょう。今、視界を少しでも穏やかにするために、何について掘り下げてみたいですか。`;
+        } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
+            reply = `ご自身の「強み」や、どのようなポータブルスキルをお持ちなのかを見出したい、という内省の意欲が伝わってまいります。
+普段、客観的に評価される成果ばかりに目を向けがちですが、本質的な強みとは「自分が自然と行ってしまうこと」や、この面談を通じて「自己を深く掘り下げようとするその知的で真摯な態度」そのものに宿っています。
+これまでの日常や経験の中で、周囲から感謝された出来事や、あなたが苦にならずに取り組めた役割について、些細なことと思われるニュアンスでも結構ですので、共有していただけますでしょうか。`;
+        } else {
+            reply = `「${userText}」というお言葉を、非常に真摯かつ丁寧に言葉にしてくださいましたね。
+ご自身の想いを引き出して整理することは、時に心理的エネルギーを要する行為です。あなたの語るテーマと、その底にある大切な「感情」に深く耳を傾けております。
+その「${userText}」という事象や状況について、今現在ご自身の中で、どのような気持ちや感覚が最も強く想起されているか、さらに詳しく教えていただけますでしょうか。`;
+        }
+
+        if (fluencyNote) {
+            reply = `${fluencyNote}\n\n${reply}`;
+        }
+    }
+
+    const chunks = reply.split(/(、|。|？|\?|！|\!|…|\n)/).filter(Boolean);
     let isClosed = false;
     return new ReadableStream({
         async pull(controller) {
@@ -76,7 +145,7 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
             if (chunks.length > 0) {
                 const chunk = chunks.shift();
                 controller.enqueue({ text: chunk });
-                await delay(100);
+                await delay(30);
             } else {
                 controller.close();
                 isClosed = true;
@@ -88,10 +157,49 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
     await delay(2000);
+
+    const isDog = aiType === 'dog';
+    const nickname = profile?.nickname || '相談者様';
+
+    // 1. ダイナミックなキーワード抽出に基づいた体験パーソナライズ
+    const allUserTexts = chatHistory
+        .filter(m => m.author === MessageAuthor.USER)
+        .map(m => m.text)
+        .join('、');
+
+    const topics: string[] = [];
+    if (allUserTexts.includes('仕事') || allUserTexts.includes('業務')) topics.push('現在のご自身の「お仕事」やその内容');
+    if (allUserTexts.includes('転職') || allUserTexts.includes('辞め')) topics.push('これからの働き方や「転職」への岐路');
+    if (allUserTexts.includes('人間関係') || allUserTexts.includes('上司') || allUserTexts.includes('同僚')) topics.push('周囲の人々との「人間関係」やその中で生じる悩み');
+    if (allUserTexts.includes('将来') || allUserTexts.includes('不安')) topics.push('まだ見ぬ「将来」へのかすかな不安と、それに真摯に向き合うお気持ち');
+    if (allUserTexts.includes('強み') || allUserTexts.includes('スキル')) topics.push('ご自身がこれまで培ってきた「強み」や誇るべきスキル');
+    if (allUserTexts.includes('時間') || allUserTexts.includes('疲れ')) topics.push('日常的な「時間管理や心身の疲れ」に耳を傾けるべきタイミング');
+
+    if (topics.length === 0) {
+        topics.push('今後のキャリアやご自身がありたい姿について');
+    }
+
+    const user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」
+1. 本日お話ししたこと（テーマと事実）
+- ${topics.join(isDog ? '、そして' : '、さらには')}についての葛藤や現在の状況。
+- 自分に合った働き方やキャリアの方向性について、深く悩まれている状況。
+
+2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
+- 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
+- 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;
+
+    const professional_summary = `【相談者プロフィール】
+年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}
+エネルギー注力先：${profile?.lifeRoles?.join(', ') || "日常"}
+【キャリアコンサルタント向け引き継ぎ所見】
+対話を通して、クライアントは表面的な「焦り」の奥に、高度な「役割期待への応えすぎ（過適応傾向）」と、本来の「自己発揮」の矛盾に苦しんでいることが明らかになりました。打鍵傾向からは深い内省と、言語化しがたい感情の吐露が示唆されます。
+カウンセラーとの面談初期段階では「行動の提案」よりも、まず本人のこの頑張りそのものを無条件で受容し、安全な心理的土台を再構築することが極めて重要です。`;
+
     const mockStructured = {
-        user_summary: `## 💡 今日の気づき\n大切な一歩を踏み出せましたね。`,
-        pro_notes: `### キャリア分析ノート\n- **発達段階**: 確立期における再探索。`
+        user_summary,
+        professional_summary
     };
+
     return JSON.stringify(mockStructured);
 };
 
