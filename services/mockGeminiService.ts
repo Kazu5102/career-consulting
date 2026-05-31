@@ -1,7 +1,9 @@
 
-// services/mockGeminiService.ts - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
+// services/mockGeminiService.ts - v6.42 - 2026-05-31 - 軌跡分析の動的シミュレーション生成を実装し、「内的変容サマリー」がダミー固定だった不具合を解消（要望の案1適用）
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
+
+export const VERSION = "6.42";
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -215,22 +217,119 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
     await delay(2500);
+
+    // 相談者の各セッション履歴（conversations）から具体的な葛藤、気づき、変化（テーマや事実、気づいたこと・言葉にしたこと）をパース
+    const themes: string[] = [];
+    const insights: string[] = [];
+    
+    conversations.forEach(c => {
+        const text = c.summary || "";
+        let currentSection: 'themes' | 'insights' | null = null;
+        const lines = text.split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.includes('本日お話ししたこと') || trimmed.includes('1.')) {
+                currentSection = 'themes';
+                continue;
+            } else if (trimmed.includes('気づいたこと') || trimmed.includes('2.')) {
+                currentSection = 'insights';
+                continue;
+            } else if (trimmed.startsWith('■') || trimmed.startsWith('###')) {
+                currentSection = null;
+            }
+            
+            if (currentSection === 'themes' && (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*'))) {
+                const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                if (item && !themes.includes(item)) themes.push(item);
+            } else if (currentSection === 'insights' && (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*'))) {
+                const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                if (item && !insights.includes(item)) insights.push(item);
+            }
+        }
+    });
+
+    // 抽出できなかった場合のバックアップ（要約全体から箇条書きを抽出）
+    if (themes.length === 0 && insights.length === 0) {
+        conversations.forEach(c => {
+            const text = c.summary || "";
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*')) {
+                    const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                    if (item && item.length > 5) {
+                        if (trimmed.includes('葛藤') || trimmed.includes('悩み') || trimmed.includes('状況') || trimmed.includes('仕事')) {
+                            if (!themes.includes(item)) themes.push(item);
+                        } else {
+                            if (!insights.includes(item)) insights.push(item);
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    let overallSummary = '';
+    if (themes.length > 0 || insights.length > 0) {
+        overallSummary = `### 相談プロセス全体の内的変容の要約\n\n`;
+        if (themes.length > 0) {
+            overallSummary += `これまでの面談を通じて、相談者は主に以下のような葛藤やテーマ（状況・事実）に向き合ってこられました。\n\n`;
+            themes.slice(0, 3).forEach(t => {
+                overallSummary += `- **${t}**\n`;
+            });
+            overallSummary += `\n`;
+        }
+        if (insights.length > 0) {
+            overallSummary += `キャリアコンサルタントとの能動的な対話や内省の深化に伴い、相談者自身の中に以下のような肯定的な気づきと言葉の変化が生まれています。\n\n`;
+            insights.slice(0, 3).forEach(ins => {
+                overallSummary += `- **${ins}**\n`;
+            });
+            overallSummary += `\n`;
+        }
+        
+        overallSummary += `### 臨床的見立てと内的変容の推移\n`;
+        overallSummary += `当初は目の前の課題や周囲の環境に圧倒され、自己を抑圧して過度に役割期待へ応えようとする傾向（過適応）が強く働いていました。\n\n`;
+        overallSummary += `しかし、心理的安全性を確保した継続的なカウンセリングにより、本人が「真の願望や本音（${insights[0] || '本当に望む働き方'}）」を受け入れ、言語化できるようになり、受動的適応から「主体的キャリア形成」へと大きな自己改革（内的変容）を遂げ始めています。\n\n`;
+        overallSummary += `今後は、言語化できた本音を基盤にして、無理のないスモールステップ（情報収集や現職での微調整）から実際の行動へと移していく段階的支援が適切と考えられます。`;
+    } else {
+        overallSummary = `### 相談プロセス全体の内的変容の要約\n\n相談者のこれまでの面談履歴から、主治となる葛藤や言語化された本音がまだ十分に自動パースされていません。カウンセリングにおいて、相談者が以下のようなテーマに少しずつ触れ始めている段階であると推測されます。\n\n- 現在の仕事内容や評価への不確実性、およびキャリアイメージの模索\n- 今後の自立的役割と、自己のキャリア開発（内省と言語化）のバランス調整\n\n対話をさらに重ね、個別セッションの「心の可視化レポート」へ思考履歴をより詳細に記述・保存することにより、さらに精緻な『内的変容傾向』の軌跡の追跡が可能となります。`;
+    }
+
+    const derivedThemes = themes.length > 0 ? themes.slice(0, 3) : ['キャリアパスの悩み', '過度な役割期待への葛藤', '現職でのキャリア発達段階の揺らぎ'];
+    const derivedStrengths = insights.length > 0 ? ['自己分析力（客観的内省）', '自律性（自己決定志向）', 'キャリア・レジリエンス'] : ['協調性・順応能力', '課題解決への実直な姿勢'];
+    const derivedSteps = insights.length > 0 
+        ? [`「${insights[0]}」という本音を第一の軸に据えてキャリア構想をさらに精緻化する`, '現状の環境を維持しつつ、余暇を使って小さな適職情報収集を実行する'] 
+        : ['現状のプレッシャーとなる要素を棚卸しし、心身の余力を生み出す', '言語化しづらい感情や本音を受け止める安全な伴走を継続する'];
+    
+    const derivedTakeaways = [
+        insights.length > 0 ? `相談を重ねる中で「${insights[0]}」といった確固たる自己発見・気づきをすでに自らの言葉で獲得できています。` : "カウンセラーを信頼し、自分一人の頭では整理できなかった感情を安全に開示・言語化し始めています。",
+        themes.length > 0 ? `主訴である「${themes[0]}」に対する焦点当てが適切になされており、認知的変容の準備段階へと移行しつつあります。` : "周囲から期待されている『現在の役割』と、本来自分が持つ『あるべき姿』のギャップに自覚的になりつつあります。"
+    ];
+
     return {
-        keyTakeaways: ["自己理解が深まっている。", "具体的な行動計画が有効。"],
+        keyTakeaways: derivedTakeaways,
         userId,
         totalConsultations: conversations.length,
         consultations: conversations.map(c => ({ dateTime: new Date(c.date).toLocaleString('ja-JP'), estimatedDurationMinutes: 20 })),
-        keyThemes: ['キャリアパスの悩み'],
-        detectedStrengths: ['学習意欲'],
-        areasForDevelopment: ['ポートフォリオ作成'],
-        suggestedNextSteps: ['職種研究'],
-        overallSummary: `デモ用個別分析レポートです。`,
-        triageLevel: 'medium',
+        keyThemes: derivedThemes,
+        detectedStrengths: derivedStrengths,
+        areasForDevelopment: ['キャリア・アクションにおけるスモールステップへの展開（具体的実行計画の策定）'],
+        suggestedNextSteps: derivedSteps,
+        overallSummary,
+        triageLevel: conversations.length >= 3 ? 'low' : 'medium',
         ageStageGap: 35,
-        theoryBasis: "レヴィンソンの『人生の四季』理論に基づくと、30代中盤の『30代の転機』において、20代の未解決な探索課題が再演されている状態と推測されます。",
-        expertAdvice: "焦燥感が強いため、拙速な目標設定を促すと防衛機制が働く恐れがあります。まずは『理想の自己像』と『現在の自己』のズレを中立的に受け止めるラポール形成を最優先してください。",
-        reframedSkills: [{ userWord: 'コツコツやる', professionalSkill: '継続的改善能力', insight: '地道な作業を苦にせず、品質を高め続ける姿勢があります。' }],
-        sessionStarter: '最近の取り組みの中で、一番手応えを感じていることは何ですか？',
+        theoryBasis: "レヴィンソンの『人生の四季』理論に基づくと、30代中盤の『30代の転機』において、20代の未解決な探索課題が再演されている状態と推測されます。またサビカスのキャリア・コンストラクション理論から見ると、内的動機に基づき自己を主体的かつ現実的に意味づけ（リフレーミング）していく真っ只中にあります。",
+        expertAdvice: "相談者の不安や焦燥感が一時的に高まる場合、拙速に具体的な選択を促すと過適応や防衛反応が起こりやすくなります。これまでの面談を通じて『本当の心の声』が顔を出し始めているため、まずはその本音を徹底的にエンパワーメントし、『自己のキャリアの責任主体は自分自身である』というキャリア・アダプタビリティの自覚を促してください。",
+        reframedSkills: themes.map((t, idx) => ({
+            userWord: t.length > 15 ? t.substring(0, 15) + '...' : t,
+            professionalSkill: idx % 2 === 0 ? '状況適応・客観的調整力' : '当事者意識（自己管理力）',
+            insight: '生々しい葛藤の中から、本来自分が重視したい価値観を見出す動機付けに昇華されています。'
+        })).concat(insights.map((ins, idx) => ({
+            userWord: ins.length > 15 ? ins.substring(0, 15) + '...' : ins,
+            professionalSkill: idx % 2 === 0 ? '確固たる内省力（自己概念の構築）' : '自己方向付け能力',
+            insight: '直感的な気づきを自発的な意図へと接続し、今後の役割転換の確かな土台となっています。'
+        }))).slice(0, 3) || [{ userWord: 'コツコツやる', professionalSkill: '継続的改善能力', insight: '地道な作業を苦にせず、品質を高め続ける姿勢があります。' }],
+        sessionStarter: insights.length > 0 ? `前回の気づきであった「${insights[0]}」について、その後のご心境の変化や、より深く掘り下げてみたい点は何かございますか？` : '最近の取り組みの中で、一番手応えを感じていることや、小さな変化などはございましたか？',
     };
 };
 

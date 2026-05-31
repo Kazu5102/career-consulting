@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可動性向上、マージン・強調を美しく調整（案A）
-export const APP_VERSION = "6.41";
+// v6.42 - 2026-05-31 - 軌跡分析の動的シミュレーション生成を実装し、「内的変容サマリー」がダミー固定だった不具合を解消（要望の案1適用）
+export const APP_VERSION = "6.42";
 
 /**
  * AI Service Configuration
