@@ -1,5 +1,5 @@
 
-// components/AnalysisDisplay.tsx - v6.44 - 2026-06-16 - デバイス間の視認性・ボタン配置トータルバランスの極小化・テキスト折り返しレスポンシブ調整
+// components/AnalysisDisplay.tsx - v6.45 - 2026-06-16 - タブ指定に合わせた条件レンダリング、未実行時プレースホルダー、モバイルレスポンシブ極小調和の導入
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { TrajectoryAnalysisData, AnalysisStateItem, SkillMatchingResult } from '../types';
@@ -16,6 +16,7 @@ interface AnalysisDisplayProps {
     trajectoryState?: AnalysisStateItem<TrajectoryAnalysisData>;
     skillMatchingState?: AnalysisStateItem<SkillMatchingResult>;
     comprehensiveState?: AnalysisStateItem<any>;
+    activeTab?: 'trajectory' | 'skillMatching';
 }
 
 const TRAJECTORY_PHASES = [
@@ -402,22 +403,52 @@ const SkillMatchingContent: React.FC<{ data: SkillMatchingResult }> = ({ data })
     );
 };
 
-const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ trajectoryState, skillMatchingState }) => {
-    // Determine which loader to show based on loading state
-    if (trajectoryState?.status === 'loading') return <ProgressiveAnalysisLoader type="trajectory" />;
-    if (skillMatchingState?.status === 'loading') return <ProgressiveAnalysisLoader type="skillMatching" />;
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ trajectoryState, skillMatchingState, activeTab = 'trajectory' }) => {
+    // Determine which loader to show based on loading state of the active tab
+    if (activeTab === 'trajectory' && trajectoryState?.status === 'loading') return <ProgressiveAnalysisLoader type="trajectory" />;
+    if (activeTab === 'skillMatching' && skillMatchingState?.status === 'loading') return <ProgressiveAnalysisLoader type="skillMatching" />;
 
-    if (trajectoryState?.status === 'error' && trajectoryState.error) {
+    if (activeTab === 'trajectory' && trajectoryState?.status === 'error' && trajectoryState.error) {
         return <AnalysisErrorFallback type="軌跡分析" error={trajectoryState.error} />;
     }
-    if (skillMatchingState?.status === 'error' && skillMatchingState.error) {
+    if (activeTab === 'skillMatching' && skillMatchingState?.status === 'error' && skillMatchingState.error) {
         return <AnalysisErrorFallback type="適職診断" error={skillMatchingState.error} />;
     }
 
     return (
         <div className="space-y-12">
-            {trajectoryState?.status === 'success' && trajectoryState.data && <TrajectoryContent data={trajectoryState.data} />}
-            {skillMatchingState?.status === 'success' && skillMatchingState.data && <SkillMatchingContent data={skillMatchingState.data} />}
+            {activeTab === 'trajectory' && trajectoryState?.status === 'success' && trajectoryState.data && (
+                <TrajectoryContent data={trajectoryState.data} />
+            )}
+            
+            {activeTab === 'skillMatching' && skillMatchingState?.status === 'success' && skillMatchingState.data && (
+                <SkillMatchingContent data={skillMatchingState.data} />
+            )}
+            
+            {/* If the active tab has not been run (idle), show a polished explanatory placeholder */}
+            {activeTab === 'trajectory' && (trajectoryState?.status === 'idle' || !trajectoryState) && (
+                <div className="p-8 sm:p-12 flex flex-col items-center justify-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-center shadow-sm animate-in fade-in duration-300">
+                    <div className="w-14 sm:w-16 h-14 sm:h-16 bg-sky-50 rounded-2xl flex items-center justify-center text-sky-600 mb-4 shadow-inner">
+                        <TrajectoryIcon className="w-6 sm:w-8 h-6 sm:h-8" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-800">軌跡分析が未実行です</h3>
+                    <p className="text-xs sm:text-sm font-bold text-slate-400 mt-2 max-w-md leading-relaxed px-4">
+                        相談履歴の対話傾向から、心理的な揺らぎ、回復ステップ、要介入度の変遷をディープに可視化し、適切なアプローチ時期を導き出します。
+                    </p>
+                </div>
+            )}
+            
+            {activeTab === 'skillMatching' && (skillMatchingState?.status === 'idle' || !skillMatchingState) && (
+                <div className="p-8 sm:p-12 flex flex-col items-center justify-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-center shadow-sm animate-in fade-in duration-300">
+                    <div className="w-14 sm:w-16 h-14 sm:h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-4 shadow-inner">
+                        <TargetIcon className="w-6 sm:w-8 h-6 sm:h-8" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-800">適職能力診断が未実行です</h3>
+                    <p className="text-xs sm:text-sm font-bold text-slate-400 mt-2 max-w-md leading-relaxed px-4">
+                        これまでの対話から相談者の本質的な強み、自己効力感の高い領域、今後習得すべきコンピテンシーを定量マップ化し、推薦業界と学習課題を明示します。
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

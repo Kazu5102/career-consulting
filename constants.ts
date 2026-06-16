@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.44 - 2026-06-16 - デバイス間の視認性・ボタン配置トータルバランスの極小化・リバランスの導入
-export const APP_VERSION = "6.44";
+// v6.45 - 2026-06-16 - 軌跡分析・適職診断のシームレス切替（ローディングキャッシュ）、モバイルはみ出し防止のD-Controlレスポンシブ化
+export const APP_VERSION = "6.45";
 
 /**
  * AI Service Configuration
