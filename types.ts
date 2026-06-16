@@ -1,5 +1,5 @@
 
-// types.ts - v6.05 - 2026-05-29 - Add nickname to UserProfile in order to fix mock type checks
+// types.ts - v6.43 - 2026-06-16 - Add optional fields for demo-toggles and deep-dive evaluation support
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;
@@ -164,6 +164,13 @@ export interface TrajectoryAnalysisData {
     reframedSkills: ReframedSkill[];
     sessionStarter: string;
     narrativeTimeline?: { topic: string; emotionalTone: number }[];
+    // デモ用フィールド
+    dialogueDepth?: 'shallow' | 'deep';
+    demoScores?: { family_education: number; welfare_protection: number };
+    redFlag?: boolean;
+    urgencyLevel?: 'medium' | 'high';
+    extractedTags?: string[];
+    typingFluencySpike?: boolean;
 }
 
 export interface HiddenPotentialData {

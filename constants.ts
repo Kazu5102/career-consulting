@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.42 - 2026-05-31 - 軌跡分析の動的シミュレーション生成を実装し、「内的変容サマリー」がダミー固定だった不具合を解消（要望の案1適用）
-export const APP_VERSION = "6.42";
+// v6.43 - 2026-06-16 - D-Control (デモ操作用トグルパネル) および多段階見立て変更の実装
+export const APP_VERSION = "6.43";
 
 /**
  * AI Service Configuration

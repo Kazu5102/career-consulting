@@ -1,8 +1,9 @@
 
-// views/AdminView.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
+// views/AdminView.tsx - v6.43 - 2026-06-16 - D-Control (デモ操作用トグルパネル) および多段階見立て変更の実装
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
+import { demoPatternA, demoPatternB } from '../data/demoMockData';
 import * as userService from '../services/userService';
 import * as conversationService from '../services/conversationService';
 import * as analysisService from '../services/analysisService';
@@ -47,6 +48,105 @@ const AdminView: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const [checkedUserIds, setCheckedUserIds] = useState<Set<string>>(new Set());
+
+    const loadData = useCallback(async () => {
+        const u = await userService.getUsers();
+        setUsers(u);
+        const c = await conversationService.getAllConversations();
+        setConversations(c);
+    }, []);
+    
+    // D-Control: Board Demo Toggle States and Controller
+    const [demoMode, setDemoMode] = useState<'none' | 'patternA' | 'patternB'>('none');
+
+    const handleDemoSelect = useCallback(async (mode: 'none' | 'patternA' | 'patternB') => {
+        setDemoMode(mode);
+        if (mode === 'patternA') {
+            const demoUser: UserInfo = { id: demoPatternA.userId, nickname: "ゆき（18歳デモ）", pin: "0000" };
+            setUsers(prev => {
+                if (!prev.some(u => u.id === demoUser.id)) return [...prev, demoUser];
+                return prev;
+            });
+            setSelectedUserId(demoUser.id);
+            setViewingHistoryId(null);
+
+            const dummyConvs: StoredConversation[] = [
+                {
+                    id: 99991,
+                    userId: demoUser.id,
+                    aiName: "Repotta.LIFE",
+                    aiType: "human",
+                    aiAvatar: "",
+                    messages: [
+                        { author: 'user' as any, text: "親とぶつかってしまって、家を出たい。でもどうしていいか分からない。" },
+                        { author: 'ai' as any, text: "そうなんですね。親御さんと衝突してしまって、家を出たいお気持ちなんですね。詳しくお話しできますか？" },
+                        { author: 'user' as any, text: "手を出されそうになった。怒鳴られてすごく怖かった。" }
+                    ],
+                    summary: JSON.stringify({ user_summary: "親との激しい衝突により家出を希望。怒鳴られたことへの強い恐怖感がある。家庭内の心理的安全性が損なわれている。" }),
+                    date: "2026-06-10T10:00:00Z",
+                    status: "completed"
+                }
+            ];
+            setConversations(prev => {
+                const rest = prev.filter(c => c.userId !== demoUser.id);
+                return [...rest, ...dummyConvs];
+            });
+            setAnalyses({
+                trajectory: { status: 'success', data: demoPatternA, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+        } else if (mode === 'patternB') {
+            const demoUser: UserInfo = { id: demoPatternB.userId, nickname: "ゆき（18歳デモ）", pin: "0000" };
+            setUsers(prev => {
+                if (!prev.some(u => u.id === demoUser.id)) return [...prev, demoUser];
+                return prev;
+            });
+            setSelectedUserId(demoUser.id);
+            setViewingHistoryId(null);
+
+            const dummyConvs: StoredConversation[] = [
+                {
+                    id: 99992,
+                    userId: demoUser.id,
+                    aiName: "Repotta.LIFE",
+                    aiType: "human",
+                    aiAvatar: "",
+                    messages: [
+                        { author: 'user' as any, text: "親とぶつかってしまって、家を出たい。でもどうしていいか分からない。" },
+                        { author: 'ai' as any, text: "そうなんですね。親御さんと衝突してしまって、家を出たいお気持ちなんですね。詳しくお話しできますか？" },
+                        { author: 'user' as any, text: "手を出されそうになった。怒鳴られてすごく怖かった。友達に言っても信じてもらえないと思う。うちは有名なパパだから..." },
+                        { author: 'ai' as any, text: "そうだったのですね。周囲を気にして孤立してしまっているのですね。" },
+                        { author: 'user' as any, text: "（45秒の沈黙の末）本当は...胸ぐらを掴まれて床に押し倒されたんです。フラシュバックして夜眠れなくて..." }
+                    ],
+                    summary: JSON.stringify({ user_summary: "父親（著名人）の社会的地位による外部への相談経路の遮断。胸ぐらを掴んで床に押し倒された身体的暴力によるフラッシュバックと強い恐怖。" }),
+                    date: "2026-06-10T11:00:00Z",
+                    status: "completed"
+                }
+            ];
+            setConversations(prev => {
+                const rest = prev.filter(c => c.userId !== demoUser.id);
+                return [...rest, ...dummyConvs];
+            });
+            setAnalyses({
+                trajectory: { status: 'success', data: demoPatternB, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+        } else {
+            setSelectedUserId(null);
+            setAnalyses({
+                trajectory: { status: 'idle', data: null, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+            // 通常データをリロード
+            const u = await userService.getUsers();
+            setUsers(u);
+            const c = await conversationService.getAllConversations();
+            setConversations(c);
+        }
+    }, [loadData]);
     
     // UI State for analysis visualization (latest only)
     const [analyses, setAnalyses] = useState<AnalysesState>({
@@ -73,13 +173,6 @@ const AdminView: React.FC = () => {
     const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
     const [usageData, setUsageData] = useState<UsageData>(getUsageData());
     const [simUserCount, setSimUserCount] = useState<number>(500);
-
-    const loadData = useCallback(async () => {
-        const u = await userService.getUsers();
-        setUsers(u);
-        const c = await conversationService.getAllConversations();
-        setConversations(c);
-    }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -378,7 +471,30 @@ const AdminView: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                                {/* D-Control (デモ専用コントローラー) */}
+                                <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1.5 rounded-xl shadow-md shrink-0">
+                                    <span className="text-[9px] font-extrabold tracking-widest text-[#f43f5e] px-2 uppercase select-none animate-pulse">D-Control</span>
+                                    <button 
+                                        onClick={() => handleDemoSelect('none')} 
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${demoMode === 'none' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        通常
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDemoSelect('patternA')} 
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${demoMode === 'patternA' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        パターンA (通常)
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDemoSelect('patternB')} 
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${demoMode === 'patternB' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        パターンB (深いSOS)
+                                    </button>
+                                </div>
+
                                 <button onClick={() => runAnalysis('trajectory')} className="flex-shrink-0 flex-1 md:flex-none px-4 py-2.5 bg-sky-600 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-sky-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2"><TrajectoryIcon className="w-4 h-4" />軌跡分析</button>
                                 <button onClick={() => runAnalysis('skillMatching')} className="flex-shrink-0 flex-1 md:flex-none px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-emerald-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2"><TargetIcon className="w-4 h-4" />適職診断</button>
                                 <button onClick={() => setIsShareModalOpen(true)} className="flex-shrink-0 px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-black transition-colors whitespace-nowrap flex items-center justify-center gap-2"><FileTextIcon className="w-4 h-4"/>レポート</button>
