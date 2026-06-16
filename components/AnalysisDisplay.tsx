@@ -1,5 +1,5 @@
 
-// components/AnalysisDisplay.tsx - v6.43 - 2026-06-16 - Add dynamic warning banners, sliding multi-stage scoring bar, and typing fluency silence graph for board demo
+// components/AnalysisDisplay.tsx - v6.44 - 2026-06-16 - デバイス間の視認性・ボタン配置トータルバランスの極小化・テキスト折り返しレスポンシブ調整
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { TrajectoryAnalysisData, AnalysisStateItem, SkillMatchingResult } from '../types';
@@ -160,25 +160,27 @@ const TrajectoryContent: React.FC<{ data: TrajectoryAnalysisData }> = ({ data })
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-900 p-8 rounded-3xl shadow-xl text-white">
-                <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-3">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-black border tracking-wider uppercase ${colors[data.triageLevel] || colors.low}`}>
-                            {data.triageLevel === 'high' ? '要介入' : data.triageLevel === 'medium' ? '経過観察' : '安定'}
-                        </span>
-                        <h2 className="text-2xl font-black tracking-tight">介入戦略インサイト</h2>
+            <div className="flex flex-col md:flex-row justify-between items-stretch gap-5 bg-slate-900 p-5 sm:p-8 rounded-3xl shadow-xl text-white">
+                <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                            <span className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-black border tracking-wider uppercase ${colors[data.triageLevel] || colors.low}`}>
+                                {data.triageLevel === 'high' ? '要介入' : data.triageLevel === 'medium' ? '経過観察' : '安定'}
+                            </span>
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight break-keep whitespace-nowrap">介入戦略インサイト</h2>
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="bg-white/10 text-[9px] px-2 py-0.5 rounded border border-white/20 font-bold tracking-widest text-sky-300 uppercase">
+                                Theory-Based Analysis
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium break-keep">根拠: {data.theoryBasis}</span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-white/10 text-[10px] px-2 py-0.5 rounded border border-white/20 font-bold tracking-widest text-sky-300 uppercase">
-                            Theory-Based Analysis
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">根拠: {data.theoryBasis}</span>
-                    </div>
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed">臨床的観点からの「内的変容」分析。</p>
+                    <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed mt-2 sm:mt-4">臨床的観点からの「内的変容」分析。</p>
                 </div>
-                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 flex-shrink-0 w-full sm:w-80">
-                    <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-2 flex items-center gap-2"><SparklesIcon className="w-3 h-3"/> Session Starter</p>
-                    <p className="text-sm font-bold italic leading-relaxed">「{data.sessionStarter}」</p>
+                <div className="bg-white/5 p-4 sm:p-5 rounded-2xl border border-white/10 flex-shrink-0 w-full md:w-80 flex flex-col justify-center">
+                    <p className="text-[9px] font-black text-sky-400 uppercase tracking-widest mb-1.5 flex items-center gap-2"><SparklesIcon className="w-3 h-3"/> Session Starter</p>
+                    <p className="text-xs sm:text-sm font-bold italic leading-relaxed text-slate-100">「{data.sessionStarter}」</p>
                 </div>
             </div>
             

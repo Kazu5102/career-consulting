@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.43 - 2026-06-16 - D-Control (デモ操作用トグルパネル) および多段階見立て変更の実装
-export const APP_VERSION = "6.43";
+// v6.44 - 2026-06-16 - デバイス間の視認性・ボタン配置トータルバランスの極小化・リバランスの導入
+export const APP_VERSION = "6.44";
 
 /**
  * AI Service Configuration
