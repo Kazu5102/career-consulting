@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_6.23",
-  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
-  "version": "6.04",
+  "name": "Career Consulting_6.51",
+  "description": "Secure AI Architecture v6.51: API疎通可能性（Vite 開発用ローカルプロキシ）確保、心の可視化レポート案A拡張実装",
+  "version": "6.51",
   "prompt": "",
   "D7": [],
   "Yp": []

@@ -1,5 +1,5 @@
 
-// App.tsx - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
+// App.tsx - v6.51 - 2026-06-26 - API接続自動切り替え、心の可視化レポート案A（4セクション）、およびAPI疎通確認完了に伴うバージョン同期
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';
