@@ -1,8 +1,9 @@
 
-// components/SkillMatchingModal.tsx - v4.33 - Text Alignment Fix
+// components/SkillMatchingModal.tsx - v6.46 - 2026-06-19 - 標準職種タクソノミー（マスターデータ）補完とハローワーク・job-tag連携の親和的実アプローチUI実装
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { SkillMatchingResult, AnalysisStateItem } from '../types';
+import { getJobByCode } from '../data/jobTaxonomy';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import LightbulbIcon from './icons/LightbulbIcon';
 import LinkIcon from './icons/LinkIcon';
@@ -31,6 +32,7 @@ const createMarkup = (markdownText: string | undefined | null) => {
 
 const SkillMatchingModal: React.FC<SkillMatchingModalProps> = ({ isOpen, onClose, analysisState }) => {
   const [messageIndex, setMessageIndex] = useState(0);
+  const [expandedRoleCode, setExpandedRoleCode] = useState<string | null>(null);
 
   useEffect(() => {
     let interval: ReturnType<typeof setTimeout> | null = null;
@@ -103,24 +105,116 @@ const SkillMatchingModal: React.FC<SkillMatchingModalProps> = ({ isOpen, onClose
             <section>
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-sky-100 text-sky-600 p-2.5 rounded-xl shadow-sm"><BriefcaseIcon /></div>
-                <h3 className="text-xl font-bold text-slate-800">おすすめの職種・役割</h3>
+                <h3 className="text-xl font-bold text-slate-800">おすすめの具体職種・初期ステップ</h3>
               </div>
-              <div className="grid grid-cols-1 gap-4">
-                {result.recommendedRoles?.map(role => (
-                    <div key={role.role} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:border-sky-300 hover:shadow-md transition-all group">
-                        <div className="flex justify-between items-start gap-4 mb-3">
-                            <h4 className="font-bold text-lg text-slate-800 group-hover:text-sky-700 transition-colors">{role.role}</h4>
-                            <div className="text-right flex-shrink-0">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Match Score</p>
-                                <p className="font-black text-2xl text-sky-600 leading-tight">{role.matchScore}%</p>
+              <div className="grid grid-cols-1 gap-5">
+                {result.recommendedRoles?.map(role => {
+                    const masterJob = role.job_code ? getJobByCode(role.job_code) : undefined;
+                    const isExpanded = expandedRoleCode === (role.job_code || role.role);
+                    
+                    // job-tag / hello-work の検索リンク
+                    const jobTagUrl = `https://shigoto.mhlw.go.jp/User/Search?keyword=${encodeURIComponent(role.role)}`;
+                    const helloWorkUrl = `https://www.hellowork.mhlw.go.jp/kensaku/GECA110010.do?searchBtn=%E6%A4%9C%E7%B4%A2&job_keyword=${encodeURIComponent(role.role)}`;
+
+                    return (
+                        <div 
+                          key={role.role} 
+                          className={`bg-white border p-6 rounded-2xl shadow-sm hover:shadow-md transition-all ${
+                            isExpanded ? 'border-sky-400 ring-2 ring-sky-50 shadow-md' : 'border-slate-200 hover:border-sky-300'
+                          }`}
+                        >
+                            <div className="flex justify-between items-start gap-4 mb-4">
+                                <div className="space-y-1">
+                                    {masterJob && (
+                                        <span className="text-[10px] bg-sky-50 text-sky-700 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                                            {masterJob.category}
+                                        </span>
+                                    )}
+                                    <h4 className="font-extrabold text-lg text-slate-800">{role.role}</h4>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">適合度</p>
+                                    <p className="font-black text-2.5xl text-sky-600 leading-tight">{role.matchScore}%</p>
+                                </div>
+                            </div>
+                            
+                            <div className="w-full bg-slate-100 rounded-full h-2 shadow-inner mb-4">
+                                <div className="bg-sky-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${role.matchScore}%` }}></div>
+                            </div>
+                            
+                            <p className="text-sm text-slate-600 leading-relaxed font-bold bg-slate-50/70 p-4 rounded-xl border border-slate-100">{role.reason}</p>
+                            
+                            {/* Master Integration Expand Area */}
+                            <div className="mt-4 pt-4 border-t border-dashed border-slate-100 flex flex-col gap-3">
+                                <button 
+                                  onClick={() => setExpandedRoleCode(isExpanded ? null : (role.job_code || role.role))}
+                                  className="self-start text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1.5 py-1 px-3 bg-sky-50 rounded-lg hover:bg-sky-100 transition-all"
+                                >
+                                  {isExpanded ? '詳細仕様を閉じる' : 'この職種の標準仕様と求人連携を見る'}
+                                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+
+                                {isExpanded && (
+                                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 text-slate-700 space-y-4 animate-in fade-in duration-300">
+                                        {masterJob ? (
+                                            <>
+                                                <div className="space-y-1.5">
+                                                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider">厚生労働省定義の標準実務概要</p>
+                                                    <p className="text-xs leading-relaxed font-medium text-slate-600">{masterJob.description}</p>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <p className="text-xs font-black text-slate-400 uppercase tracking-wider">身に付く/期待される核となるスキル</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {masterJob.requiredSkills.map(ski => (
+                                                            <span key={ski} className="text-[10px] bg-white border border-slate-300/80 text-slate-700 px-2.5 py-1 rounded-full font-bold">
+                                                                {ski}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 font-medium">※ 標準職種仕様は定義済みマスタでのみロード可能です。</p>
+                                        )}
+
+                                        <div className="pt-3 border-t border-slate-200/60 space-y-3">
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                                <span>実務支援機関連携（ハローワーク / job-tag）</span>
+                                            </p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                                <a 
+                                                  href={helloWorkUrl} 
+                                                  target="_blank" 
+                                                  referrerPolicy="no-referrer"
+                                                  className="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 hover:bg-emerald-100 p-3 rounded-xl transition-all group"
+                                                >
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span>ハローワークの求人を検索</span>
+                                                    </span>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                </a>
+                                                <a 
+                                                  href={jobTagUrl} 
+                                                  target="_blank" 
+                                                  referrerPolicy="no-referrer"
+                                                  className="flex items-center justify-between text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200/80 hover:bg-sky-100 p-3 rounded-xl transition-all group"
+                                                >
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span>厚生労働省 job-tag 情報を見る</span>
+                                                    </span>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                </a>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-normal font-medium">※上のボタンをクリックすると、外部ブラウザタブで厚生労働省の公開求人（ハローワーク等）や公式職業分析データベースに直接連携し、未経験歓迎のリアルの就労案件・要件をクイック検索できます。</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2 shadow-inner">
-                            <div className="bg-sky-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${role.matchScore}%` }}></div>
-                        </div>
-                        <p className="text-sm text-slate-600 mt-4 leading-relaxed font-medium">{role.reason}</p>
-                    </div>
-                ))}
+                    );
+                })}
               </div>
             </section>
             

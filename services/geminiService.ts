@@ -1,5 +1,5 @@
 
-// services/geminiService.ts - v5.93 - 2026-05-24 - Model Upgrade
+// services/geminiService.ts - v6.46 - 2026-06-19 - Standard taxonomy-based skill matching
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, GroundingMetadata, UserProfile } from '../types';
 import * as directMockService from './mockGeminiService';
 
