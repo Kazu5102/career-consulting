@@ -1,10 +1,9 @@
 
-// services/mockGeminiService.ts - v6.54 - 2026-06-26 - 構文エラーの完全修復と重複関数の統合整理
+// services/mockGeminiService.ts - v6.42 - 2026-05-31 - 軌跡分析の動的シミュレーション生成を実装し、「内的変容サマリー」がダミー固定だった不具合を解消（要望の案1適用）
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
-import { JOB_TAXONOMY } from '../data/jobTaxonomy';
 
-export const VERSION = "6.54";
+export const VERSION = "6.42";
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -42,90 +41,101 @@ const sampleAnalysisData: AnalysisData = {
 
 const sampleSkillMatchingResult: SkillMatchingResult = {
     keyTakeaways: [
-        "高い傾聴力と周囲の状況を先回りして整理するサポート力が大きな強みです。",
-        "チームのハブとしての調整業務や伴走支援でのポテンシャルが認められます。",
+        "高い学習意欲と協調性があなたの大きな強みです。",
+        "Web開発分野でのポテンシャルが非常に高いです。",
     ],
-    analysisSummary: `あなたは、**相手に寄り添う親身なカウンセリング的コミュニケーション**と、**高いタスク管理能力**を持ち、チームやユーザーを裏方から滑らかにサポートすることに長けています。`,
+    analysisSummary: `あなたは、**高い学習意欲**と**着実に物事を進める能力**を兼ね備えています。`,
     recommendedRoles: [
-        { 
-            role: 'キャリア・就労支援アシスタント（コーディネーター）', 
-            reason: '将来的に「人の役に立ちたい」という高い利他的な志向と傾聴力を、支援現場の実務アシスタントとして活かしながら、専門キャリアへと無理なくステップアップできます。', 
-            matchScore: 92,
-            job_code: 'JOB_CAREER_CONSULTANT_SUPPORT'
-        },
-        { 
-            role: 'ITヘルプデスク・ユーザーサポート', 
-            reason: '相談者が持つ「ユーザーの状況に寄り添って根気強く解決まで伴走する力」は、ITヘルプデスクにて最も価値を発揮します。未経験からIT知識をインプットする最初の入り口としても親和性が非常に高いです。', 
-            matchScore: 85,
-            job_code: 'JOB_IT_SUPPORT'
-        },
-        { 
-            role: '総合事務・営業コーディネーター（アシスタント）', 
-            reason: '周囲の期待を素早く察知し、几帳面な書類作成やITツール活用で先回りフォローができる資質は、営業・事務コーディネーターに最適です。', 
-            matchScore: 78,
-            job_code: 'JOB_OFFICE_COORDINATOR'
-        },
+        { role: 'Webデベロッパー', reason: '学習意欲を活かし、高品質な開発に貢献できます。', matchScore: 85 },
     ],
     skillsToDevelop: [
-        { skill: 'キャリア・労働基準関係の基礎理解', reason: '面談者の一次ヒアリングや履歴整理を正確に行う上での専門知識基盤となります。' },
-        { skill: 'IT環境・ツールの実務活用', reason: 'ヘルプデスク対応や営業コーディネートの現場で頻出する、PCアカウント設定や案件管理ツールの操作知識です。' }
+        { skill: 'Git / GitHub', reason: 'チーム開発の基本ツールです。' },
     ],
     learningResources: [
-        { title: '未経験から始めるITヘルプデスク基礎', type: 'video', provider: 'Udemy' },
-        { title: 'キャリアコンサルティングの基礎と実践', type: 'book', provider: '雇用開発簡易センター' }
-    ]
+        { title: 'Gitコース', type: 'course', provider: 'Progate' },
+    ],
+};
+
+export const checkServerStatus = async (): Promise<{status: string}> => {
+    await delay(200);
+    return { status: 'ok' };
 };
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
-    await delay(1000);
+    await delay(1200);
 
-    const lastMessage = messages[messages.length - 1];
-    const userText = lastMessage ? lastMessage.text : "";
     const isDog = aiType === 'dog';
-    const nickname = profile?.nickname || '相談者様';
-
+    const lastUserMessage = [...messages].reverse().find(m => m.author === MessageAuthor.USER);
+    const userText = lastUserMessage?.text || "";
+    
+    // 特許準拠：打鍵リズムによる心理的コンテキストの抽出・動的反映
     let fluencyNote = "";
     if (profile?.typingFluency) {
         const { mean, stdDev } = profile.typingFluency;
-        if (mean > 1200) {
-            fluencyNote = "（※入力傾向分析：非常にじっくり時間をかけて考えながら、躊躇を伴いタイピングされています。非言語的にも、深い迷いや葛藤があるかもしれません）";
-        } else if (stdDev > 400) {
-            fluencyNote = "（※入力傾向分析：途中で手を止めたり急いだりと、感情が揺れ動いているようなタイピングの起伏が見られます）";
+        if (mean > 600) {
+            fluencyNote = isDog 
+                ? "キミがいろいろと考えながら、ゆっくり一生懸命、この言葉を紡いでくれたことがすごく伝わってくるわん🐾 だから、ボクもキミのそのスピードに寄り添って、ゆっくりお話を聞くワン。" 
+                : "一言一言、とてもゆっくりと時間をかけて言葉を紡いでくださいましたね。それだけ心の中で、言葉になりきらない大切な想いや迷いと丁寧に向き合っていらっしゃるのだとお察しいたします。";
+        } else if (stdDev > 200) {
+            fluencyNote = isDog 
+                ? "なんだかキミのキーボードのリズムに、いろんな感情や葛藤がギュッと詰まっている気がしたワン🐾 焦らなくて大丈夫だワン。キミの隣で同じ気持ちでいるワン！" 
+                : "打鍵の間隔に大きな動きや不規則さが見受けられますね。内面で強いお気持ちや、相反する葛藤が激しく渦巻いていらっしゃるのではないでしょうか。どう思われても大丈夫ですので、そのまま吐き出してくださいね。";
         }
     }
 
+    // カウンセラー本来の共感・反復（リフレクション）行動基準に基づく知的な回答ロジック
     let reply = "";
     if (isDog) {
         if (userText.includes('転職') || userText.includes('辞め')) {
-            reply = `「転職」や「辞めたい」について悩んでいるんだねワン。今の仕事を離れるのって、すごく不安だし、いろんなことを考えちゃって足がすくむのは当たり前だワン🐾\nキミが一生懸命がんばってきたからこそ、そんな葛藤が生まれるんだワン。本当によくがんばっているワン！\nまずはその「${userText}」という言葉に込めたキミの本音や、一番苦しいなと感じている部分を、ボクにやさしく聞かせてくれないワン？🐾`;
+            reply = `「転職」や「今の職場を辞めること」について悩んでいるんだねワン。今の仕事を離れて新しい道に行くのは、すごく勇気がいるし、不安になるのも当然だワン！
+キミがそうやってこれからの働き方を真剣に考え始めたのは、キミがもっと素敵に輝ける場所を見つけたいっていうワクワクのサインかもしれないワン 🐾
+今の職場で「ここがちょっとしんどいな…」と感じることや、新しく挑戦してみたいこと、もっとお話しできる範囲で聞かせてほしいワン！`;
         } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
-            reply = `職場の人たちとの関係で悩んでいるんだねワン。上司や同僚とのやり取りって、毎日繰り返すことだからすごく心が擦り減っちゃうワン…。キミは本当によくがんばっているワン！\n周りの人に気を使いすぎたり、期待に応えようとがんばり、そして今日ここまで自分の心を見つめて言葉を紡いできてくれたこと、ボクは心からがんばっているねって伝えたいワン！\nもう少し、その「${userText}」について、キミが感じていることや想いをボクに聞かせてくれないワン？キミのペースで大丈夫だワン！🐾`;
+            reply = `職場の人たちとの関係で悩んでいるんだねワン。上司や同僚とのやり取りって、毎日繰り返すことだからすごく心が擦り減っちゃうワン…。キミは本当によくがんばっているワン！
+周りの人に気を使いすぎたり、期待に応えようとして、自分の「本当の気持ち」を後回しにしちゃっていることはないワン？🐾
+もしよかったら、「こういうときが一番しんどいんだ」というエピソードを、ボクにそっと吐き出してみてほしいワン。`;
         } else if (userText.includes('将来') || userText.includes('不安')) {
-            reply = `将来への不安について悩んでいるんだねワン。何が起こるか分からない未来のことを考えると、ドキドキしたり、心がざわついちゃうのは当然だワン🐾\nでもね、それだけキミがこれからの人生を大切に、真剣に進んでいきたいと思っている証拠なんだワン！すごく頼もしいワン！\n今、一番「どうなるのかな…」って気になっていることや、不安に感じることを、ボクに聞かせてほしいワン！🐾`;
+            reply = `将来への漠然とした不安を抱えているんだねワン。まだ見ぬ先のことって、暗闇を歩いているみたいでどうしたらいいかわからなくなっちゃうの、すごくよくわかるワン🐾
+でも、その不安があるってことは、キミが自分の人生を「もっと良くしていきたい」って、真剣に自分と向き合っている証拠なんだワン！素晴らしいことだワン！
+今この瞬間、キミが一番「こうなったら心がスッキリするのにな」って思う理想の姿は、どんな小さなことでもいいから浮かんでくるワン？🐾`;
         } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
-            reply = `自分の強みや、得意なことについて考えているんだねワン。自分の良いところって、自分自身では当たり前すぎてなかなか見つけにくいものなんだワン🐾\n実力や実績だけじゃなく、キミがこうやって「自分の得意なことって何だろう？」って見つめようとしていること自体が、もう素晴らしい強みなんだワン！\nこれまでに、人から「ありがとう！」って喜ばれたことや、やっていて楽しかったなと思うこと、どんなことでもいいから教えてほしいワン🐾`;
+            reply = `自分の「強み」や「得意なこと」を見つけたいんだねワン！キミは自分のこと「まだまだワン…」って思っているかもしれないけど、ボクから見たらキラキラ輝くタカラモノがいっぱいあるワン！🐾
+たとえば、今日こうして自分の気持ちを言葉にして整理しようとする行動力だって、ものすごく強力な強みなんだワン！
+周りの人から「これ、助かったよ！」とか「器用だね」って言われたこと、あるいは自分がやっていて全然飽きないことって、何かないワン？小さなことでも誇っていいワン🐾`;
         } else {
-            reply = `「${userText}」について、一生懸命お話ししてくれてありがとうワン🐾 キミのその一生懸命な気持ち、ボクにしっかり届いているワン！\n自分の本当の気持ちを見つめるのって、ちょっぴりエネルギーがいることだけど、キミはこうやって言葉にしてくれたワン。本当にえらいワン！\nその「${userText}」について、今どんな気持ちが一番大きく膨らんでいるか、ボクにもっと詳しく教えてほしいワン🐾`;
+            reply = `「${userText}」っていう、キミの今の大切な言葉、ボクの大きなお耳でしっかり優しく受け止めたワン🐾
+そう話してくれた時のキミの気持ち、そして今日ここまで自分の心を見つめて言葉を紡いできてくれたこと、ボクは心からがんばっているねって伝えたいワン！
+もう少し、その「${userText}」について、キミが感じていることや想いをボクに聞かせてくれないワン？キミのペースで大丈夫だワン！🐾`;
         }
         
         if (fluencyNote) {
-            reply = fluencyNote + "\n\n" + reply;
+            reply = `${fluencyNote}\n\n${reply}`;
         }
     } else {
         if (userText.includes('転職') || userText.includes('辞め')) {
-            reply = `「転職」あるいは「退職」という, 人生における重要な転機について真剣に向き合っていらっしゃるのですね。\n現在の職場を去るという決断には、これまで築いてきた安定を手放すような怖さや、周囲への遠慮など、本当に多様な感情が交錯するものと思います。\nあなたが次の居場所を模索し始めた背景には、どのような思いや、これまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
+            reply = `「転職」あるいは「退職」という、人生における重要な転機について真剣に向き合っていらっしゃるのですね。
+現在の職場を去るという決断には、これまで築いてきた安定を手放すような怖さや、周囲への遠慮など、本当に多様な感情が交錯するものと思います。
+あなたが次の居場所を模索し始めた背景には、どのような思いや、これまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
         } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
-            reply = `職場における周囲との関係性、特に上司や同僚の方々との間で生じるお悩みについてお話しくださいましたね。\n業務そのもの以外のコミュニケーションや、期待に応えるための調整は、ご自身が思っていらっしゃる以上に心身に摩擦を与え、疲弊させてしまうものです。\nあなたが職場で周囲に気を遣うあまり、抑制してしまっているご自身の「本当の本音」や「こうありたい姿」について、ぜひここで一旦荷物を降ろしてお聞かせください。`;
+            reply = `職場における周囲との関係性、特に上司や同僚の方々との間で生じるお悩みについてお話しくださいましたね。
+業務そのもの以外のコミュニケーションや、期待に応えるための調整は、ご自身が思っていらっしゃる以上に心身に摩擦を与え、疲弊させてしまうものです。
+あなたが職場で周囲に気を遣うあまり、抑制してしまっているご自身の「本当の本音」や「こうありたい姿」について、ぜひここで一旦荷物を降ろしてお聞かせください。`;
         } else if (userText.includes('将来') || userText.includes('不安')) {
-            reply = `これからの将来、キャリアの先行きに対する漠然とした不安を日々感じていらっしゃるのですね。\n先が見えない霧の中を歩むような感覚は、ご自身への不全感や焦燥感を引き起こしやすいものです。しかし、その不安は「自らのキャリアを主体的に創り上げていきたい」という強い欲求の裏返しでもあります。\n完璧な計画を目指す必要はありません。まずはご自身が大切にされたい「一つの感情」を拾い上げることから始めましょう。今、視界を少しでも穏やかにするために、何について掘り下げてみたいですか。`;
+            reply = `これからの将来、キャリアの先行きに対する漠然とした不安を日々感じていらっしゃるのですね。
+先が見えない霧の中を歩むような感覚は、ご自身への不全感や焦燥感を引き起こしやすいものです。しかし、その不安は「自らのキャリアを主体的に創り上げていきたい」という強い欲求の裏返しでもあります。
+完璧な計画を目指す必要はありません。まずはご自身が大切にされたい「一つの感情」を拾い上げることから始めましょう。今、視界を少しでも穏やかにするために、何について掘り下げてみたいですか。`;
         } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
-            reply = `ご自身の「強み」や、どのようなポータブルスキルをお持ちなのかを見出したい、という内省の意欲が伝わってまいります。\n普段、客観的に評価される成果ばかりに目を向けがちですが、本質的な強みとは「自分が自然と行ってしまうこと」や、この面談を通じて「自己を深く掘り下げようとするその知的で真摯な態度」そのものに宿っています。\nこれまでの日常や経験の中で、周囲から感謝された出来事や、あなたが苦にならずに取り組めた役割について、些細なことと思われるニュアンスでも結構ですので、共有していただけますでしょうか。`;
+            reply = `ご自身の「強み」や、どのようなポータブルスキルをお持ちなのかを見出したい、という内省の意欲が伝わってまいります。
+普段、客観的に評価される成果ばかりに目を向けがちですが、本質的な強みとは「自分が自然と行ってしまうこと」や、この面談を通じて「自己を深く掘り下げようとするその知的で真摯な態度」そのものに宿っています。
+これまでの日常や経験の中で、周囲から感謝された出来事や、あなたが苦にならずに取り組めた役割について、些細なことと思われるニュアンスでも結構ですので、共有していただけますでしょうか。`;
         } else {
-            reply = `「${userText}」というお言葉を、非常に真摯かつ丁寧に言葉にしてくださいましたね。\nご自身の想いを引き出して整理することは、時に心理的エネルギーを要する行為です。あなたの語るテーマと、その底にある大切な「感情」に深く耳を傾けております。\nその「${userText}」という事象や状況について、今現在ご自身の中で、どのような気持ちや感覚が最も強く想起されているか、さらに詳しく教えていただけますでしょうか。`;
+            reply = `「${userText}」というお言葉を、非常に真摯かつ丁寧に言葉にしてくださいましたね。
+ご自身の想いを引き出して整理することは、時に心理的エネルギーを要する行為です。あなたの語るテーマと、その底にある大切な「感情」に深く耳を傾けております。
+その「${userText}」という事象や状況について、今現在ご自身の中で、どのような気持ちや感覚が最も強く想起されているか、さらに詳しく教えていただけますでしょうか。`;
         }
 
         if (fluencyNote) {
-            reply = fluencyNote + "\n\n" + reply;
+            reply = `${fluencyNote}\n\n${reply}`;
         }
     }
 
@@ -153,12 +163,13 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
     const isDog = aiType === 'dog';
     const nickname = profile?.nickname || '相談者様';
 
+    // 1. ダイナミックなキーワード抽出に基づいた体験パーソナライズ
     const allUserTexts = chatHistory
         .filter(m => m.author === MessageAuthor.USER)
         .map(m => m.text)
         .join('、');
 
-    const topics = [];
+    const topics: string[] = [];
     if (allUserTexts.includes('仕事') || allUserTexts.includes('業務')) topics.push('現在のご自身の「お仕事」やその内容');
     if (allUserTexts.includes('転職') || allUserTexts.includes('辞め')) topics.push('これからの働き方や「転職」への岐路');
     if (allUserTexts.includes('人間関係') || allUserTexts.includes('上司') || allUserTexts.includes('同僚')) topics.push('周囲の人々との「人間関係」やその中で生じる悩み');
@@ -170,14 +181,21 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
         topics.push('今後のキャリアやご自身がありたい姿について');
     }
 
-    let user_summary = "";
-    if (isDog) {
-        user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」\n\n1. 本日お話ししたこと（テーマと事実）\n- ${topics.join('や')}について悩んでいて、どうしたらいいか迷っているんだね。\n- 毎日一生懸命がんばっているからこそ、心がちょっぴりお疲れなのかなと感じたワン。\n\n2. 対話を通じて、あなたが気づいたこと・言葉にしたこと\n- 誰かのためだけじゃなく、自分自身の気持ちも大切にしたいって、やさしい本音に気づできたんだね。\n- 少し立ち止まって、自分のペースをゆっくり取り戻していきたいって、素敵な言葉にしてくれたワン。\n\n3. 感情の動きと心の現在地（満足度・やりがい・悩み）\n- 周りの期待に一生懸命こたえようとして、ちょっぴり息苦しさを感じていたみたい。\n- でも、自分の気持ちをこうしてお話しできたことで、ほんの少しホッとできている心の現在地だね。\n\n4. 今後のリフレクションに向けて（あなた自身の気づき）\n- 今日お話ししてくれたことは、すべて大切な一歩だから、ゆっくり温めていこうね。\n- ${nickname}が一番「ほっ」とできる、お気に入りのリラックスできる時間って、どんなときかなワン？🐾`;
-    } else {
-        user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」\n\n1. 本日お話ししたこと（テーマと事実）\n- ${topics.join('や')}に関わる現在の状況、およびそれに伴う心理的な負担について。\n- 周囲の環境や関係性の中で、ご自身の本来の力をどのように発揮すべきかという問題意識。\n\n2. 対話を通じて、あなたが気づいたこと・言葉にしたこと\n- 周囲からの期待や役割を優先するあまり、自分自身の真の動機や欲求を後回しにしていたという内省。\n- まずは一時的にペースを緩め、客観的に自己を振り返る時間が必要であるという確信。\n\n3. 感情の動きと心の現在地（満足度・やりがい・悩み）\n- 役割を完璧に遂行したいという責任感の強さが、過度な緊張感やエネルギー枯渇を招いている心理状況。\n- 一方で、本音を言葉にできたことで認知的葛藤が緩和され、対話への関与と自己理解への前向きな意欲が生まれている現在地。\n\n4. 今後のリフレクションに向けて（あなた自身の気づき）\n- 今回整理された自身の内的な価値基準を大切にし、少しずつ日々の行動に余白を取り入れていきましょう。\n- ${nickname}が日々の中で、他者の期待から完全に離れて「自分本来の感覚」を最も取り戻せるのは、どのような状態のときでしょうか？`;
-    }
+    const user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」
+1. 本日お話ししたこと（テーマと事実）
+- ${topics.join(isDog ? '、そして' : '、さらには')}についての葛藤や現在の状況。
+- 自分に合った働き方やキャリアの方向性について、深く悩まれている状況。
 
-    const professional_summary = `【相談者プロフィール】\n年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}\nエネルギー注力先：${profile?.lifeRoles?.join(', ') || "日常"}\n【キャリアコンサルタント向け引き継ぎ所見】\n対話を通して、クライアントは表面的な「焦り」の奥に、高度な「役割期待への応えすぎ（過適応傾向）」と、本来の「自己発揮」の矛盾に苦しんでいることが明らかになりました。打鍵傾向からは深い内省と、言語化しがたい感情の吐露が示唆されます。\nカウンセラーとの面談初期段階では「行動の提案」よりも、まず本人のこの頑張りそのものを無条件で受容し、安全な心理的土台を再構築することが極めて重要です。`;
+2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
+- 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
+- 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;
+
+    const professional_summary = `【相談者プロフィール】
+年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}
+エネルギー注力先：${profile?.lifeRoles?.join(', ') || "日常"}
+【キャリアコンサルタント向け引き継ぎ所見】
+対話を通して、クライアントは表面的な「焦り」の奥に、高度な「役割期待への応えすぎ（過適応傾向）」と、本来の「自己発揮」の矛盾に苦しんでいることが明らかになりました。打鍵傾向からは深い内省と、言語化しがたい感情の吐露が示唆されます。
+カウンセラーとの面談初期段階では「行動の提案」よりも、まず本人のこの頑張りそのものを無条件で受容し、安全な心理的土台を再構築することが極めて重要です。`;
 
     const mockStructured = {
         user_summary,
@@ -326,171 +344,8 @@ export const generateSummaryFromText = async (textToAnalyze: string): Promise<st
 };
 
 export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
-    await delay(2500); // リアルな解析待ち時間をシミュレート
-
-    // 1. 各仕事定義（JOB_TAXONOMY）に対する動的スコアリング
-    // 対話履歴（summary）をマージ
-    const allSummaries = conversations.map(c => c.summary || '').join('\n');
-    const allAiTypes = conversations.map(c => c.aiType || '');
-    
-    interface ScoredJob {
-        job: typeof JOB_TAXONOMY[0];
-        score: number;
-        reasonDetails: string[];
-    }
-
-    const scoredJobs: ScoredJob[] = JOB_TAXONOMY.map(job => {
-        let score = 65; // ベーススコア
-        const reasonDetails: string[] = [];
-
-        // 職種共通キーワード
-        const keywordMatch = (keywords: string[], weight = 15) => {
-            const hit = keywords.find(kw => allSummaries.includes(kw));
-            if (hit) {
-                score += weight;
-                reasonDetails.push(hit);
-            }
-        };
-
-        // 各職種ごとの適性判定（キーワードとカウンセラータイプによる加点）
-        switch (job.code) {
-            case "JOB_IT_SUPPORT":
-                keywordMatch(["IT", "PC", "パソコン", "システム", "ヘルプ", "技術", "機械", "プログラム", "アプリ"], 18);
-                if (allAiTypes.includes("LOGICAL" as any)) {
-                    score += 8;
-                }
-                break;
-            case "JOB_CUSTOMER_SUCCESS":
-                keywordMatch(["顧客", "信頼", "伴走", "営業", "提案", "クライアント", "サポート", "話しやすい", "親身"], 15);
-                if (allAiTypes.includes("EMPATHY" as any)) {
-                    score += 10;
-                }
-                break;
-            case "JOB_INSIDE_SALES":
-                keywordMatch(["電話", "営業", "アプローチ", "コミュニケーション", "ヒアリング", "データ", "調整"], 15);
-                if (allAiTypes.includes("LOGICAL" as any)) {
-                    score += 8;
-                }
-                break;
-            case "JOB_OFFICE_COORDINATOR":
-                keywordMatch(["事務", "几帳面", "Excel", "バックオフィス", "管理", "整理", "書類", "スケジュール", "丁寧"], 18);
-                if (allAiTypes.includes("LOGICAL" as any) || allAiTypes.includes("EMPATHY" as any)) {
-                    score += 10;
-                }
-                break;
-            case "JOB_CAREER_CONSULTANT_SUPPORT":
-                keywordMatch(["相談", "支援", "コンサル", "就職", "人のため", "傾聴", "話を聞く", "共感", "悩み"], 20);
-                if (allAiTypes.includes("EMPATHY" as any)) {
-                    score += 15;
-                }
-                break;
-            case "JOB_WEB_CREATOR":
-                keywordMatch(["Web", "制作者", "クリエイティブ", "デザイン", "SNS", "バナー", "執筆", "メディア", "表現"], 20);
-                if (allAiTypes.includes("CREATIVE" as any)) {
-                    score += 15;
-                }
-                break;
-            case "JOB_LOGISTICS_OPERATIONS":
-                keywordMatch(["現場", "物流", "店舗", "調整", "スピード", "臨機応変", "ハブ", "倉庫"], 15);
-                if (allAiTypes.includes("LOGICAL" as any)) {
-                    score += 8;
-                }
-                break;
-        }
-
-        // 決定論的になりすぎないよう、職種コードの一意性に基づく小さなゆらぎを付加
-        const hash = job.code.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        score += (hash % 7);
-
-        return { job, score: Math.min(score, 98), reasonDetails };
-    });
-
-    // スコア順にソート
-    scoredJobs.sort((a, b) => b.score - a.score);
-
-    // 上位3件を推奨職種として抽出
-    const topJobs = scoredJobs.slice(0, 3);
-
-    // 動的に recommendedRoles を生成
-    const recommendedRoles = topJobs.map((item, index) => {
-        const job = item.job;
-        // マッチ度合いを段階分け
-        let baseScore = 95 - (index * 8) - (item.score % 4);
-        baseScore = Math.max(Math.min(baseScore, 98), 65);
-
-        // 動的な適合根拠の生成
-        let reason = job.suitabilityBasisTemplate;
-        if (item.reasonDetails.length > 0) {
-            reason += ` 履歴内における「${item.reasonDetails.slice(0, 2).join('・')}」といった話題や対話の心理傾向が、このポジションで必要とされる適性・マインドセットとしっかりと合致しています。`;
-        } else {
-            reason += ` 対話の中で見出された「周囲の状況変化に柔軟に適応する姿勢」や「他者に貢献したいという高い利他性」が、キャリア構築の確実な足がかりとなります。`;
-        }
-
-        return {
-            role: job.name,
-            reason: reason,
-            matchScore: baseScore,
-            job_code: job.code
-        };
-    });
-
-    // 推奨職種に対応する必須スキルをマージして習得スキルに変換
-    const primaryJob = topJobs[0].job;
-    const skillsToDevelop = primaryJob.requiredSkills.map(skillName => {
-        let skillReason = "";
-        if (primaryJob.code === "JOB_IT_SUPPORT") {
-            skillReason = "社内システムヘルプやインフラ問い合わせの運用フェーズで、必須の基礎素養となります。";
-        } else if (primaryJob.code === "JOB_CAREER_CONSULTANT_SUPPORT") {
-            skillReason = "相談者の悩みの一次切り分けや、面談前の要約確認プロセスを一人で回せるようになるための実務資格・スキルです。";
-        } else if (primaryJob.code === "JOB_WEB_CREATOR") {
-            skillReason = "Webメディア更新、バナー編集等の初期の定常業務を確実に回し、ディレクターからの信頼を得るために有効です。";
-        } else {
-            skillReason = "配属部門のみならず、社内外の関係者と滑らかに関係を同期させるための共通の武器として大いに役立ちます。";
-        }
-        return {
-            skill: skillName,
-            reason: skillReason
-        };
-    });
-
-    // 推奨職種ジャンルに応じた動的おすすめ教材
-    let learningResources: { title: string; type: "course" | "book" | "article" | "video"; provider: string }[] = [
-        { title: 'ビジネス・コミュニケーション基礎と丁寧なフォローアップ', type: 'video', provider: 'Udemy' },
-        { title: '初めてのIT活用・バックオフィスデジタル推進ガイド', type: 'book', provider: '翔泳社' }
-    ];
-
-    if (primaryJob.code === "JOB_IT_SUPPORT") {
-        learningResources = [
-            { title: 'ITヘルプデスク・ユーザーサポートの基本がわかる本', type: 'book', provider: '技術評論社' },
-            { title: 'キタミ式イラストIT塾 基本情報技術者', type: 'book', provider: '技術評論社' }
-        ];
-    } else if (primaryJob.code === "JOB_CAREER_CONSULTANT_SUPPORT") {
-        learningResources = [
-            { title: 'キャリアコンサルティングの基礎理論とロールプレイング演習', type: 'book', provider: '雇用開発簡易センター' },
-            { title: '心理学的アプローチを学ぶ傾聴コミュニケーション講座', type: 'video', provider: 'Udemy' }
-        ];
-    } else if (primaryJob.code === "JOB_WEB_CREATOR") {
-        learningResources = [
-            { title: '1冊ですべて身につくHTML & CSSとWebデザイン入門', type: 'book', provider: 'SBクリエイティブ' },
-            { title: '未経験から副業/フリーランスを掴むSNSメディア編集・運用マスターパック', type: 'video', provider: 'Udemy' }
-        ];
-    }
-
-    // 全体のサマリーテキスト
-    const keyTakeaways = [
-        `これまでの対話から、「${primaryJob.name}」として活かせる真摯なポテンシャルが認められます。`,
-        `心理的負担を抑えつつ、まずは手堅く実績と自信を積める環境（${primaryJob.category}）への参入が推奨されます。`
-    ];
-
-    const analysisSummary = `相談履歴の全体から、あなたは**「自発的な周囲への配慮」**や**「着実なプロセスの遂行」**に優れた資質をお持ちです。特に、面談を通して現れたキーワードや、カウンセラーとの心地よいリズムの対話内容は、**${primaryJob.name}**が求める「要請のすばやい認知」や「伴走型フォロー」と約${recommendedRoles[0].matchScore}%の極めて高いシンクロ率を示しています。まずは小さな役割（アシスタントなど）を実務の足場にすることを提案します。`;
-
-    return {
-        keyTakeaways,
-        analysisSummary,
-        recommendedRoles,
-        skillsToDevelop,
-        learningResources
-    };
+    await delay(3000);
+    return sampleSkillMatchingResult;
 };
 
 export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
@@ -567,8 +422,4 @@ export const generateSuggestions = async (messages: ChatMessage[], currentDraft?
         ],
         readinessScore: 0.5
     };
-};
-
-export const checkServerStatus = async (): Promise<{ status: string }> => {
-    return { status: 'ok' };
 };

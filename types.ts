@@ -1,5 +1,5 @@
 
-// types.ts - v6.46 - 2026-06-19 - Add job_code to RecommendedRole for master taxonomy mapping
+// types.ts - v6.43 - 2026-06-16 - Add optional fields for demo-toggles and deep-dive evaluation support
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;
@@ -123,7 +123,6 @@ export interface RecommendedRole {
   role: string;
   reason: string;
   matchScore: number;
-  job_code?: string;
 }
 
 export interface SkillToDevelop {

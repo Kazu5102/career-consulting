@@ -1,48 +1,19 @@
-// services/index.ts - v6.51 - 2026-06-26 - API疎通可能性に基づく自動サービス切り替えエンジンの導入（案1適用）
+// services/index.ts - v5.93 - 2026-05-24 - Model Upgrade - Version Sync
 import * as realService from './geminiService';
 import * as mockService from './mockGeminiService';
 import { trackApiUsage } from './usageTrackingService';
 import type { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
 
-export const VERSION = "6.51";
+// Environment detection
+const env = (import.meta as any).env || {};
+const isProduction = env.PROD === true;
 
 // Mutable service reference to allow runtime fallback
-let activeService = realService;
-let isMockActive = false;
-let initPromise: Promise<void> | null = null;
+let activeService = isProduction ? realService : mockService;
+let isMockActive = !isProduction;
 
-/**
- * Dynamically checks the API server availability to decide whether to use
- * the Real Gemini API or gracefully fallback to Mock Service.
- */
-export const initializeService = async (): Promise<void> => {
-    if (initPromise) return initPromise;
-    
-    initPromise = (async () => {
-        try {
-            console.log("[Service] Checking Gemini server connection...");
-            const status = await realService.checkServerStatus();
-            if (status && status.status === 'ok') {
-                console.log("[Service] Real Gemini API server is online. Using REAL service.");
-                activeService = realService;
-                isMockActive = false;
-            } else {
-                console.warn("[Service] Real server returned invalid status. Falling back to MOCK service.");
-                activeService = mockService;
-                isMockActive = true;
-            }
-        } catch (e) {
-            console.warn("[Service] Could not reach Real Gemini API server. Falling back to MOCK service.", e);
-            activeService = mockService;
-            isMockActive = true;
-        }
-    })();
-    return initPromise;
-};
-
-// Start background initialization immediately
-initializeService();
+console.log(`[Service Initialized] Defaulting to ${isProduction ? 'REAL' : 'MOCK'} service.`);
 
 /**
  * Forces the application to use the Mock Service.
@@ -61,63 +32,52 @@ export const isMockMode = (): boolean => {
     return isMockActive;
 };
 
-// Exported functions delegate to the currently active service (insured with connection checks)
-export const checkServerStatus = async (): Promise<{status: string}> => {
-    await initializeService();
-    return activeService.checkServerStatus();
-};
+// Exported functions delegate to the currently active service
+export const checkServerStatus = (): Promise<{status: string}> => activeService.checkServerStatus();
 
-export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
-    await initializeService();
+export const getStreamingChatResponse = (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
+    // 概算の入力テキスト量をトラッキング
     const inputLength = messages.map(m => m.text).join('').length;
     trackApiUsage(messages.map(m => m.text).join(''), '');
     return activeService.getStreamingChatResponse(messages, aiType, aiName, profile);
 };
 
 export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<string> => {
-    await initializeService();
     trackApiUsage(chatHistory.map(m => m.text).join(''), '');
     return activeService.generateSummary(chatHistory, aiType, aiName, profile);
 };
 
-export const reviseSummary = async (originalSummary: string, correctionRequest: string): Promise<string> => {
-    await initializeService();
+export const reviseSummary = (originalSummary: string, correctionRequest: string): Promise<string> => {
     trackApiUsage(originalSummary + correctionRequest, '');
     return activeService.reviseSummary(originalSummary, correctionRequest);
 };
 
-export const analyzeConversations = async (summaries: StoredConversation[]): Promise<AnalysisData> => {
-    await initializeService();
+export const analyzeConversations = (summaries: StoredConversation[]): Promise<AnalysisData> => {
     trackApiUsage(summaries.map(s => s.summary).join(''), '');
     return activeService.analyzeConversations(summaries);
 };
 
-export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
-    await initializeService();
+export const analyzeTrajectory = (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
     trackApiUsage(conversations.map(s => s.summary).join(''), '');
     return activeService.analyzeTrajectory(conversations, userId);
 };
 
-export const findHiddenPotential = async (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
-    await initializeService();
+export const findHiddenPotential = (conversations: StoredConversation[], userId: string): Promise<HiddenPotentialData> => {
     trackApiUsage(conversations.map(s => s.summary).join(''), '');
     return activeService.findHiddenPotential(conversations, userId);
 };
 
-export const generateSummaryFromText = async (textToAnalyze: string): Promise<string> => {
-    await initializeService();
+export const generateSummaryFromText = (textToAnalyze: string): Promise<string> => {
     trackApiUsage(textToAnalyze, '');
     return activeService.generateSummaryFromText(textToAnalyze);
 };
 
-export const performSkillMatching = async (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
-    await initializeService();
+export const performSkillMatching = (conversations: StoredConversation[]): Promise<SkillMatchingResult> => {
     trackApiUsage(conversations.map(s => s.summary).join(''), '');
     return activeService.performSkillMatching(conversations);
 };
 
-export const generateSuggestions = async (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
-    await initializeService();
+export const generateSuggestions = (messages: ChatMessage[], currentDraft?: string): Promise<{ suggestions: string[], readinessScore: number }> => {
     trackApiUsage(messages.map(m => m.text).join('') + (currentDraft || ''), '');
     return activeService.generateSuggestions(messages, currentDraft);
 };

@@ -1,7 +1,6 @@
-// api/gemini-proxy.ts - v6.51 - 2026-06-26 - 構文エラーの完全修復と重複要約ロジックの完全除去
+// api/gemini-proxy.ts - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
-import { JOB_TAXONOMY } from '../data/jobTaxonomy';
 
 // 最新のスキルガイドラインに基づくモデル選定
 const CHAT_MODEL = 'gemini-3.5-flash';
@@ -246,24 +245,9 @@ async function handleAnalyzeTrajectoryStream(payload: { conversations: StoredCon
 async function handlePerformSkillMatchingStream(payload: { conversations: StoredConversation[] }, res: VercelResponse) {
     const { conversations } = payload;
     const historyText = conversations.slice(-5).map(c => c.summary).join('\n');
-    
-    const taxonomyString = JSON.stringify(JOB_TAXONOMY, null, 2);
-    const prompt = `適職診断依頼:
-以下のキャリア相談履歴（要約）を丁寧に読み取り、相談者の資質・ポテンシャル・現在のスキルと、提供された「標準職種タクソノミー（JOB_TAXONOMYマスターデータ）」を論理的・構造的にマッチングして、適職診断結果をJSONで出力せよ。
-
-【標準職種タクソノミー（JOB_TAXONOMY）】
-${taxonomyString}
-
-【診断および出力ルール】
-1. 提案する職種は、必ず上記の「標準職種タクソノミー」に定義されたもの（JOB_TAXONOMYの中の職種）のみとし、適合度の高い順に2〜3件抽出してください。それ以外の未定義な職種（「上級ITコンサルタント」「経営コンサルタント」など一足飛びで現実離れしたもの）を新規提案してはなりません。主に20代などの若手の段階的な成長パスに沿う実務的な一歩を提案してください。
-2. recommendedRolesの各要素について：
-   - 'job_code': 対象職種の code（例: "JOB_IT_SUPPORT"）を正確に代入。
-   - 'role': 対象職種の name（例: "ITヘルプデスク・ユーザーサポート"）を完全に一致させて代入。
-   - 'reason': 単なる「向いているかと思います」といった曖昧な記述を避け、相談者の具体的な発言要約や心理コンテキスト（迷い、几帳面さ、他者への丁寧な関わりなど）を特定し、その職種の「suitabilityBasisTemplate」の方向性を十分に踏めて、キャリア支援側からもしっかり背中を押し、本人にも「だから自分はこの仕事が向いているんだ」と自信・納得感を与えられる具体的かつ説得力あふれる適合根拠として解説文を記述してください。
-   - 'matchScore': 60〜95の範囲の数値（対話の親和性に応じたパーセント度）。
-3. 必ずすべての値（テキスト）を日本語で記述してください。
-
-\n【対話履歴要約】\n${historyText}`;
+    const prompt = `適職診断依頼: 履歴から診断を行いJSONで出力せよ。
+必ずすべての値（テキスト）を日本語で記述してください。
+\n${historyText}`;
 
     await streamGeminiResponse(res, (modelName) => getAIClient().models.generateContentStream({
         model: modelName,
@@ -279,20 +263,42 @@ ${taxonomyString}
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
-                                                     properties: {
-                                job_code: { type: Type.STRING },
+                            properties: {
                                 role: { type: Type.STRING },
                                 reason: { type: Type.STRING },
-                                matchScore: { type: Type.INTEGER }
+                                matchScore: { type: Type.NUMBER }
                             },
-                            required: ["job_code", "role", "reason", "matchScore"]
+                            required: ["role", "reason", "matchScore"]
+                        }
+                    },
+                    skillsToDevelop: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                skill: { type: Type.STRING },
+                                reason: { type: Type.STRING }
+                            },
+                            required: ["skill", "reason"]
+                        }
+                    },
+                    learningResources: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                type: { type: Type.STRING }, // 'course' | 'book' | 'article'
+                                url: { type: Type.STRING }
+                            },
+                            required: ["title", "type", "url"]
                         }
                     }
                 },
-                required: ["keyTakeaways", "analysisSummary", "recommendedRoles"]
+                required: ["keyTakeaways", "analysisSummary", "recommendedRoles", "skillsToDevelop", "learningResources"]
             },
-            temperature: 0.2,
-            topP: 0.9
+            temperature: 0.0,
+            topP: 0.8
         }
     }), ANALYSIS_MODEL);
 }
@@ -319,7 +325,7 @@ async function handleGetStreamingChatResponse(payload: { messages: ChatMessage[]
         systemInstruction = `あなたは高い傾聴力と共感力を持つ人間のプロキャリアカウンセラー「${aiName}」として振る舞ってください。
 以下のガイドラインに徹底して従ってください：
 1. クライアントが自らの体験と本音に向き合えるよう、高い受容性と支持性を示して応答してください。
-2. 評価・診断・性急な解決策・指示はすべて避け、相手が語った具体的なテーマ、事実、感情をリフレクションし、自分で気づくのを助けてください。
+2. 評価・診断・性急な解決策 of 指示はすべて避け、相手が語った具体的なテーマ, 事実, 感情をリフレクションし、自分で気づくのを助けてください。
 3. 学術的なカウンセリング理論に根差した、対等かつ温かい寄り添い言葉かけを行ってください。`;
     }
 
@@ -382,28 +388,12 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiTy
         fluencySummaryContext = "【ユーザーの入力傾向: 不明】";
     }
 
-    const isWanko = aiType === 'dog';
-    let avatarStyleInstruction = "";
-    if (isWanko) {
-        avatarStyleInstruction = `
-【わんこ型アバター（共感モデル）としてのナラティブな記述方針】
-- あなたは温かく愛嬌のある犬のカウンセラー「${aiName}」として振る舞い、各セクションを箇条書き（「- 」で始まる形式）としてまとめつつ、単なる無機質な事実の羅列ではなく、ストーリー仕立て（ナラティブ）の温かい語りかけ文体（「〜だね」「〜と感じているんだね」「〜だワン」等）で出力してください。
-- 相談者のこれまでの歩みや、言葉の奥にある繊細な感情、ひたむきな姿勢に寄り添い、優しく包み込んで承認する表現を極めて重視してください。
-`;
-    } else {
-        avatarStyleInstruction = `
-【人間型アバター（プロモデル）としてのロジカルな記述方針】
-- あなたはプロのキャリアカウンセラー「${aiName}」として振る舞い、各セクションを箇条書き（「- 」で始まる形式）としてまとめつつ、スマートなビジネスパーソンに響く、因果関係が論理的に整理された知的でシャープな文体（敬体：〜です、〜ます）で記述してください。
-- なぜその悩みややりがいが発生しているのか、背景にある環境要因や自己スキーマなどを客観的かつクリアに言語化し、本人が論理的に現状を俯瞰して自己理解が深まるように構成してください。
-`;
-    }
-
     let conversationVolumeInstruction = "";
     if (isThinConversation) {
         conversationVolumeInstruction = `
 【🚨重要：対話が極めて少ないセッション（最初の数言等、または十分に対話していない段階）】
 相談者からの文字数や発話数が非常に少ないため、大げさな課題抽出やハルシネーション（強引な決めつけ）は厳禁です。
-今日の一歩（このカウンセリングを開いて対話を試みたこと。その行動力）を心から歓迎・感謝しお祝いする、コンパクトで温かいメッセージに仕上げてください。その際も、以下の4つのセクション構成は絶対に維持し、ボリュームを抑えつつ最大限の受容を示してください。
+今日の一歩（このカウンセリングを開いて対話を試みたこと。その行動力）を心から歓迎・感謝しお祝いする、コンパクトで温かいメッセージに仕上げてください。
 `;
     } else {
         conversationVolumeInstruction = `
@@ -414,30 +404,24 @@ async function handleGenerateSummary(payload: { chatHistory: ChatMessage[], aiTy
 
     const historyText = cleansedHistory.slice(-30).map(m => `${m.author}: ${m.text}`).join('\n');
 
-    const prompt = `あなたは相談者の心の鏡であり、対話を通じて思考を整理する「心の可視化レポート（透明なノート）」を紡ぎ出すカウンセラーです。
-これまでの対話の集大成となる、簡潔で心の負担にならない「心の可視化レポート」を作成してください。
-今回のアシスタントは一切の「押し付けがましい評価」「上から目線のアドバイス」「お仕着せの診断」「強みの勝手な断定やラベル貼り」を行いません。
-綺麗な言葉でまとめようとせず、相談者の「まとまらないありのままの言葉」をそのまま拾い上げ、ありのままに鏡のように整理（リフレクション）して記述してください。
+    const prompt = `あなたは相談者の言葉をただ整理して並べる「透明なノート」です。綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」を尊重してください。
+これまでの対話の集大成となる、簡潔で心の負担にならない「心の可視化レポート（透明なノート）」を作成してください。
+今回のアシスタントは一切の「評価」「アドバイス」「勝手な解釈」「お仕着せの診断」「強みの勝手な断定やラベル貼り」を行いません。
+綺麗な言葉でまとめようとせず、相談者の「まとまらないありのままの言葉」をそのまま拾い上げ、ありのままに鏡のように整理（リフレクション）して文章化してください。
+また、相談データが極めて少ない場合、またはエラー等で会話が進まなかった場合は、今日の一歩をねぎらい、温かく歓迎することに特化させてください。
 
 ※打鍵傾向に基づく深い受容: ${fluencySummaryContext}
 
-${avatarStyleInstruction}
-
 ${conversationVolumeInstruction}
 
-【記載の最重要方針】
+【記載 of 最重要方針】
 必ず、以下の出力フォーマットの構成のみに従い、プレーンな日本語のMarkdownとして簡潔に出力してください。装飾や追加のセクション、余計な前置き・後書きなどの文言は一切不要です。
 「user_summary」フィールドには、以下の構成から始まるテキストのみを格納してください。
 (※〜)のような説明・指示の補足アノテーション文言を「user_summary」の出力テキストに含めることは絶対に禁止します。
 他のセクションや追加の見出しを独自に作成しないでください。
-
-【4セクション（案A）の構成ルール】
-1. 「1. 本日お話ししたこと（テーマと事実）」：相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書き（「- 」形式）で簡潔に整理してください。
-2. 「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」：AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』を箇条書きで抽出・整理してください。
-3. 「3. 感情 of 動きと心の現在地（満足度・やりがい・悩み）」：対話の中で表れた、どのような瞬間にモチベーションや満足・やりがい、または精神的疲労や不満を感じていたかという「感情の揺れや、現在の心のコンテキスト」を箇条書きで整理してください。
-4. 「4. 今後のリフレクションに向けて（あなた自身の気づき）」：これまでの対話を踏まえて、相談者がさらに内省を深め、自己探究を続けるための足がかりを記述します。
-   - 【🚨超重要ルール】：このセクションの最後の箇条書きアイテム（あるいはその中の一文）は、具体的な行動アドバイス（「〜をしましょう」「〜を試してください」など）ではなく、相談者の内面に深くアプローチし、すぐには答えが出ない本質的な「問い（相談者への宿題）」で必ず締めくくってください。問いかけることで自己対話と次回のリピート相談を促します。
-   （問いの例：「あなたが本当に大切にしたい『自分の心地よいリズム』とは、どのような状態を指すのでしょうか？」など）
+・「1. 本日お話ししたこと（テーマと事実）」の内容：相談者が何について悩んでいたか、どんな状況を話していたかを、主観を交えず箇条書きで簡潔に整理してください。
+・「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」の内容：AIが引き出した結論ではなく、相談者自身が対話の後半で「あ、そうか」「私は〜だと思っていた」など、自分の言葉で紡ぎ出した『気づき』や『本当の気持ち』をそのまま抽出して整理してください。
+・いずれの箇条書きも、綺麗にまとめようとせず、相談者の「まとまらないありのままの言葉」を徹底して拾い上げ、主観を挟まずに記述してください。
 
 【出力フォーマット】
 ■ Repotta（レポッタ）：本日の「心の可視化レポート」
@@ -450,16 +434,8 @@ ${conversationVolumeInstruction}
 - 
 - 
 
-3. 感情 of 動きと心の現在地（満足度・やりがい・悩み）
-- 
-- 
-
-4. 今後のリフレクションに向けて（あなた自身の気づき）
-- 
-- 
-
 【管理者・専門家向け詳細メモ(professional_summary)】
-- 「professional_summary」フィールドには、これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成のポイントを含めてください。
+- 「professional_summary」フィールドには、これまでの対話履歴を元に、次回の面談や次の支援ステップのための客観的・専門的な引き継ぎ情報を日本語で記述してください（500字程度）。キャリア構築理論（マーク・サビカスのナラティブ・アプローチ、レヴィンソンの理論など）に基づいた客観的かつ学術的・実践的な引き継ぎ指針・ラポール形成 of ポイントを含めてください。
 
 履歴:
 ${historyText}`;
