@@ -1,5 +1,5 @@
 
-// App.tsx - v6.04 - 2026-05-28 - Unified Dynamically Tuned Reflection Report, system error message filters, and thin conversation controls (Plan B)
+// App.tsx - v6.47 - 2026-06-28 - mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一
 import React, { useState, useEffect, useCallback } from 'react';
 import UserView from './views/UserView';
 import AdminView from './views/AdminView';

@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.45 - 2026-06-16 - 軌跡分析・適職診断のシームレス切替（ローディングキャッシュ）、モバイルはみ出し防止のD-Controlレスポンシブ化
-export const APP_VERSION = "6.45";
+// v6.47 - 2026-06-28 - mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一
+export const APP_VERSION = "6.47";
 
 /**
  * AI Service Configuration

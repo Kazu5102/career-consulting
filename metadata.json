@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_6.45B",
-  "description": "Secure AI Architecture v5.88: 通信エラー解決（ストリームパース修正）、システムプロンプトのContent化、UI案B完全適用",
-  "version": "6.04",
+  "name": "Career Consulting_6.47",
+  "description": "Secure AI Architecture v6.47: mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一",
+  "version": "6.47",
   "prompt": "",
   "D7": [],
   "Yp": []
