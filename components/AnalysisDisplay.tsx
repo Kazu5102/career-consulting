@@ -1,5 +1,5 @@
 
-// components/AnalysisDisplay.tsx - v5.91 - 2026-05-17 - Protocol 3.0 Analysis Engine
+// components/AnalysisDisplay.tsx - v6.45 - 2026-06-16 - タブ指定に合わせた条件レンダリング、未実行時プレースホルダー、モバイルレスポンシブ極小調和の導入
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { TrajectoryAnalysisData, AnalysisStateItem, SkillMatchingResult } from '../types';
@@ -16,6 +16,7 @@ interface AnalysisDisplayProps {
     trajectoryState?: AnalysisStateItem<TrajectoryAnalysisData>;
     skillMatchingState?: AnalysisStateItem<SkillMatchingResult>;
     comprehensiveState?: AnalysisStateItem<any>;
+    activeTab?: 'trajectory' | 'skillMatching';
 }
 
 const TRAJECTORY_PHASES = [
@@ -136,31 +137,55 @@ const TrajectoryContent: React.FC<{ data: TrajectoryAnalysisData }> = ({ data })
     const [isExpanded, setIsExpanded] = useState(false);
     const colors = { high: 'bg-rose-100 text-rose-700', medium: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' };
 
+    // デモ用多段階評価スコアの算出
+    const familyScore = data.demoScores?.family_education ?? 0;
+    const welfareScore = data.demoScores?.welfare_protection ?? 0;
+    const hasDemoScores = data.demoScores !== undefined;
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-900 p-8 rounded-3xl shadow-xl text-white">
-                <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-3">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-black border tracking-wider uppercase ${colors[data.triageLevel] || colors.low}`}>
-                            {data.triageLevel === 'high' ? '要介入' : data.triageLevel === 'medium' ? '経過観察' : '安定'}
-                        </span>
-                        <h2 className="text-2xl font-black tracking-tight">介入戦略インサイト</h2>
+            {/* レッドフラッグ警告バナー (パターンB・緊急リファー推奨) */}
+            {data.redFlag && (
+                <div id="demo-redflag-banner" className="bg-rose-600 text-white px-6 py-5 rounded-3xl shadow-xl border border-rose-500 flex items-start gap-4 animate-in slide-in-from-top duration-500">
+                    <span className="text-2xl mt-0.5 shrink-0">⚠️</span>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-base tracking-tight flex items-center gap-2">
+                            <span>【レッドフラッグ発令】緊急介入・児童福祉リファー推奨（高）</span>
+                            <span className="animate-pulse bg-white/20 text-[9px] px-2 py-0.5 rounded border border-white/20 font-mono tracking-widest font-black uppercase">CRITICAL SOS</span>
+                        </h4>
+                        <p className="text-xs text-rose-100 leading-relaxed font-medium mt-1">
+                            身体的暴力（胸ぐらを掴まれ押し倒された）の具体的なエビデンス、および著名人で社会的地位のある親による相談窓口の完全な外部遮断（強固な社会的孤立）を特定。
+                            クライアントの絶対的物理安全の即時確保のため、児童相談所や警察機関への直接の専門リファー介入を強く推奨します。
+                        </p>
                     </div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-white/10 text-[10px] px-2 py-0.5 rounded border border-white/20 font-bold tracking-widest text-sky-300 uppercase">
-                            Theory-Based Analysis
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">根拠: {data.theoryBasis}</span>
-                    </div>
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed">臨床的観点からの「内的変容」分析。</p>
                 </div>
-                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 flex-shrink-0 w-full sm:w-80">
-                    <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-2 flex items-center gap-2"><SparklesIcon className="w-3 h-3"/> Session Starter</p>
-                    <p className="text-sm font-bold italic leading-relaxed">「{data.sessionStarter}」</p>
+            )}
+
+            <div className="flex flex-col md:flex-row justify-between items-stretch gap-5 bg-slate-900 p-5 sm:p-8 rounded-3xl shadow-xl text-white">
+                <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                            <span className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-black border tracking-wider uppercase ${colors[data.triageLevel] || colors.low}`}>
+                                {data.triageLevel === 'high' ? '要介入' : data.triageLevel === 'medium' ? '経過観察' : '安定'}
+                            </span>
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight break-keep whitespace-nowrap">介入戦略インサイト</h2>
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="bg-white/10 text-[9px] px-2 py-0.5 rounded border border-white/20 font-bold tracking-widest text-sky-300 uppercase">
+                                Theory-Based Analysis
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium break-keep">根拠: {data.theoryBasis}</span>
+                        </div>
+                    </div>
+                    <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed mt-2 sm:mt-4">臨床的観点からの「内的変容」分析。</p>
+                </div>
+                <div className="bg-white/5 p-4 sm:p-5 rounded-2xl border border-white/10 flex-shrink-0 w-full md:w-80 flex flex-col justify-center">
+                    <p className="text-[9px] font-black text-sky-400 uppercase tracking-widest mb-1.5 flex items-center gap-2"><SparklesIcon className="w-3 h-3"/> Session Starter</p>
+                    <p className="text-xs sm:text-sm font-bold italic leading-relaxed text-slate-100">「{data.sessionStarter}」</p>
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className={`grid grid-cols-1 ${data.typingFluencySpike ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6 items-start`}>
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex justify-between items-end mb-4">
@@ -171,6 +196,69 @@ const TrajectoryContent: React.FC<{ data: TrajectoryAnalysisData }> = ({ data })
                             <div className={`h-full transition-all duration-1000 ${data.ageStageGap > 60 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${data.ageStageGap}%` }}></div>
                         </div>
                     </div>
+
+                    {/* デモ用：対話深度に応じたAI見立ての多段階評価パネル */}
+                    {hasDemoScores && (
+                        <div id="demo-assessment-scores" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-in fade-in duration-500">
+                            <div className="flex items-center gap-2 mb-4">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase ${
+                                    data.triageLevel === 'high' 
+                                    ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-[0_0_8px_rgba(239,68,68,0.1)]' 
+                                    : 'bg-amber-50 border-amber-200 text-amber-600'
+                                }`}>
+                                    {data.triageLevel === 'high' ? 'DEEP ANALYSIS FOCUS' : 'SHALLOW ANALYSIS FOCUS'}
+                                </span>
+                                <h4 className="font-black text-slate-800 text-sm">見立ての多段階評価スコア</h4>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {/* 教育・家族葛藤領域 */}
+                                <div>
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-xs font-bold text-slate-600">教育・家庭衝突領域 (家族論的葛藤)</span>
+                                        <span className={`text-xs font-black tracking-tight ${familyScore > 50 ? 'text-indigo-600 font-black' : 'text-slate-400 font-bold'}`}>
+                                            {familyScore}%
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-1000 ${
+                                                familyScore > 50 
+                                                ? 'bg-indigo-600' 
+                                                : 'bg-slate-300'
+                                            }`} 
+                                            style={{ width: `${familyScore}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                {/* 福祉・児童保護領域 */}
+                                <div>
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-xs font-bold text-slate-600">福祉・児童保護領域 (強制介入・要救済)</span>
+                                        <span className={`text-sm font-black tracking-tight ${welfareScore > 50 ? 'text-rose-600 font-black text-base animate-pulse' : 'text-slate-400'}`}>
+                                            {welfareScore}%
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-[1200ms] ${
+                                                welfareScore > 50 
+                                                ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' 
+                                                : 'bg-slate-300'
+                                            }`} 
+                                            style={{ width: `${welfareScore}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p className="text-[9px] text-slate-400 leading-relaxed font-semibold mt-3">
+                                💡 対話データのエビデンス具体性により、AIの見立てが「家庭衝突（教育優先）」から「強制介入（福祉保護）」へと自律的・多段階的に推移しています。
+                            </p>
+                        </div>
+                    )}
+
                     <div className="border border-indigo-100 rounded-2xl bg-indigo-50/30 overflow-hidden">
                         <button onClick={() => setIsExpanded(!isExpanded)} className="w-full flex items-center justify-between p-4 hover:bg-indigo-50/50 transition-colors">
                             <div className="flex items-center gap-2.5"><BrainIcon className="w-4 h-4 text-indigo-600" /><span className="text-xs font-bold text-indigo-900 uppercase tracking-wider">臨床的見立ての詳細（理論背景）</span></div>
@@ -187,6 +275,7 @@ const TrajectoryContent: React.FC<{ data: TrajectoryAnalysisData }> = ({ data })
                         )}
                     </div>
                 </div>
+
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div className="flex items-center gap-3 mb-5"><TrajectoryIcon className="w-5 h-5 text-sky-600"/><h3 className="font-bold text-slate-800">主要な臨床的指摘</h3></div>
                     <ul className="space-y-3">
@@ -197,10 +286,63 @@ const TrajectoryContent: React.FC<{ data: TrajectoryAnalysisData }> = ({ data })
                         ))}
                     </ul>
                 </div>
+
+                {/* タイピング揺らぎ・沈黙45秒のスパイク波形グラフ（パターンB用） */}
+                {data.typingFluencySpike && (
+                    <div id="demo-typing-fluency-graph" className="bg-slate-950 p-6 rounded-3xl border border-slate-800 shadow-xl text-white space-y-4 animate-in slide-in-from-right duration-750 w-full lg:col-span-1">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-mono tracking-widest text-rose-400 bg-rose-950 border border-rose-900 px-2 py-0.5 rounded uppercase font-black">Typing Fluency Spike Detector</span>
+                            <span className="text-[8px] font-mono text-slate-600">RESOLUTION: 100ms</span>
+                        </div>
+                        <div>
+                            <h4 className="text-xs font-black text-rose-400">非言語情報：打鍵行動の迷い推定</h4>
+                            <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mt-1">
+                                対話開始23分付近、10文字のタイピングを開始する前に、通常の10倍を超える【45,280ミリ秒（約45秒）の長期的沈黙スパイク】を観測しました。この長期的なためらいを克服した直後に、身体的虐待に関する極めて重い具体的な告白（「押し倒された」）の表明がなされています。
+                            </p>
+                        </div>
+                        <div className="w-full bg-slate-900 rounded-xl p-3 relative flex flex-col justify-end border border-slate-800 h-32 overflow-hidden">
+                            <div className="absolute top-2 left-3 text-[7px] font-mono text-slate-500">打鍵間隔時間 (Duration ms)</div>
+                            
+                            <div className="absolute inset-x-0 bottom-1/4 border-b border-white/[0.03] border-dashed"></div>
+                            <div className="absolute inset-x-0 bottom-2/4 border-b border-white/[0.03] border-dashed"></div>
+                            <div className="absolute inset-x-0 bottom-3/4 border-b border-white/[0.03] border-dashed"></div>
+
+                            <svg className="w-full h-20" viewBox="0 0 300 100" preserveAspectRatio="none">
+                                <path
+                                    d="M 0,90 C 20,85 45,88 65,85 C 85,86 110,88 135,84 C 145,86 150,40 152,10 C 154,80 160,85 180,85 C 200,89 220,86 245,85 C 270,88 285,84 300,85"
+                                    fill="none"
+                                    stroke="rgba(244, 63, 94, 0.3)"
+                                    strokeWidth="4"
+                                    className="animate-pulse"
+                                />
+                                <path
+                                    d="M 0,90 C 20,85 45,88 65,85 C 85,86 110,88 135,84 C 145,86 150,40 152,10 C 154,80 160,85 180,85 C 200,89 220,86 245,85 C 270,88 285,84 300,85"
+                                    fill="none"
+                                    stroke="#f43f5e"
+                                    strokeWidth="1.5"
+                                />
+                                <circle cx="152" cy="10" r="4.5" fill="#f43f5e" className="animate-ping" />
+                                <circle cx="152" cy="10" r="2.5" fill="#ffffff" />
+                            </svg>
+                            
+                            <span className="absolute top-10 left-[165px] bg-rose-600 text-[8px] font-semibold text-white px-1.5 py-0.5 rounded shadow whitespace-nowrap animate-pulse">
+                                45.2s 沈黙スパイク (迷い係数: 9.8)
+                            </span>
+                            
+                            <div className="flex justify-between text-[6px] font-mono text-slate-500 mt-1.5">
+                                <span>20分</span>
+                                <span>21分</span>
+                                <span>23分 (沈黙)</span>
+                                <span>25分</span>
+                                <span>28分</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <section className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                <div className="flex items-center gap-3 mb-6"><TrajectoryIcon className="w-5 h-5 text-indigo-600"/><h3 className="font-bold text-slate-800 text-xl tracking-tight">内的変容サマリー</h3></div>
+                <div className="flex items-center gap-3 mb-6"><TrajectoryIcon className="w-5 h-5 text-indigo-600"/><h3 className="font-bold text-slate-800 text-xl tracking-tight">内の実体験報告サマリー</h3></div>
                 <div className="prose prose-slate max-w-none text-slate-700" dangerouslySetInnerHTML={createMarkup(data.overallSummary)} />
             </section>
         </div>
@@ -261,22 +403,52 @@ const SkillMatchingContent: React.FC<{ data: SkillMatchingResult }> = ({ data })
     );
 };
 
-const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ trajectoryState, skillMatchingState }) => {
-    // Determine which loader to show based on loading state
-    if (trajectoryState?.status === 'loading') return <ProgressiveAnalysisLoader type="trajectory" />;
-    if (skillMatchingState?.status === 'loading') return <ProgressiveAnalysisLoader type="skillMatching" />;
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ trajectoryState, skillMatchingState, activeTab = 'trajectory' }) => {
+    // Determine which loader to show based on loading state of the active tab
+    if (activeTab === 'trajectory' && trajectoryState?.status === 'loading') return <ProgressiveAnalysisLoader type="trajectory" />;
+    if (activeTab === 'skillMatching' && skillMatchingState?.status === 'loading') return <ProgressiveAnalysisLoader type="skillMatching" />;
 
-    if (trajectoryState?.status === 'error' && trajectoryState.error) {
+    if (activeTab === 'trajectory' && trajectoryState?.status === 'error' && trajectoryState.error) {
         return <AnalysisErrorFallback type="軌跡分析" error={trajectoryState.error} />;
     }
-    if (skillMatchingState?.status === 'error' && skillMatchingState.error) {
+    if (activeTab === 'skillMatching' && skillMatchingState?.status === 'error' && skillMatchingState.error) {
         return <AnalysisErrorFallback type="適職診断" error={skillMatchingState.error} />;
     }
 
     return (
         <div className="space-y-12">
-            {trajectoryState?.status === 'success' && trajectoryState.data && <TrajectoryContent data={trajectoryState.data} />}
-            {skillMatchingState?.status === 'success' && skillMatchingState.data && <SkillMatchingContent data={skillMatchingState.data} />}
+            {activeTab === 'trajectory' && trajectoryState?.status === 'success' && trajectoryState.data && (
+                <TrajectoryContent data={trajectoryState.data} />
+            )}
+            
+            {activeTab === 'skillMatching' && skillMatchingState?.status === 'success' && skillMatchingState.data && (
+                <SkillMatchingContent data={skillMatchingState.data} />
+            )}
+            
+            {/* If the active tab has not been run (idle), show a polished explanatory placeholder */}
+            {activeTab === 'trajectory' && (trajectoryState?.status === 'idle' || !trajectoryState) && (
+                <div className="p-8 sm:p-12 flex flex-col items-center justify-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-center shadow-sm animate-in fade-in duration-300">
+                    <div className="w-14 sm:w-16 h-14 sm:h-16 bg-sky-50 rounded-2xl flex items-center justify-center text-sky-600 mb-4 shadow-inner">
+                        <TrajectoryIcon className="w-6 sm:w-8 h-6 sm:h-8" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-800">軌跡分析が未実行です</h3>
+                    <p className="text-xs sm:text-sm font-bold text-slate-400 mt-2 max-w-md leading-relaxed px-4">
+                        相談履歴の対話傾向から、心理的な揺らぎ、回復ステップ、要介入度の変遷をディープに可視化し、適切なアプローチ時期を導き出します。
+                    </p>
+                </div>
+            )}
+            
+            {activeTab === 'skillMatching' && (skillMatchingState?.status === 'idle' || !skillMatchingState) && (
+                <div className="p-8 sm:p-12 flex flex-col items-center justify-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-center shadow-sm animate-in fade-in duration-300">
+                    <div className="w-14 sm:w-16 h-14 sm:h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-4 shadow-inner">
+                        <TargetIcon className="w-6 sm:w-8 h-6 sm:h-8" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-800">適職能力診断が未実行です</h3>
+                    <p className="text-xs sm:text-sm font-bold text-slate-400 mt-2 max-w-md leading-relaxed px-4">
+                        これまでの対話から相談者の本質的な強み、自己効力感の高い領域、今後習得すべきコンピテンシーを定量マップ化し、推薦業界と学習課題を明示します。
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

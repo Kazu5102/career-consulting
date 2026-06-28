@@ -1,5 +1,5 @@
 
-// views/UserView.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
+// views/UserView.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, StoredConversation, AIType, UserProfile } from '../types';
 import { getStreamingChatResponse, generateSummary, generateSuggestions } from '../services/index';
@@ -81,7 +81,7 @@ const GREETINGS = {
 };
 
 const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
-  const VERSION = "6.41";
+  const VERSION = "6.48";
   const [isSummaryHighlighted, setIsSummaryHighlighted] = useState<boolean>(false);
   const [view, setView] = useState<UserViewMode>('loading');
   const [userConversations, setUserConversations] = useState<StoredConversation[]>([]);
@@ -865,7 +865,7 @@ const UserView: React.FC<UserViewProps> = ({ userId, onSwitchUser }) => {
         </div>
       )}
 
-      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onFinalize={() => finalizeAndSave({ id: currentConversationId || Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} />
+      <SummaryModal isOpen={isSummaryModalOpen} onClose={() => setIsSummaryModalOpen(false)} summary={summary} isLoading={isSummaryLoading} onFinalize={() => finalizeAndSave({ id: currentConversationId || Date.now(), userId, aiName, aiType, aiAvatar: aiAvatarKey, messages, summary, date: new Date().toISOString(), status: 'completed' })} messages={messages} userId={userId} aiName={aiName} nickname={nickname} />
       <InterruptModal isOpen={isInterruptModalOpen} onSaveAndInterrupt={() => finalizeAndSave({ 
           id: currentConversationId || Date.now(), 
           userId, 

@@ -1,7 +1,8 @@
-
-// services/mockGeminiService.ts - v6.38 - 2026-05-31 - 心の可視化レポートのプレースホルダー指示注記（不要な文章）を完全排除（対策案A適用）
+// services/mockGeminiService.ts - v6.47 - 2026-06-28 - mockGeminiServiceにcheckServerStatusを追加し、エラー解決。
 import { ChatMessage, StoredConversation, AnalysisData, AIType, TrajectoryAnalysisData, HiddenPotentialData, SkillMatchingResult, MessageAuthor, UserProfile } from '../types';
 import { StreamUpdate } from './geminiService';
+
+export const VERSION = "6.47";
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -39,24 +40,26 @@ const sampleAnalysisData: AnalysisData = {
 
 const sampleSkillMatchingResult: SkillMatchingResult = {
     keyTakeaways: [
-        "高い学習意欲と協調性があなたの大きな強みです。",
-        "Web開発分野でのポテンシャルが非常に高いです。",
+        "実直な役割遂行能力と周囲への高い調整力が強みです。",
+        "今後は、より主体的なキャリア形成と意思決定が課題となります。",
     ],
-    analysisSummary: `あなたは、**高い学習意欲**と**着実に物事を進める能力**を兼ね備えています。`,
+    analysisSummary: "これまでの対話履歴から、相談者の強みと伸ばすべきスキルを抽出しました。周囲への配慮と実直さは、組織内のリーダーシップや調整役として極めて有効に機能します。",
     recommendedRoles: [
-        { role: 'Webデベロッパー', reason: '学習意欲を活かし、高品質な開発に貢献できます。', matchScore: 85 },
+        { role: 'プロジェクトマネージャー / 調整ディレクター', reason: '高い状況適応力と周囲との調和能力が活かせます。', matchScore: 85 },
+        { role: 'キャリアアドバイザー / 相談援助職', reason: '自身の葛藤経験や深い傾聴姿勢が他者支援に繋がります。', matchScore: 78 }
     ],
     skillsToDevelop: [
-        { skill: 'Git / GitHub', reason: 'チーム開発の基本ツールです。' },
+        { skill: '能動的意思決定（アサーティブネス）', reason: '周囲の期待に過度に応えようとする傾向（過適応）を和らげ、自らの意思を表明するため。' },
+        { skill: 'キャリア・セルフマネジメント', reason: '外部環境の変化に左右されず、自身の軸を持ってキャリアを自律的に設計するため。' }
     ],
     learningResources: [
-        { title: 'Gitコース', type: 'course', provider: 'Progate' },
-    ],
+        { title: 'アサーティブ・コミュニケーション基礎講習', type: 'course', provider: 'キャリア自律推進協会' },
+        { title: 'マーク・サビカス キャリア・コンストラクション理論の実践', type: 'book', provider: 'ナラティブ書房' }
+    ]
 };
 
-export const checkServerStatus = async (): Promise<{status: string}> => {
-    await delay(200);
-    return { status: 'ok' };
+export const checkServerStatus = async (): Promise<{ status: string }> => {
+    return { status: "ok" };
 };
 
 export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: AIType, aiName: string, profile?: UserProfile): Promise<ReadableStream<StreamUpdate> | null> => {
@@ -96,24 +99,16 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
             reply = `将来への漠然とした不安を抱えているんだねワン。まだ見ぬ先のことって、暗闇を歩いているみたいでどうしたらいいかわからなくなっちゃうの、すごくよくわかるワン🐾
 でも、その不安があるってことは、キミが自分の人生を「もっと良くしていきたい」って、真剣に自分と向き合っている証拠なんだワン！素晴らしいことだワン！
 今この瞬間、キミが一番「こうなったら心がスッキリするのにな」って思う理想の姿は、どんな小さなことでもいいから浮かんでくるワン？🐾`;
-        } else if (userText.includes('強み') || userText.includes('スキル') || userText.includes('得意')) {
-            reply = `自分の「強み」や「得意なこと」を見つけたいんだねワン！キミは自分のこと「まだまだワン…」って思っているかもしれないけど、ボクから見たらキラキラ輝くタカラモノがいっぱいあるワン！🐾
-たとえば、今日こうして自分の気持ちを言葉にして整理しようとする行動力だって、ものすごく強力な強みなんだワン！
-周りの人から「これ、助かったよ！」とか「器用だね」って言われたこと、あるいは自分がやっていて全然飽きないことって、何かないワン？小さなことでも誇っていいワン🐾`;
         } else {
-            reply = `「${userText}」っていう、キミの今の大切な言葉、ボクの大きなお耳でしっかり優しく受け止めたワン🐾
-そう話してくれた時のキミの気持ち、そして今日ここまで自分の心を見つめて言葉を紡いできてくれたこと、ボクは心からがんばっているねって伝えたいワン！
-もう少し、その「${userText}」について、キミが感じていることや想いをボクに聞かせてくれないワン？キミのペースで大丈夫だワン！🐾`;
-        }
-        
-        if (fluencyNote) {
-            reply = `${fluencyNote}\n\n${reply}`;
+            reply = `キミの話してくれた「${userText}」という言葉、ボクの心にしっかり届いたワン🐾
+キミが一生懸命に自分の気持ちを整理しようとがんばっている姿、ボクはすぐ隣で見ているし、すごく応援しているワン！
+その「${userText}」について、もう少し詳しく、キミのペースで教えてほしいワン🐾`;
         }
     } else {
         if (userText.includes('転職') || userText.includes('辞め')) {
-            reply = `「転職」あるいは「退職」という、人生における重要な転機について真剣に向き合っていらっしゃるのですね。
-現在の職場を去るという決断には、これまで築いてきた安定を手放すような怖さや、周囲への遠慮など、本当に多様な感情が交錯するものと思います。
-あなたが次の居場所を模索し始めた背景には、どのような思いや、これまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
+            reply = `「転職」や「今の職場を辞めること」について、心境の変化や葛藤が生じていらっしゃるのですね。
+これまで懸命に取り組んでこられたからこそ、歩みを止めて次の一歩を模索することに、真剣な迷いや不安を感じるのだと思います。
+今の仕事を離れようと思われたのには、具体的にどのような背景やこれまでの「違和感」があったのでしょうか。まずはそのきっかけとなる出来事など、話しやすいところから教えていただけますか。`;
         } else if (userText.includes('人間関係') || userText.includes('上司') || userText.includes('同僚')) {
             reply = `職場における周囲との関係性、特に上司や同僚の方々との間で生じるお悩みについてお話しくださいましたね。
 業務そのもの以外のコミュニケーションや、期待に応えるための調整は、ご自身が思っていらっしゃる以上に心身に摩擦を与え、疲弊させてしまうものです。
@@ -131,10 +126,10 @@ export const getStreamingChatResponse = async (messages: ChatMessage[], aiType: 
 ご自身の想いを引き出して整理することは、時に心理的エネルギーを要する行為です。あなたの語るテーマと、その底にある大切な「感情」に深く耳を傾けております。
 その「${userText}」という事象や状況について、今現在ご自身の中で、どのような気持ちや感覚が最も強く想起されているか、さらに詳しく教えていただけますでしょうか。`;
         }
+    }
 
-        if (fluencyNote) {
-            reply = `${fluencyNote}\n\n${reply}`;
-        }
+    if (fluencyNote) {
+        reply = `${fluencyNote}\n\n${reply}`;
     }
 
     const chunks = reply.split(/(、|。|？|\?|！|\!|…|\n)/).filter(Boolean);
@@ -179,14 +174,43 @@ export const generateSummary = async (chatHistory: ChatMessage[], aiType: AIType
         topics.push('今後のキャリアやご自身がありたい姿について');
     }
 
-    const user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」
-1. 本日お話ししたこと（テーマと事実）
-- ${topics.join(isDog ? '、そして' : '、さらには')}についての葛藤や現在の状況。
-- 自分に合った働き方やキャリアの方向性について、深く悩まれている状況。
+    let user_summary = `■ Repotta（レポッタ）：本日の「心の可視化レポート」\n\n`;
 
-2. 対話を通じて、あなたが気づいたこと・言葉にしたこと
-- 自分一人で抱え込まず、少しでも重荷を下ろして次の選択へ向かいたいという正直な想い。
-- 周囲からの期待に合わせようとするあまり、自分の本音を後回しにしていたかもしれない、という気づき。`;
+    if (isDog) {
+        user_summary += `1. 本日の対話のテーマと現状（客観的ファクト）
+きょうは、${topics.join('や')}についての葛藤や、目の前の現状についてたくさんお話ししたワン🐾
+これまでは一生懸命に目の前のお仕事をこなしてがんばってきたけれど、心の中では「このままでいいのかな…」と立ち止まって、自分自身と向き合おうとしている状態だワン。
+
+2. あなたが大切にしたいこと（満足点・やりがい・価値観）
+お話のなかで、キミが本来やりがいを感じる瞬間や、心から大切にしたいと思っている価値観のかけらが見えてきたワン！
+それは、周りの人の笑顔や役に立っているという実感、および自分の成長を感じる瞬間のようだワン🐾 これがキミにとって、前に進むための大事なエネルギーの源（軸）になっているワン。
+
+3. 現在感じている葛藤や課題（心のひっかかり・悩み）
+いまは、周囲からの「こうしてほしい」という期待に応えようとするあまり、キミの本当の本音や「こうありたい」という姿を後回しにして、心がすこし擦り減ってしまっているようだワン…。
+自分一人でこのモヤモヤを抱え込もうとしているから、身動きが重くなって、悩みから抜け出せない原因になっているかもしれないワン🐾
+
+4. 対話を通じて言葉にした「あなた自身の気づき」
+対話を重ねるなかで、キミは「周りに合わせるだけじゃなく、もう少し自分自身の気持ちに素直になってもいいのかも」という、とても大切な気づきを自らの言葉で紡ぎ出してくれたワン！
+この小さな兆しは、キミが新しく歩き出そうとしている素晴らしい最初の一歩だワン。
+キミが一番、心も体もすーっと呼吸が軽くなる姿って、一体どんな姿なんだろうワン？🐾`;
+    } else {
+        user_summary += `1. 本日の対話のテーマと現状（客観的ファクト）
+相談者は、現在置かれている客観的な環境として、${topics.join('や')}に直面しています。
+日々、周囲からの高い要求に対して実直に役割を遂行している一方で、主観を排した客観的な事実として、今後のキャリアパスや働き方に強い不確実性を感じている状況です。
+
+2. あなたが大切にしたいこと（満足点・やりがい・価値観）
+対話の分析から見出された相談者の根源的なやりがいと価値観は、「他者への貢献による確かな承認」と「自己の専門性の継続的な向上」にあります。
+これは、過去の成功体験において高い主体性を発揮していた瞬間とも深く紐づいており、今後のキャリア形成における極めて重要な意思決定基準（軸）となります。
+
+3. 現在感じている葛藤や課題（心のひっかかり・悩み）
+現在抱えている主要な葛藤は、期待される外部の役割への「過適応」と、自己が内に秘める本音（真の願望）との不一致です。
+周囲の調和を重んじる性質が、本人の感情の抑圧を招き、意思決定を遅らせ、現在の精神的疲弊やキャリアにおける身動きの重さを生み出す心理的要因となっています。
+
+4. 対話を通じて言葉にした「あなた自身の気づき」
+カウンセリングの後半において、相談者は「役割期待に縛られず、自らの内発的動機に基づく方向性を受け入れることが必要かもしれない」と、主体的な変化への明確な兆しを自らの言葉で獲得しました。
+この認識の変容は、受動的な状況適応から、主観的キャリア開発への確かな一歩を意味しています。
+あなたが本当に大切にしたい『自分自身の軸』を最優先にしたとき、まず手放していい重荷とは何でしょうか。`;
+    }
 
     const professional_summary = `【相談者プロフィール】
 年齢：${profile?.age || "未設定"}、現状の葛藤：${profile?.complaint || "現状の整理"}
@@ -215,22 +239,119 @@ export const analyzeConversations = async (summaries: StoredConversation[]): Pro
 
 export const analyzeTrajectory = async (conversations: StoredConversation[], userId: string): Promise<TrajectoryAnalysisData> => {
     await delay(2500);
+
+    // 相談者の各セッション履歴（conversations）から具体的な葛藤、気づき、変化（テーマや事実、気づいたこと・言葉にしたこと）をパース
+    const themes: string[] = [];
+    const insights: string[] = [];
+    
+    conversations.forEach(c => {
+        const text = c.summary || "";
+        let currentSection: 'themes' | 'insights' | null = null;
+        const lines = text.split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.includes('本日お話ししたこと') || trimmed.includes('1.')) {
+                currentSection = 'themes';
+                continue;
+            } else if (trimmed.includes('気づいたこと') || trimmed.includes('2.')) {
+                currentSection = 'insights';
+                continue;
+            } else if (trimmed.startsWith('■') || trimmed.startsWith('###')) {
+                currentSection = null;
+            }
+            
+            if (currentSection === 'themes' && (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*'))) {
+                const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                if (item && !themes.includes(item)) themes.push(item);
+            } else if (currentSection === 'insights' && (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*'))) {
+                const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                if (item && !insights.includes(item)) insights.push(item);
+            }
+        }
+    });
+
+    // 抽出できなかった場合のバックアップ（要約全体から箇条書きを抽出）
+    if (themes.length === 0 && insights.length === 0) {
+        conversations.forEach(c => {
+            const text = c.summary || "";
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('・') || trimmed.startsWith('-') || trimmed.startsWith('*')) {
+                    const item = trimmed.replace(/^[・\-\*\s]+/, '').trim();
+                    if (item && item.length > 5) {
+                        if (trimmed.includes('葛藤') || trimmed.includes('悩み') || trimmed.includes('状況') || trimmed.includes('仕事')) {
+                            if (!themes.includes(item)) themes.push(item);
+                        } else {
+                            if (!insights.includes(item)) insights.push(item);
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    let overallSummary = '';
+    if (themes.length > 0 || insights.length > 0) {
+        overallSummary = `### 相談プロセス全体の内的変容の要約\n\n`;
+        if (themes.length > 0) {
+            overallSummary += `これまでの面談を通じて、相談者は主に以下のような葛藤やテーマ（状況・事実）に向き合ってこられました。\n\n`;
+            themes.slice(0, 3).forEach(t => {
+                overallSummary += `- **${t}**\n`;
+            });
+            overallSummary += `\n`;
+        }
+        if (insights.length > 0) {
+            overallSummary += `キャリアコンサルタントとの能動的な対話や内省の深化に伴い、相談者自身の中に以下のような肯定的な気づきと言葉の変化が生まれています。\n\n`;
+            insights.slice(0, 3).forEach(ins => {
+                overallSummary += `- **${ins}**\n`;
+            });
+            overallSummary += `\n`;
+        }
+        
+        overallSummary += `### 臨床的見立てと内的変容の推移\n`;
+        overallSummary += `当初は目の前の課題や周囲の環境に圧倒され、自己を抑圧して過度に役割期待へ応えようとする傾向（過適応）が強く働いていました。\n\n`;
+        overallSummary += `しかし、心理的安全性を確保した継続的なカウンセリングにより、本人が「真の願望や本音（${insights[0] || '本当に望む働き方'}）」を受け入れ、言語化できるようになり、受動的適応から「主体的キャリア形成」へと大きな自己改革（内的変容）を遂げ始めています。\n\n`;
+        overallSummary += `今後は、言語化できた本音を基盤にして、無理のないスモールステップ（情報収集や現職での微調整）から実際の行動へと移していく段階的支援が適切と考えられます。`;
+    } else {
+        overallSummary = `### 相談プロセス全体の内的変容の要約\n\n相談者のこれまでの面談履歴から、主治となる葛藤や言語化された本音がまだ十分に自動パースされていません。カウンセリングにおいて、相談者が以下のようなテーマに少しずつ触れ始めている段階であると推測されます。\n\n- 現在の仕事内容や評価への不確実性、およびキャリアイメージの模索\n- 今後の自立的役割と、自己のキャリア開発（内省と言語化）のバランス調整\n\n対話をさらに重ね、個別セッションの「心の可視化レポート」へ思考履歴をより詳細に記述・保存することにより、さらに精緻な『内的変容傾向』の軌跡の追跡が可能となります。`;
+    }
+
+    const derivedThemes = themes.length > 0 ? themes.slice(0, 3) : ['キャリアパスの悩み', '過度な役割期待への葛藤', '現職でのキャリア発達段階の揺らぎ'];
+    const derivedStrengths = insights.length > 0 ? ['自己分析力（客観的内省）', '自律性（自己決定志向）', 'キャリア・レジリエンス'] : ['協調性・順応能力', '課題解決への実直な姿勢'];
+    const derivedSteps = insights.length > 0 
+        ? [`「${insights[0]}」という本音を第一の軸に据えてキャリア構想をさらに精緻化する`, '現状の環境を維持しつつ、余暇を使って小さな適職情報収集を実行する'] 
+        : ['現状のプレッシャーとなる要素を棚卸しし、心身の余力を生み出す', '言語化しづらい感情や本音を受け止める安全な伴走を継続する'];
+    
+    const derivedTakeaways = [
+        insights.length > 0 ? `相談を重ねる中で「${insights[0]}」といった確固たる自己発見・気づきをすでに自らの言葉で獲得できています。` : "カウンセラーを信頼し、自分一人の頭では整理できなかった感情を安全に開示・言語化し始めています。",
+        themes.length > 0 ? `主訴である「${themes[0]}」に対する焦点当てが適切になされており、認知的変容の準備段階へと移行しつつあります。` : "周囲から期待されている『現在の役割』と、本来自分が持つ『あるべき姿』のギャップに自覚的になりつつあります。"
+    ];
+
     return {
-        keyTakeaways: ["自己理解が深まっている。", "具体的な行動計画が有効。"],
+        keyTakeaways: derivedTakeaways,
         userId,
         totalConsultations: conversations.length,
         consultations: conversations.map(c => ({ dateTime: new Date(c.date).toLocaleString('ja-JP'), estimatedDurationMinutes: 20 })),
-        keyThemes: ['キャリアパスの悩み'],
-        detectedStrengths: ['学習意欲'],
-        areasForDevelopment: ['ポートフォリオ作成'],
-        suggestedNextSteps: ['職種研究'],
-        overallSummary: `デモ用個別分析レポートです。`,
-        triageLevel: 'medium',
+        keyThemes: derivedThemes,
+        detectedStrengths: derivedStrengths,
+        areasForDevelopment: ['キャリア・アクションにおけるスモールステップへの展開（具体的実行計画の策定）'],
+        suggestedNextSteps: derivedSteps,
+        overallSummary,
+        triageLevel: conversations.length >= 3 ? 'low' : 'medium',
         ageStageGap: 35,
-        theoryBasis: "レヴィンソンの『人生の四季』理論に基づくと、30代中盤の『30代の転機』において、20代の未解決な探索課題が再演されている状態と推測されます。",
-        expertAdvice: "焦燥感が強いため、拙速な目標設定を促すと防衛機制が働く恐れがあります。まずは『理想の自己像』と『現在の自己』のズレを中立的に受け止めるラポール形成を最優先してください。",
-        reframedSkills: [{ userWord: 'コツコツやる', professionalSkill: '継続的改善能力', insight: '地道な作業を苦にせず、品質を高め続ける姿勢があります。' }],
-        sessionStarter: '最近の取り組みの中で、一番手応えを感じていることは何ですか？',
+        theoryBasis: "レヴィンソンの『人生の四季』理論に基づくと、30代中盤の『30代の転機』において、20代の未解決な探索課題が再演されている状態と推測されます。またサビカスのキャリア・コンストラクション理論から見ると、内的動機に基づき自己を主体的かつ現実的に意味づけ（リフレーミング）していく真っ只中にあります。",
+        expertAdvice: "相談者の不安や焦燥感が一時的に高まる場合、拙速に具体的な選択を促すと過適応や防衛反応が起こりやすくなります。これまでの面談を通じて『本当の心の声』が顔を出し始めているため、まずはその本音を徹底的にエンパワーメントし、『自己のキャリアの責任主体は自分自身である』というキャリア・アダプタビリティの自覚を促してください。",
+        reframedSkills: themes.map((t, idx) => ({
+            userWord: t.length > 15 ? t.substring(0, 15) + '...' : t,
+            professionalSkill: idx % 2 === 0 ? '状況適応・客観的調整力' : '当事者意識（自己管理力）',
+            insight: '生々しい葛藤の中から、本来自分が重視したい価値観を見出す動機付けに昇華されています。'
+        })).concat(insights.map((ins, idx) => ({
+            userWord: ins.length > 15 ? ins.substring(0, 15) + '...' : ins,
+            professionalSkill: idx % 2 === 0 ? '確固たる内省力（自己概念の構築）' : '自己方向付け能力',
+            insight: '直感的な気づきを自発的な意図へと接続し、今後の役割転換の確かな土台となっています。'
+        }))).slice(0, 3) || [{ userWord: 'コツコツやる', professionalSkill: '継続的改善能力', insight: '地道な作業を苦にせず、品質を高め続ける姿勢があります。' }],
+        sessionStarter: insights.length > 0 ? `前回の気づきであった「${insights[0]}」について、その後のご心境の変化や、より深く掘り下げてみたい点は何かございますか？` : '最近の取り組みの中で、一番手応えを感じていることや、小さな変化などはございましたか？',
     };
 };
 

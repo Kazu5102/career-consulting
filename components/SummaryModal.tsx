@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可読性向上、マージン・強調を美しく調整（案A）
+// components/SummaryModal.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -34,6 +34,7 @@ interface SummaryModalProps {
   messages: ChatMessage[];
   userId: string;
   aiName: string;
+  nickname?: string;
 }
 
 const REASSURANCE_MESSAGES = [
@@ -68,9 +69,10 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   onFinalize,
   messages,
   userId,
-  aiName
+  aiName,
+  nickname
 }) => {
-  const VERSION = "6.41";
+  const VERSION = "6.48";
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -168,8 +170,9 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 title: "キャリア相談 引継ぎ用データ",
                 generatedAt: new Date().toISOString(),
                 userId,
+                nickname: nickname || userId,
                 aiAgent: aiName,
-                version: "5.70"
+                version: "6.48"
             },
             summary: parsedSummary,
             chatHistory: messages
@@ -201,11 +204,17 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
       formatted = formatted.replace(/■\s*Repotta（レポッタ）：本日の「心の可視化レポート」/g, '## ■ Repotta（レポッタ）：本日の「心の可視化レポート」');
     }
     
-    // 「1. 本日お話ししたこと（テーマと事実）」 を「### 1. ...」 見出しに変換
-    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(1\.\s*本日お話ししたこと[^\n]*)/g, '\n### $1');
+    // 1. 本日の対話のテーマと現状（客観的ファクト）
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(1\.\s*本日の対話[^\n]*)/g, '\n### $1');
     
-    // 「2. 対話を通じて、あなたが気づいたこと・言葉にしたこと」 を「### 2. ...」 見出しに変換
-    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(2\.\s*対話を通じて[^\n]*)/g, '\n### $1');
+    // 2. あなたが大切にしたいこと（満足点・やりがい・価値観）
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(2\.\s*あなたが大切に[^\n]*)/g, '\n### $1');
+    
+    // 3. 現在感じている葛藤や課題（心のひっかかり・悩み）
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(3\.\s*現在感じている葛藤[^\n]*)/g, '\n### $1');
+    
+    // 4. 対話を通じて言葉にした「あなた自身の気づき」
+    formatted = formatted.replace(/(?:^|\n)(?<!###\s+)(4\.\s*対話を通じて[^\n]*)/g, '\n### $1');
     
     return formatted;
   };

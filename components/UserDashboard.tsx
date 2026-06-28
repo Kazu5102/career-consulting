@@ -1,5 +1,5 @@
 
-// components/UserDashboard.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
+// components/UserDashboard.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import React, { useState, useRef } from 'react';
 import { StoredConversation, STORAGE_VERSION, StoredData, UserInfo } from '../types';
 import * as conversationService from '../services/conversationService';
@@ -146,14 +146,27 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ conversations, onNewChat,
 
           let targetUserId = userId;
           if (imported.userInfo) {
-              const importedUser = imported.userInfo;
+              const importedUser = { ...imported.userInfo };
               targetUserId = importedUser.id;
+              
               const currentUsers = await userService.getUsers();
-              const userExists = currentUsers.some(u => u.id === targetUserId);
-              if (!userExists) {
+              const existingUser = currentUsers.find(u => u.id === targetUserId);
+              
+              // Ensure we restore a proper nickname and do not overwrite with an empty or non-human nickname
+              if (!importedUser.nickname || importedUser.nickname === importedUser.id) {
+                  if (existingUser && existingUser.nickname && existingUser.nickname !== existingUser.id) {
+                      importedUser.nickname = existingUser.nickname;
+                  } else {
+                      const existingNicknames = currentUsers.map(u => u.nickname);
+                      const { generateNickname } = await import('../services/userService');
+                      importedUser.nickname = generateNickname(existingNicknames);
+                  }
+              }
+              
+              if (!existingUser) {
                   await userService.saveUsers([...currentUsers, importedUser]);
               } else {
-                  const updatedUsers = currentUsers.map(u => u.id === targetUserId ? importedUser : u);
+                  const updatedUsers = currentUsers.map(u => u.id === targetUserId ? { ...importedUser, pin: importedUser.pin || u.pin } : u);
                   await userService.saveUsers(updatedUsers);
               }
           }

@@ -1,8 +1,9 @@
 
-// views/AdminView.tsx - v6.05 - 2026-05-28 - 専門家向け詳細ノートの表示制御（案A：表示フラグ・Prop制御アプローチ）
+// views/AdminView.tsx - v6.45 - 2026-06-16 - 軌跡分析・適職診断のリバランスシームレス切替タブ＆モバイルはみ出し防止極小調和
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { marked } from 'marked';
 import { StoredConversation, UserInfo, AnalysisType, AnalysesState, AnalysisHistoryEntry } from '../types';
+import { demoPatternA, demoPatternB } from '../data/demoMockData';
 import * as userService from '../services/userService';
 import * as conversationService from '../services/conversationService';
 import * as analysisService from '../services/analysisService';
@@ -47,6 +48,105 @@ const AdminView: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const [checkedUserIds, setCheckedUserIds] = useState<Set<string>>(new Set());
+
+    const loadData = useCallback(async () => {
+        const u = await userService.getUsers();
+        setUsers(u);
+        const c = await conversationService.getAllConversations();
+        setConversations(c);
+    }, []);
+    
+    // D-Control: Board Demo Toggle States and Controller
+    const [demoMode, setDemoMode] = useState<'none' | 'patternA' | 'patternB'>('none');
+
+    const handleDemoSelect = useCallback(async (mode: 'none' | 'patternA' | 'patternB') => {
+        setDemoMode(mode);
+        if (mode === 'patternA') {
+            const demoUser: UserInfo = { id: demoPatternA.userId, nickname: "ゆき（18歳デモ）", pin: "0000" };
+            setUsers(prev => {
+                if (!prev.some(u => u.id === demoUser.id)) return [...prev, demoUser];
+                return prev;
+            });
+            setSelectedUserId(demoUser.id);
+            setViewingHistoryId(null);
+
+            const dummyConvs: StoredConversation[] = [
+                {
+                    id: 99991,
+                    userId: demoUser.id,
+                    aiName: "Repotta.LIFE",
+                    aiType: "human",
+                    aiAvatar: "",
+                    messages: [
+                        { author: 'user' as any, text: "親とぶつかってしまって、家を出たい。でもどうしていいか分からない。" },
+                        { author: 'ai' as any, text: "そうなんですね。親御さんと衝突してしまって、家を出たいお気持ちなんですね。詳しくお話しできますか？" },
+                        { author: 'user' as any, text: "手を出されそうになった。怒鳴られてすごく怖かった。" }
+                    ],
+                    summary: JSON.stringify({ user_summary: "親との激しい衝突により家出を希望。怒鳴られたことへの強い恐怖感がある。家庭内の心理的安全性が損なわれている。" }),
+                    date: "2026-06-10T10:00:00Z",
+                    status: "completed"
+                }
+            ];
+            setConversations(prev => {
+                const rest = prev.filter(c => c.userId !== demoUser.id);
+                return [...rest, ...dummyConvs];
+            });
+            setAnalyses({
+                trajectory: { status: 'success', data: demoPatternA, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+        } else if (mode === 'patternB') {
+            const demoUser: UserInfo = { id: demoPatternB.userId, nickname: "ゆき（18歳デモ）", pin: "0000" };
+            setUsers(prev => {
+                if (!prev.some(u => u.id === demoUser.id)) return [...prev, demoUser];
+                return prev;
+            });
+            setSelectedUserId(demoUser.id);
+            setViewingHistoryId(null);
+
+            const dummyConvs: StoredConversation[] = [
+                {
+                    id: 99992,
+                    userId: demoUser.id,
+                    aiName: "Repotta.LIFE",
+                    aiType: "human",
+                    aiAvatar: "",
+                    messages: [
+                        { author: 'user' as any, text: "親とぶつかってしまって、家を出たい。でもどうしていいか分からない。" },
+                        { author: 'ai' as any, text: "そうなんですね。親御さんと衝突してしまって、家を出たいお気持ちなんですね。詳しくお話しできますか？" },
+                        { author: 'user' as any, text: "手を出されそうになった。怒鳴られてすごく怖かった。友達に言っても信じてもらえないと思う。うちは有名なパパだから..." },
+                        { author: 'ai' as any, text: "そうだったのですね。周囲を気にして孤立してしまっているのですね。" },
+                        { author: 'user' as any, text: "（45秒の沈黙の末）本当は...胸ぐらを掴まれて床に押し倒されたんです。フラシュバックして夜眠れなくて..." }
+                    ],
+                    summary: JSON.stringify({ user_summary: "父親（著名人）の社会的地位による外部への相談経路の遮断。胸ぐらを掴んで床に押し倒された身体的暴力によるフラッシュバックと強い恐怖。" }),
+                    date: "2026-06-10T11:00:00Z",
+                    status: "completed"
+                }
+            ];
+            setConversations(prev => {
+                const rest = prev.filter(c => c.userId !== demoUser.id);
+                return [...rest, ...dummyConvs];
+            });
+            setAnalyses({
+                trajectory: { status: 'success', data: demoPatternB, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+        } else {
+            setSelectedUserId(null);
+            setAnalyses({
+                trajectory: { status: 'idle', data: null, error: null },
+                skillMatching: { status: 'idle', data: null, error: null },
+                hiddenPotential: { status: 'idle', data: null, error: null }
+            });
+            // 通常データをリロード
+            const u = await userService.getUsers();
+            setUsers(u);
+            const c = await conversationService.getAllConversations();
+            setConversations(c);
+        }
+    }, [loadData]);
     
     // UI State for analysis visualization (latest only)
     const [analyses, setAnalyses] = useState<AnalysesState>({
@@ -54,6 +154,9 @@ const AdminView: React.FC = () => {
         skillMatching: { status: 'idle', data: null, error: null },
         hiddenPotential: { status: 'idle', data: null, error: null }
     });
+    
+    // 表示中のアクティブな分析タブ
+    const [activeAnalysisTab, setActiveAnalysisTab] = useState<'trajectory' | 'skillMatching'>('trajectory');
     
     // History Data
     const [analysisHistoryList, setAnalysisHistoryList] = useState<AnalysisHistoryEntry[]>([]);
@@ -73,13 +176,6 @@ const AdminView: React.FC = () => {
     const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
     const [usageData, setUsageData] = useState<UsageData>(getUsageData());
     const [simUserCount, setSimUserCount] = useState<number>(500);
-
-    const loadData = useCallback(async () => {
-        const u = await userService.getUsers();
-        setUsers(u);
-        const c = await conversationService.getAllConversations();
-        setConversations(c);
-    }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -246,7 +342,23 @@ const AdminView: React.FC = () => {
     const handleUserSelect = (userId: string) => {
         setSelectedUserId(userId);
         setViewingHistoryId(null);
-        setAnalyses({ trajectory: { status: 'idle', data: null, error: null }, skillMatching: { status: 'idle', data: null, error: null }, hiddenPotential: { status: 'idle', data: null, error: null } });
+        setActiveAnalysisTab('trajectory'); // Reset tab to trajectory by default
+        
+        // 履歴一覧から各タイプの最新の分析結果を復元する
+        const history = analysisService.getAnalysisHistory(userId);
+        const latestTrajectory = history.find(h => h.type === 'trajectory');
+        const latestSkill = history.find(h => h.type === 'skillMatching');
+        
+        setAnalyses({
+            trajectory: latestTrajectory 
+                ? { status: 'success', data: latestTrajectory.data as any, error: null }
+                : { status: 'idle', data: null, error: null },
+            skillMatching: latestSkill
+                ? { status: 'success', data: latestSkill.data as any, error: null }
+                : { status: 'idle', data: null, error: null },
+            hiddenPotential: { status: 'idle', data: null, error: null }
+        });
+        
         setIsMobileHistoryOpen(false);
     };
 
@@ -256,20 +368,52 @@ const AdminView: React.FC = () => {
             setAnalyses(prev => ({
                 ...prev,
                 trajectory: { status: 'success', data: entry.data as any, error: null },
-                skillMatching: { status: 'idle', data: null, error: null } // Clear others to focus
+                skillMatching: { status: 'idle', data: null, error: null }
             }));
+            setActiveAnalysisTab('trajectory');
         } else if (entry.type === 'skillMatching') {
             setAnalyses(prev => ({
                 ...prev,
                 skillMatching: { status: 'success', data: entry.data as any, error: null },
                 trajectory: { status: 'idle', data: null, error: null }
             }));
+            setActiveAnalysisTab('skillMatching');
         }
         // Scroll to top on mobile to see the content
         if (window.innerWidth < 1024) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             setIsMobileHistoryOpen(false);
         }
+    };
+
+    // 表示切替を安全かつ一瞬で行うスマート関数 (既存履歴があればキャッシュロード、無ければ初回計算)
+    const handleToggleOrRun = async (type: 'trajectory' | 'skillMatching', forceRerun: boolean = false) => {
+        if (!selectedUserId) return;
+
+        setActiveAnalysisTab(type);
+        setViewingHistoryId(null); // 最新表示モードにリセット
+
+        // このタイプの最新履歴データがアーカイブにあるか確認
+        const history = analysisService.getAnalysisHistory(selectedUserId);
+        const latestOfThisType = history.find(h => h.type === type);
+
+        if (latestOfThisType && !forceRerun) {
+            // すでに履歴がある場合は、再計算を行わず、履歴をロードして瞬時に表示！ (ボタン押したびの再計算を防ぐ)
+            setAnalyses(prev => ({
+                ...prev,
+                [type]: { status: 'success', data: latestOfThisType.data as any, error: null }
+            }));
+        } else {
+            // 履歴がない場合、または「再計算(forceRerun)」の場合は実際に分析処理を実行
+            await runAnalysis(type);
+        }
+    };
+
+    const onActionButtonClick = async (type: 'trajectory' | 'skillMatching') => {
+        // 現在すでに該当タブを表示しており、計算に成功している場合は「最新データで再コンパイル(forceRerun)」と解釈！
+        // 別のタブを表示中、または未実行のときは、既存データのシームレス切り替えロードと解釈！
+        const isAlreadyActive = activeAnalysisTab === type && analyses[type].status === 'success';
+        await handleToggleOrRun(type, isAlreadyActive);
     };
 
     const renderHistoryItem = (entry: AnalysisHistoryEntry, isTimeline: boolean = false, isLatest: boolean = false) => {
@@ -367,21 +511,99 @@ const AdminView: React.FC = () => {
             <main className={`${selectedUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col h-full bg-white overflow-hidden`}>
                 {selectedUserId ? (
                     <div className="flex-1 flex flex-col h-full">
-                        <header className="sticky top-0 z-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 px-4 md:px-8 py-4 border-b border-slate-100 shadow-sm backdrop-blur-md">
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <button onClick={() => setSelectedUserId(null)} className="md:hidden p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg></button>
-                                <div className="overflow-hidden flex-1" key={selectedUserId}>
-                                    <h1 className="text-lg md:text-2xl font-black text-slate-800 truncate">{activeUser?.nickname} さんの分析</h1>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-[10px] text-slate-400 font-mono hidden sm:block">{selectedUserId}</p>
-                                        <span className="text-[9px] font-black bg-sky-50 text-sky-600 px-2 py-0.5 rounded border border-sky-100 whitespace-nowrap">History: Trj {historyCounts.trajectory} / Skl {historyCounts.skillMatching}</span>
+                        <header className="sticky top-0 z-20 bg-white/95 border-b border-slate-100 shadow-sm backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5">
+                            <div className="max-w-[1600px] mx-auto w-full flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                                {/* Title and metadata area */}
+                                <div className="flex items-center gap-3 w-full xl:w-auto">
+                                    <button onClick={() => setSelectedUserId(null)} className="md:hidden p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <div className="overflow-hidden flex-1" key={selectedUserId}>
+                                        <h1 className="text-base sm:text-lg md:text-xl xl:text-2xl font-black text-slate-800 truncate tracking-tight">
+                                            {activeUser?.nickname} <span className="font-bold text-slate-500 text-sm sm:text-base">さんの分析</span>
+                                        </h1>
+                                        <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+                                            <p className="text-[10px] text-slate-400 font-mono hidden sm:block">{selectedUserId}</p>
+                                            <span className="text-[9px] font-black bg-sky-50 text-sky-600 px-2 py-0.5 rounded border border-sky-100 whitespace-nowrap">
+                                                History: Trj {historyCounts.trajectory} / Skl {historyCounts.skillMatching}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                                <button onClick={() => runAnalysis('trajectory')} className="flex-shrink-0 flex-1 md:flex-none px-4 py-2.5 bg-sky-600 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-sky-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2"><TrajectoryIcon className="w-4 h-4" />軌跡分析</button>
-                                <button onClick={() => runAnalysis('skillMatching')} className="flex-shrink-0 flex-1 md:flex-none px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-emerald-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2"><TargetIcon className="w-4 h-4" />適職診断</button>
-                                <button onClick={() => setIsShareModalOpen(true)} className="flex-shrink-0 px-4 py-2.5 bg-slate-800 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-black transition-colors whitespace-nowrap flex items-center justify-center gap-2"><FileTextIcon className="w-4 h-4"/>レポート</button>
+
+                                {/* Controls panel (D-Control + Main Action Buttons) */}
+                                <div className="flex flex-col md:flex-row xl:items-center gap-3 w-full xl:w-auto">
+                                    {/* D-Control (デモ専用コントローラー) - Compact segment shape */}
+                                    <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-md shrink-0 w-full md:w-auto justify-between md:justify-start">
+                                        <span className="text-[8px] sm:text-[9px] font-black tracking-widest text-[#f43f5e] px-2 sm:px-3 uppercase select-none animate-pulse shrink-0">D-Control</span>
+                                        {/* Mobile selector */}
+                                        <select 
+                                            value={demoMode} 
+                                            onChange={(e) => handleDemoSelect(e.target.value as any)}
+                                            className="md:hidden bg-slate-800 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg border-0 focus:ring-1 focus:ring-rose-500 cursor-pointer max-w-[120px]"
+                                        >
+                                            <option value="none">通常モード</option>
+                                            <option value="patternA">パターンA</option>
+                                            <option value="patternB">パターンB</option>
+                                        </select>
+                                        {/* Desktop button list */}
+                                        <div className="hidden md:flex items-center gap-1">
+                                            <button 
+                                                onClick={() => handleDemoSelect('none')} 
+                                                className={`px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${demoMode === 'none' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                通常
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDemoSelect('patternA')} 
+                                                className={`px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${demoMode === 'patternA' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                パターンA
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDemoSelect('patternB')} 
+                                                className={`px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${demoMode === 'patternB' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                パターンB
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Action buttons list */}
+                                    <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full md:w-auto shrink-0">
+                                        <button 
+                                            onClick={() => onActionButtonClick('trajectory')} 
+                                            className={`px-3 md:px-4 py-2 sm:py-2.5 font-bold rounded-xl text-[11px] sm:text-xs md:text-sm shadow-sm active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                                                activeAnalysisTab === 'trajectory' && analyses.trajectory.status === 'success'
+                                                ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+                                                : 'bg-sky-600 text-white hover:bg-sky-700'
+                                            }`}
+                                        >
+                                            <TrajectoryIcon className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{activeAnalysisTab === 'trajectory' && analyses.trajectory.status === 'success' ? '軌跡再分析' : '軌跡分析'}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => onActionButtonClick('skillMatching')} 
+                                            className={`px-3 md:px-4 py-2 sm:py-2.5 font-bold rounded-xl text-[11px] sm:text-xs md:text-sm shadow-sm active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                                                activeAnalysisTab === 'skillMatching' && analyses.skillMatching.status === 'success'
+                                                ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+                                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                            }`}
+                                        >
+                                            <TargetIcon className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{activeAnalysisTab === 'skillMatching' && analyses.skillMatching.status === 'success' ? '再適職診断' : '適職診断'}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setIsShareModalOpen(true)} 
+                                            className="px-3 md:px-4 py-2 sm:py-2.5 bg-slate-800 text-white font-bold rounded-xl text-[11px] sm:text-xs md:text-sm shadow-sm hover:bg-black active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-1.5"
+                                        >
+                                            <FileTextIcon className="w-3.5 h-3.5 shrink-0" />
+                                            <span>レポート</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </header>
                         
@@ -397,14 +619,84 @@ const AdminView: React.FC = () => {
                                                 <p className="text-xs text-amber-700">実施日時: {new Date(analysisHistoryList.find(h => h.id === viewingHistoryId)?.timestamp || 0).toLocaleString()}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setViewingHistoryId(null); setAnalyses({ trajectory: { status: 'idle', data: null, error: null }, skillMatching: { status: 'idle', data: null, error: null }, hiddenPotential: { status: 'idle', data: null, error: null } }) }} className="w-full sm:w-auto px-4 py-2 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">最新に戻る</button>
+                                        <button 
+                                            onClick={() => { 
+                                                setViewingHistoryId(null); 
+                                                // 最新データ（各タイプの最新の履歴）を履歴から復元する
+                                                if (selectedUserId) {
+                                                    const history = analysisService.getAnalysisHistory(selectedUserId);
+                                                    const latestTrajectory = history.find(h => h.type === 'trajectory');
+                                                    const latestSkill = history.find(h => h.type === 'skillMatching');
+                                                    setAnalyses({
+                                                        trajectory: latestTrajectory ? { status: 'success', data: latestTrajectory.data as any, error: null } : { status: 'idle', data: null, error: null },
+                                                        skillMatching: latestSkill ? { status: 'success', data: latestSkill.data as any, error: null } : { status: 'idle', data: null, error: null },
+                                                        hiddenPotential: { status: 'idle', data: null, error: null }
+                                                    });
+                                                }
+                                            }} 
+                                            className="w-full sm:w-auto px-4 py-2 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors"
+                                        >
+                                            最新に戻る
+                                        </button>
                                     </div>
                                 )}
 
                                 <div className="flex flex-col lg:flex-row gap-8 items-start">
                                     {/* Main Content Column */}
-                                    <div className="flex-1 w-full min-w-0 space-y-12">
-                                        <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} />
+                                    <div className="flex-1 w-full min-w-0 space-y-6">
+                                        {/* 診断結果表示エリアの最上部：シームレス切り替え用のSegmented Tabs */}
+                                        <div className="flex items-center justify-between bg-slate-100 p-1.5 rounded-2xl w-full mb-6 gap-2 animate-in fade-in duration-300">
+                                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                <button
+                                                    onClick={() => handleToggleOrRun('trajectory', false)}
+                                                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 truncate border border-transparent ${
+                                                        activeAnalysisTab === 'trajectory'
+                                                        ? 'bg-white text-slate-800 shadow-md border-slate-200/50'
+                                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <TrajectoryIcon className={`w-3.5 h-3.5 shrink-0 ${activeAnalysisTab === 'trajectory' ? 'text-sky-500' : 'text-slate-400'}`} />
+                                                    <span className="truncate">内的キャリア軌跡分析</span>
+                                                    {historyCounts.trajectory > 0 && (
+                                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black shrink-0 ${activeAnalysisTab === 'trajectory' ? 'bg-sky-50 text-sky-600 border border-sky-100' : 'bg-slate-200 text-slate-500'}`}>
+                                                            {historyCounts.trajectory}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleToggleOrRun('skillMatching', false)}
+                                                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 truncate border border-transparent ${
+                                                        activeAnalysisTab === 'skillMatching'
+                                                        ? 'bg-white text-slate-800 shadow-md border-slate-200/50'
+                                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <TargetIcon className={`w-3.5 h-3.5 shrink-0 ${activeAnalysisTab === 'skillMatching' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                                                    <span className="truncate">適職市場価値診断</span>
+                                                    {historyCounts.skillMatching > 0 && (
+                                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black shrink-0 ${activeAnalysisTab === 'skillMatching' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-200 text-slate-500'}`}>
+                                                            {historyCounts.skillMatching}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                            
+                                            {/* 再計算ボタン（最新会話での再リフレッシュ） */}
+                                            {analyses[activeAnalysisTab].status === 'success' && (
+                                                <button
+                                                    onClick={() => handleToggleOrRun(activeAnalysisTab, true)}
+                                                    className="p-2 text-slate-400 hover:text-slate-700 hover:bg-white rounded-xl transition-all shadow-sm shrink-0 border border-transparent hover:border-slate-200/60 flex items-center gap-1 text-[10px] font-black bg-white/60"
+                                                    title="最新の対話をもとに再分析"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 16H20" />
+                                                    </svg>
+                                                    <span className="hidden sm:inline">再分析</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <AnalysisDisplay trajectoryState={analyses.trajectory} skillMatchingState={analyses.skillMatching} activeTab={activeAnalysisTab} />
                                         
                                         {/* Mobile Analysis History Accordion */}
                                         {analysisHistoryList.length > 0 && (

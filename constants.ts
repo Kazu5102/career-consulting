@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.41 - 2026-05-31 - 心の可視化レポートの表示スタイル改善、可動性向上、マージン・強調を美しく調整（案A）
-export const APP_VERSION = "6.41";
+// v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
+export const APP_VERSION = "6.48";
 
 /**
  * AI Service Configuration
