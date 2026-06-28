@@ -2,9 +2,9 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_6.47",
-  "description": "Secure AI Architecture v6.47: mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一",
-  "version": "6.47",
+  "name": "Career Consulting_6.48",
+  "description": "Secure AI Architecture v6.48: インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一",
+  "version": "6.48",
   "prompt": "",
   "D7": [],
   "Yp": []

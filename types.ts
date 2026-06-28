@@ -1,5 +1,5 @@
 
-// types.ts - v6.47 - 2026-06-28 - mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一
+// types.ts - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;

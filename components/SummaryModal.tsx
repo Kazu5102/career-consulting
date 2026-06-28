@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.47 - 2026-06-28 - mockGeminiServiceにcheckServerStatusを追加し、アプリ全体のバージョンを6.47に統一
+// components/SummaryModal.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -34,6 +34,7 @@ interface SummaryModalProps {
   messages: ChatMessage[];
   userId: string;
   aiName: string;
+  nickname?: string;
 }
 
 const REASSURANCE_MESSAGES = [
@@ -68,9 +69,10 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   onFinalize,
   messages,
   userId,
-  aiName
+  aiName,
+  nickname
 }) => {
-  const VERSION = "6.46";
+  const VERSION = "6.48";
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -168,8 +170,9 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 title: "キャリア相談 引継ぎ用データ",
                 generatedAt: new Date().toISOString(),
                 userId,
+                nickname: nickname || userId,
                 aiAgent: aiName,
-                version: "5.70"
+                version: "6.48"
             },
             summary: parsedSummary,
             chatHistory: messages

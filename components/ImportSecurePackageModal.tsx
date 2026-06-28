@@ -1,5 +1,5 @@
 
-// components/ImportSecurePackageModal.tsx - v1.0.0 - Patent-Compliant Secure Import
+// components/ImportSecurePackageModal.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
 import React, { useState, useRef } from 'react';
 import DatabaseIcon from './icons/DatabaseIcon';
 import LockIcon from './icons/LockIcon';
@@ -53,10 +53,16 @@ const ImportSecurePackageModal: React.FC<ImportSecurePackageModalProps> = ({ isO
         // data looks like { meta: { userId, aiAgent, ... }, summary, chatHistory }
         const { meta, summary, chatHistory } = data;
         
-        // 1. Ensure user exists
+        // 1. Ensure user exists with proper nickname restoration
         const currentUsers = await userService.getUsers();
-        if (!currentUsers.find(u => u.id === meta.userId)) {
-            await userService.saveUsers([...currentUsers, { id: meta.userId, nickname: meta.userId, pin: '0000' }]);
+        const existingUser = currentUsers.find(u => u.id === meta.userId);
+        const userNickname = meta.nickname || meta.userId;
+        if (!existingUser) {
+            await userService.saveUsers([...currentUsers, { id: meta.userId, nickname: userNickname, pin: '0000' }]);
+        } else if (existingUser.nickname === meta.userId && meta.nickname) {
+            // Restore proper nickname if it was lost in a previous import bug
+            const updatedUsers = currentUsers.map(u => u.id === meta.userId ? { ...u, nickname: meta.nickname } : u);
+            await userService.saveUsers(updatedUsers);
         }
 
         // 2. Save conversation
