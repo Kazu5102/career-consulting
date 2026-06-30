@@ -1,9 +1,11 @@
 
+// config/aiAssistants.ts - v6.56 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
 import React from 'react';
 import { AIAssistant } from '../types';
 import { 
   FemaleAvatar1, MaleAvatar1, FemaleAvatar2, MaleAvatar2, FemaleAvatar3, MaleAvatar3,
-  ShibaAvatar, PoodleAvatar, CorgiAvatar, RetrieverAvatar, HuskyAvatar, PugAvatar 
+  ShibaAvatar, PoodleAvatar, CorgiAvatar, RetrieverAvatar, HuskyAvatar, PugAvatar,
+  KotetsuAvatar
 } from '../components/AIAvatar';
 
 export const ASSISTANTS: AIAssistant[] = [
@@ -104,5 +106,13 @@ export const ASSISTANTS: AIAssistant[] = [
     nameOptions: ['ぷく', 'ゴン', 'まる'],
     description: "癒やしの専門犬。あなたの心をほっこり解きほぐします。",
     avatarComponent: React.createElement(PugAvatar)
+  },
+  {
+    id: 'dog_kotetsu',
+    type: 'dog',
+    title: "相談わんこ (虎徹)",
+    nameOptions: ['虎徹'],
+    description: "ちわわ＋プードルのMIX犬（チワプー）。最高レベルの寄り添い力で、あなたの心に優しく深く、ずっと寄り添い続けます。",
+    avatarComponent: React.createElement(KotetsuAvatar)
   },
 ];

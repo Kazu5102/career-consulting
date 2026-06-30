@@ -1,5 +1,5 @@
 
-// views/AvatarSelectionView.tsx - v4.26 - Text Alignment Refinement
+// views/AvatarSelectionView.tsx - v6.56 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
 import React, { useMemo } from 'react';
 import { AIType } from '../types';
 import { ASSISTANTS } from '../config/aiAssistants';
@@ -20,7 +20,18 @@ const AvatarSelectionView: React.FC<AvatarSelectionViewProps> = ({ onSelect, onB
     const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
     
     const human = shuffle(ASSISTANTS.filter(a => a.type === 'human'))[0];
-    const dog = shuffle(ASSISTANTS.filter(a => a.type === 'dog'))[0];
+    
+    const allDogs = ASSISTANTS.filter(a => a.type === 'dog');
+    // スペシャルアバター「虎徹」は出現率を低く（15%）制限
+    const kotetsu = allDogs.find(a => a.id === 'dog_kotetsu');
+    const regularDogs = allDogs.filter(a => a.id !== 'dog_kotetsu');
+    
+    let dog;
+    if (kotetsu && Math.random() < 0.15) {
+      dog = kotetsu;
+    } else {
+      dog = shuffle(regularDogs)[0];
+    }
     
     return { human, dog };
   }, []);

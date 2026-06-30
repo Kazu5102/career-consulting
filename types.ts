@@ -1,5 +1,5 @@
 
-// types.ts - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
+// types.ts - v6.56 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
 import type React from 'react';
 
 export const STORAGE_VERSION = 2;

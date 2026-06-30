@@ -2,10 +2,11 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "Career Consulting_6.48",
-  "description": "Secure AI Architecture v6.48: インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一",
-  "version": "6.48",
-  "prompt": "",
-  "D7": [],
-  "Yp": []
+  "name": "Career Consulting_6.56",
+  "description": "Secure AI Architecture v6.56: 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装",
+  "version": "6.56",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "brandName": "Career Consulting"
 }

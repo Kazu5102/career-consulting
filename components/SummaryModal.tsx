@@ -1,5 +1,5 @@
 
-// components/SummaryModal.tsx - v6.48 - 2026-06-28 - インポート時にニックネームが維持・回復されるように修正し、バージョンを6.48に統一
+// components/SummaryModal.tsx - v6.56 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
 import React, { useState, useEffect, useMemo } from 'react';
 import { marked } from 'marked';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -72,7 +72,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
   aiName,
   nickname
 }) => {
-  const VERSION = "6.48";
+  const VERSION = "6.56";
   // activeTab state removed to hide pro notes
   const [messageIndex, setMessageIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<ModalStep>('loading');
@@ -172,7 +172,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({
                 userId,
                 nickname: nickname || userId,
                 aiAgent: aiName,
-                version: "6.48"
+                version: "6.56"
             },
             summary: parsedSummary,
             chatHistory: messages
