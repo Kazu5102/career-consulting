@@ -1,7 +1,7 @@
 
 // constants.ts
-// v6.56 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
-export const APP_VERSION = "6.56";
+// v6.59 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
+export const APP_VERSION = "6.59";
 
 /**
  * AI Service Configuration

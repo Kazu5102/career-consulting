@@ -1,8 +1,8 @@
 
-// utils/exportPackage.ts - v6.04 - 2026-05-28 - Secure HTML Backup and Multi-Session Portable Reader (Plan B)
+// utils/exportPackage.ts - v6.59 - 2026-06-30 - 詳細仕様書(SYSTEM_SPECIFICATION.md)とAI認識用の開発指示(AGENTS.md)を統合した同期更新・品質管理プロトコル(案A)の実装
 import { encryptData } from './cryptoUtils';
 
-export const VERSION = "6.04";
+export const VERSION = "6.59";
 
 export async function generateSecureHtmlPackage(data: any, password: string): Promise<string> {
   const encryptedPayload = await encryptData(JSON.stringify(data), password);
@@ -363,6 +363,355 @@ export async function generateSecureBackupHtmlPackage(data: any, password: strin
                 wrapper.appendChild(header);
                 wrapper.appendChild(panel);
                 sessionsContainer.appendChild(wrapper);
+            });
+        }
+    </script>
+</body>
+</html>`;
+}
+
+export async function generateSecureSystemBackupHtmlPackage(data: any, password: string): Promise<string> {
+  const encryptedPayload = await encryptData(JSON.stringify(data), password);
+  const timestamp = new Date().toLocaleString('ja-JP');
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>システム全データ・セキュア暗号化一括バックアップ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-start p-4">
+    <div id="root" class="w-full max-w-5xl bg-slate-800 rounded-3xl shadow-2xl border border-slate-700 my-10 overflow-hidden">
+        <header class="bg-gradient-to-r from-indigo-900 to-slate-950 p-8 text-center border-b border-slate-700">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-black tracking-wide uppercase mb-3">
+                🛡️ 特許コンセプト準拠ゼロトラスト
+            </div>
+            <h1 class="text-2xl font-black mb-1 tracking-tight text-white">システム全体・セキュア暗号化一括バックアップポート</h1>
+            <p class="text-slate-400 text-xs">暗号化方式: AES-GCM 256bit | 一括エクスポート日時: ${timestamp}</p>
+        </header>
+        
+        <!-- パスワード解除画面 -->
+        <div id="unlock-view" class="p-10 space-y-8 max-w-md mx-auto">
+            <div class="text-center">
+                <div class="w-20 h-20 bg-indigo-950/50 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-indigo-900/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white">システム復号マスターキー入力</h2>
+                <p class="text-slate-400 text-xs mt-2 leading-relaxed">
+                    このバックアップファイルは、システム管理コンソールで指定されたパスワードにより、AES-GCM方式で安全に保護されています。
+                </p>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="password" id="password-input" placeholder="復号パスワードを入力..." 
+                    class="w-full p-4 bg-slate-900 text-white rounded-2xl border border-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 text-center font-bold text-lg">
+                <button id="unlock-btn" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-[0.98]">
+                    安全に復号して管理者ビューを開く
+                </button>
+            </div>
+            <p id="error-msg" class="text-center text-rose-400 font-bold text-sm hidden">⚠️ パスワードが一致しないか、データ破損により復号キーの導出に失敗しました。</p>
+            
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 text-slate-400 text-[11px] leading-relaxed space-y-1.5">
+                <span class="font-extrabold text-slate-300 block">💡 管理コンソールへのインポート手順</span>
+                <p>この一括バックアップファイル（HTML）を、システムの「データ管理コンソール」にドラッグ、またはファイル選択してインポートすることで、全ユーザーおよび全セッションデータを完全にシステム内に一括復元・マージできます。</p>
+            </div>
+        </div>
+
+        <!-- 復号成功後のメイン管理者閲覧画面 -->
+        <div id="content-view" class="hidden p-8 space-y-8">
+            <!-- システム統計サマリー -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="p-6 bg-slate-900 rounded-2xl border border-slate-700">
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">TOTAL USERS</span>
+                    <h3 class="text-3xl font-black text-indigo-400 mt-1" id="stat-users">0</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">登録ユーザー数</p>
+                </div>
+                <div class="p-6 bg-slate-900 rounded-2xl border border-slate-700">
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">TOTAL SESSIONS</span>
+                    <h3 class="text-3xl font-black text-sky-400 mt-1" id="stat-sessions">0</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">総相談セッション数</p>
+                </div>
+                <div class="p-6 bg-slate-900 rounded-2xl border border-slate-700">
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">EXCEL FILE VERSION</span>
+                    <h3 class="text-3xl font-black text-amber-400 mt-1" id="stat-version">v0.00</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">システムデータ構造バージョン</p>
+                </div>
+            </div>
+
+            <!-- 検索 & ユーザーリスト 2カラムレイアウト -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- ユーザー選択リスト (左カラム: 4/12) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">相談者一覧</h3>
+                        <span class="text-[10px] text-slate-500" id="user-count-badge">0名</span>
+                    </div>
+                    
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="名前やIDで検索..." 
+                            class="w-full p-3 pl-9 bg-slate-900 text-white rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-xs">
+                        <svg class="w-4 h-4 text-slate-500 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+
+                    <div id="user-list-container" class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                        <!-- JavaScriptでユーザーボタンを動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 選択ユーザーの詳細 & チャット履歴 (右カラム: 8/12) -->
+                <div class="lg:col-span-8 space-y-6 bg-slate-900/30 border border-slate-700 rounded-2xl p-6" id="detail-panel">
+                    <div id="no-user-selected" class="h-[400px] flex flex-col items-center justify-center text-slate-500 space-y-2">
+                        <span class="text-4xl">👥</span>
+                        <p class="text-sm font-bold">相談者を選択してください</p>
+                        <p class="text-xs text-slate-600">左側のリストから、確認したい相談者を選択すると対話履歴が展開されます。</p>
+                    </div>
+
+                    <div id="user-detail-view" class="hidden space-y-6">
+                        <!-- ユーザーヘッダー -->
+                        <div class="border-b border-slate-700 pb-4">
+                            <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">SELECTED USER</span>
+                            <h2 class="text-2xl font-black text-white mt-1" id="detail-user-name">-</h2>
+                            <p class="text-slate-400 text-xs mt-1" id="detail-user-meta">-</p>
+                        </div>
+
+                        <!-- 相談セッション一覧 -->
+                        <div>
+                            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">相談セッション履歴</h3>
+                            <div id="detail-sessions-container" class="space-y-4">
+                                <!-- セッションデータを動的生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="p-6 bg-slate-900 border-t border-slate-700 text-center">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Zero-Trust Patent Compliance | Authorized Manager Secure Reader</p>
+        </footer>
+    </div>
+
+    <!-- Hidden Backup Payload for App Import/Recovery -->
+    <div id="encrypted-backup-payload" style="display:none">${encryptedPayload}</div>
+
+    <script>
+        const encryptedData = "${encryptedPayload}";
+        let decryptedSystemData = null;
+
+        async function deriveKey(password, salt) {
+            const encoder = new TextEncoder();
+            const passwordKey = await window.crypto.subtle.importKey(
+                'raw', encoder.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']
+            );
+            return window.crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+                passwordKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+            );
+        }
+
+        async function decryptData(encryptedBase64, password) {
+            const combined = new Uint8Array(atob(encryptedBase64).split("").map(c => c.charCodeAt(0)));
+            const salt = combined.slice(0, 16);
+            const iv = combined.slice(16, 28);
+            const data = combined.slice(28);
+            const key = await deriveKey(password, salt);
+            const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+            return new TextDecoder().decode(decrypted);
+        }
+
+        document.getElementById('unlock-btn').addEventListener('click', async () => {
+            const password = document.getElementById('password-input').value;
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.classList.add('hidden');
+
+            try {
+                const decryptedStr = await decryptData(encryptedData, password);
+                decryptedSystemData = JSON.parse(decryptedStr);
+                renderSystemDashboard(decryptedSystemData);
+                document.getElementById('unlock-view').classList.add('hidden');
+                document.getElementById('content-view').classList.remove('hidden');
+            } catch (e) {
+                console.error(e);
+                errorMsg.classList.remove('hidden');
+            }
+        });
+
+        function renderSystemDashboard(systemData) {
+            // systemData: { version, users: UserInfo[], data: StoredConversation[], analysisHistory: any[] }
+            const users = systemData.users || [];
+            const conversations = systemData.data || [];
+            const version = systemData.version || "N/A";
+
+            document.getElementById('stat-users').innerText = users.length + " 名";
+            document.getElementById('stat-sessions').innerText = conversations.length + " 件";
+            document.getElementById('stat-version').innerText = "v" + version;
+            document.getElementById('user-count-badge').innerText = users.length + "名";
+
+            const userListContainer = document.getElementById('user-list-container');
+            
+            // Render user list
+            function buildUserList(filterText = "") {
+                userListContainer.innerHTML = '';
+                const filtered = users.filter(u => {
+                    const normName = (u.nickname || "").toLowerCase();
+                    const normId = (u.id || "").toLowerCase();
+                    const query = filterText.toLowerCase();
+                    return normName.includes(query) || normId.includes(query);
+                });
+
+                if (filtered.length === 0) {
+                    userListContainer.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs">相談者が見つかりません</div>';
+                    return;
+                }
+
+                filtered.forEach(u => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left p-3.5 bg-slate-800 hover:bg-slate-700/80 rounded-xl border border-slate-700 flex flex-col justify-start transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40";
+                    
+                    const userConvs = conversations.filter(c => c.userId === u.id);
+                    
+                    btn.innerHTML = \`
+                        <div class="flex items-center justify-between w-full">
+                            <span class="font-bold text-sm text-white">\${u.nickname || "無名ユーザー"}</span>
+                            <span class="text-[9px] bg-slate-900 text-indigo-400 px-2 py-0.5 rounded-full font-bold">\${userConvs.length}件</span>
+                        </div>
+                        <div class="flex items-center justify-between w-full mt-1.5 text-[10px] text-slate-400">
+                            <span>ID: \${u.id?.slice(0, 8)}...</span>
+                            <span class="text-[9px] text-slate-500">PIN: \${u.pin || "未設定"}</span>
+                        </div>
+                    \`;
+
+                    btn.addEventListener('click', () => {
+                        // De-select other buttons
+                        Array.from(userListContainer.children).forEach(child => child.classList.remove('ring-2', 'ring-indigo-500'));
+                        btn.classList.add('ring-2', 'ring-indigo-500');
+                        showUserDetail(u, userConvs);
+                    });
+
+                    userListContainer.appendChild(btn);
+                });
+            }
+
+            // Search Filter
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                buildUserList(e.target.value);
+            });
+
+            buildUserList();
+        }
+
+        function showUserDetail(user, userConversations) {
+            document.getElementById('no-user-selected').classList.add('hidden');
+            document.getElementById('user-detail-view').classList.remove('hidden');
+
+            document.getElementById('detail-user-name').innerText = user.nickname || "無名ユーザー";
+            document.getElementById('detail-user-meta').innerText = "ユーザーID: " + user.id + " | 暗証番号 (PIN): " + (user.pin || "未設定");
+
+            const sessionsCont = document.getElementById('detail-sessions-container');
+            sessionsCont.innerHTML = '';
+
+            if (userConversations.length === 0) {
+                sessionsCont.innerHTML = '<div class="text-center py-10 text-slate-500 text-sm">この相談者のセッション履歴はありません。</div>';
+                return;
+            }
+
+            userConversations.forEach((conv, index) => {
+                const dateStr = conv.updatedAt ? new Date(conv.updatedAt).toLocaleString('ja-JP') : "不明な日時";
+                const wrapper = document.createElement('div');
+                wrapper.className = "bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden";
+                
+                // Card Header
+                const header = document.createElement('button');
+                header.className = "w-full text-left p-4 flex items-center justify-between hover:bg-slate-700/50 transition-colors focus:outline-none";
+                header.innerHTML = \`
+                    <div class="pr-4">
+                        <span class="text-[9px] font-black text-indigo-400 bg-indigo-900/40 px-2.5 py-1 rounded-full uppercase tracking-widest">\${conv.model || "AI"}</span>
+                        <h4 class="text-base font-bold text-white mt-2 leading-snug">\${conv.title || "無題の対話セッション"}</h4>
+                        <p class="text-[10px] text-slate-400 mt-1">更新日時: \${dateStr}</p>
+                    </div>
+                    <div class="text-slate-400 text-xl font-bold flex items-center shrink-0">
+                        <svg id="detail-icon-\${index}" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                \`;
+
+                // Details Panel
+                const panel = document.createElement('div');
+                panel.className = "hidden p-5 border-t border-slate-700 bg-slate-900/50 space-y-6";
+                
+                // Parse summary if exists
+                let summaryHtml = "";
+                if (conv.summary) {
+                    try {
+                        const sumObj = typeof conv.summary === 'string' ? JSON.parse(conv.summary) : conv.summary;
+                        const userSum = sumObj.user_summary || sumObj.summary || conv.summary;
+                        summaryHtml = \`
+                            <div class="p-4.5 bg-amber-950/25 border border-amber-900/40 text-amber-200 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap">
+                                <span class="text-[9px] font-black text-amber-500 uppercase tracking-widest block mb-1">📋 相談セッション要約・アドバイス</span>
+                                \&nbsp;\${userSum}
+                            </div>
+                        \`;
+                    } catch(e) {
+                        summaryHtml = \`
+                            <div class="p-4.5 bg-amber-950/25 border border-amber-900/40 text-amber-200 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap">
+                                <span class="text-[9px] font-black text-amber-500 uppercase tracking-widest block mb-1">📋 相談セッション要約・アドバイス</span>
+                                \&nbsp;\${conv.summary}
+                            </div>
+                        \`;
+                    }
+                }
+
+                // Messages Render
+                let messagesHtml = "";
+                if (conv.messages && Array.isArray(conv.messages)) {
+                    conv.messages.forEach(msg => {
+                        const isUser = msg.author === 'user' || msg.sender === 'user';
+                        const authorLabel = isUser ? "相談者" : "AIアドバイザー";
+                        const bgClass = isUser ? "bg-indigo-950/25 border border-indigo-900/30 text-indigo-200 ml-6" : "bg-slate-900/80 border border-slate-800 text-slate-200 mr-6";
+                        
+                        messagesHtml += \`
+                            <div class="p-3.5 rounded-xl space-y-1 \${bgClass}">
+                                <div class="flex items-center justify-between text-[9px] font-black tracking-wide uppercase opacity-55">
+                                    <span>\${authorLabel}</span>
+                                    <span>\${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('ja-JP') : ''}</span>
+                                </div>
+                                <div class="text-xs leading-relaxed whitespace-pre-wrap">\${msg.text || msg.content || ""}</div>
+                            </div>
+                        \`;
+                    });
+                }
+
+                panel.innerHTML = \`
+                    \${summaryHtml}
+                    <div class="space-y-3">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">💬 チャットログ（全 \${conv.messages?.length || 0} 件）</span>
+                        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                            \${messagesHtml}
+                        </div>
+                    </div>
+                \`;
+
+                header.addEventListener('click', () => {
+                    const icon = document.getElementById(\`detail-icon-\${index}\`);
+                    if (panel.classList.contains('hidden')) {
+                        panel.classList.remove('hidden');
+                        icon.style.transform = 'rotate(180deg)';
+                    } else {
+                        panel.classList.add('hidden');
+                        icon.style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                wrapper.appendChild(header);
+                wrapper.appendChild(panel);
+                sessionsCont.appendChild(wrapper);
             });
         }
     </script>
